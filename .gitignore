@@ -1,0 +1,9 @@
+
+# Vincent state file
+.e2e-state.json
+
+# Dependencies
+node_modules/
+
+# Environment variables
+.env

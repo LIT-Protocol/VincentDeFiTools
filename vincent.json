@@ -1,0 +1,11 @@
+{
+  "package": {
+    "namespace": "@lit-protocol",
+    "toolPrefix": "vincent-tool-",
+    "policyPrefix": "vincent-policy-"
+  },
+  "directories": {
+    "tools": "./vincent-packages/tools",
+    "policies": "./vincent-packages/policies"
+  }
+}
