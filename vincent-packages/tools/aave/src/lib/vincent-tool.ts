@@ -46,29 +46,37 @@ export const vincentTool = createVincentTool({
     // Validate operation
     if (!Object.values(AaveOperation).includes(operation)) {
       return fail({
-        error: "[@lit-protocol/vincent-tool-aave/precheck] Invalid operation. Must be supply, withdraw, borrow, or repay",
+        error:
+          "[@lit-protocol/vincent-tool-aave/precheck] Invalid operation. Must be supply, withdraw, borrow, or repay",
       });
     }
 
     // Validate asset address
     if (!isValidAddress(asset)) {
       return fail({
-        error: "[@lit-protocol/vincent-tool-aave/precheck] Invalid asset address format",
+        error:
+          "[@lit-protocol/vincent-tool-aave/precheck] Invalid asset address format",
       });
     }
 
     // Validate amount
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       return fail({
-        error: "[@lit-protocol/vincent-tool-aave/precheck] Invalid amount format or amount must be greater than 0",
+        error:
+          "[@lit-protocol/vincent-tool-aave/precheck] Invalid amount format or amount must be greater than 0",
       });
     }
 
     // Validate interest rate mode for borrow operations
     if (operation === AaveOperation.BORROW) {
-      if (!interestRateMode || (interestRateMode !== INTEREST_RATE_MODE.STABLE && interestRateMode !== INTEREST_RATE_MODE.VARIABLE)) {
+      if (
+        !interestRateMode ||
+        (interestRateMode !== INTEREST_RATE_MODE.STABLE &&
+          interestRateMode !== INTEREST_RATE_MODE.VARIABLE)
+      ) {
         return fail({
-          error: "[@lit-protocol/vincent-tool-aave/precheck] Interest rate mode is required for borrow operations (1 = Stable, 2 = Variable)",
+          error:
+            "[@lit-protocol/vincent-tool-aave/precheck] Interest rate mode is required for borrow operations (1 = Stable, 2 = Variable)",
         });
       }
     }
@@ -80,7 +88,10 @@ export const vincentTool = createVincentTool({
       amountValid: true,
     };
 
-    console.log("[@lit-protocol/vincent-tool-aave/precheck] Success result:", successResult);
+    console.log(
+      "[@lit-protocol/vincent-tool-aave/precheck] Success result:",
+      successResult
+    );
     const successResponse = succeed(successResult);
     console.log(
       "[@lit-protocol/vincent-tool-aave/precheck] Success response:",
@@ -89,22 +100,40 @@ export const vincentTool = createVincentTool({
     return successResponse;
   },
 
-  execute: async (
-    { toolParams },
-    { succeed, fail, delegation }
-  ) => {
+  execute: async ({ toolParams }, { succeed, fail, delegation }) => {
     try {
-      const { operation, asset, amount, interestRateMode, onBehalfOf } = toolParams;
+      const { operation, asset, amount, interestRateMode, onBehalfOf } =
+        toolParams;
 
-      console.log("[@lit-protocol/vincent-tool-aave/execute] Executing AAVE Tool", {
-        operation,
-        asset,
-        amount,
-        interestRateMode,
-      });
+      console.log(
+        "[@lit-protocol/vincent-tool-aave/execute] Executing AAVE Tool",
+        {
+          operation,
+          asset,
+          amount,
+          interestRateMode,
+        }
+      );
 
-      // Get provider - use Yellowstone provider for now (we'll modify this for Sepolia in E2E tests)
-      const provider = await laUtils.chain.getYellowstoneProvider();
+      // Get provider - for AAVE operations, we need to work with Sepolia testnet
+      // The Vincent framework typically uses Yellowstone, but AAVE is deployed on Sepolia
+      let provider;
+      try {
+        // For now, try to get the default provider, but this will need configuration
+        // In a real deployment, this would be configured via Vincent SDK settings
+        provider = await laUtils.chain.getYellowstoneProvider();
+        console.log(
+          "[@lit-protocol/vincent-tool-aave/execute] Using configured provider"
+        );
+      } catch (error) {
+        console.error(
+          "[@lit-protocol/vincent-tool-aave/execute] Provider error:",
+          error
+        );
+        throw new Error(
+          "Unable to obtain blockchain provider for AAVE operations"
+        );
+      }
 
       // Get PKP public key from delegation context
       const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
@@ -113,42 +142,76 @@ export const vincentTool = createVincentTool({
       }
 
       // Get PKP address using ethers utils
-      const pkpAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
-      console.log("[@lit-protocol/vincent-tool-aave/execute] PKP Address:", pkpAddress);
+      const pkpAddress = ethers.utils.computeAddress(pkpPublicKey);
+      console.log(
+        "[@lit-protocol/vincent-tool-aave/execute] PKP Address:",
+        pkpAddress
+      );
 
       // Prepare transaction based on operation
       let txHash: string;
-      
+
       switch (operation) {
         case AaveOperation.SUPPLY:
-          txHash = await executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf || pkpAddress);
+          txHash = await executeSupply(
+            provider,
+            pkpPublicKey,
+            asset,
+            amount,
+            onBehalfOf || pkpAddress
+          );
           break;
-          
+
         case AaveOperation.WITHDRAW:
-          txHash = await executeWithdraw(provider, pkpPublicKey, asset, amount, pkpAddress);
+          txHash = await executeWithdraw(
+            provider,
+            pkpPublicKey,
+            asset,
+            amount,
+            pkpAddress
+          );
           break;
-          
+
         case AaveOperation.BORROW:
           if (!interestRateMode) {
-            throw new Error("Interest rate mode is required for borrow operations");
+            throw new Error(
+              "Interest rate mode is required for borrow operations"
+            );
           }
-          txHash = await executeBorrow(provider, pkpPublicKey, asset, amount, interestRateMode, onBehalfOf || pkpAddress);
+          txHash = await executeBorrow(
+            provider,
+            pkpPublicKey,
+            asset,
+            amount,
+            interestRateMode,
+            onBehalfOf || pkpAddress
+          );
           break;
-          
+
         case AaveOperation.REPAY:
-          txHash = await executeRepay(provider, pkpPublicKey, asset, amount, interestRateMode || INTEREST_RATE_MODE.VARIABLE, onBehalfOf || pkpAddress);
+          txHash = await executeRepay(
+            provider,
+            pkpPublicKey,
+            asset,
+            amount,
+            interestRateMode || INTEREST_RATE_MODE.VARIABLE,
+            onBehalfOf || pkpAddress
+          );
           break;
-          
+
         default:
           throw new Error(`Unsupported operation: ${operation}`);
       }
 
-      console.log("[@lit-protocol/vincent-tool-aave/execute] AAVE operation successful", {
-        txHash,
-        operation,
-        asset,
-        amount,
-      });
+      console.log(
+        "[@lit-protocol/vincent-tool-aave/execute] AAVE operation successful",
+        {
+          txHash,
+          operation,
+          asset,
+          amount,
+        }
+      );
 
       return succeed({
         txHash,
@@ -159,7 +222,10 @@ export const vincentTool = createVincentTool({
         interestRateMode: interestRateMode,
       });
     } catch (error) {
-      console.error("[@lit-protocol/vincent-tool-aave/execute] AAVE operation failed", error);
+      console.error(
+        "[@lit-protocol/vincent-tool-aave/execute] AAVE operation failed",
+        error
+      );
 
       return fail({
         error:
@@ -179,12 +245,14 @@ async function executeSupply(
   amount: string,
   onBehalfOf: string
 ): Promise<string> {
-  console.log("[@lit-protocol/vincent-tool-aave/executeSupply] Starting supply operation");
+  console.log(
+    "[@lit-protocol/vincent-tool-aave/executeSupply] Starting supply operation"
+  );
 
   // First, we need to approve the AAVE Pool to spend the tokens
   const parsedAmount = parseAmount(amount);
   const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
-  
+
   // Approve tokens for AAVE Pool
   const approveTxHash = await laUtils.transaction.handler.contractCall({
     provider,
@@ -196,7 +264,10 @@ async function executeSupply(
     args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, parsedAmount],
   });
 
-  console.log("[@lit-protocol/vincent-tool-aave/executeSupply] Approval tx:", approveTxHash);
+  console.log(
+    "[@lit-protocol/vincent-tool-aave/executeSupply] Approval tx:",
+    approveTxHash
+  );
 
   // Now supply to AAVE
   const txHash = await laUtils.transaction.handler.contractCall({
@@ -222,11 +293,13 @@ async function executeWithdraw(
   amount: string,
   to: string
 ): Promise<string> {
-  console.log("[@lit-protocol/vincent-tool-aave/executeWithdraw] Starting withdraw operation");
+  console.log(
+    "[@lit-protocol/vincent-tool-aave/executeWithdraw] Starting withdraw operation"
+  );
 
   const parsedAmount = parseAmount(amount);
   const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
-  
+
   const txHash = await laUtils.transaction.handler.contractCall({
     provider,
     pkpPublicKey,
@@ -251,11 +324,13 @@ async function executeBorrow(
   interestRateMode: number,
   onBehalfOf: string
 ): Promise<string> {
-  console.log("[@lit-protocol/vincent-tool-aave/executeBorrow] Starting borrow operation");
+  console.log(
+    "[@lit-protocol/vincent-tool-aave/executeBorrow] Starting borrow operation"
+  );
 
   const parsedAmount = parseAmount(amount);
   const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
-  
+
   const txHash = await laUtils.transaction.handler.contractCall({
     provider,
     pkpPublicKey,
@@ -280,11 +355,13 @@ async function executeRepay(
   rateMode: number,
   onBehalfOf: string
 ): Promise<string> {
-  console.log("[@lit-protocol/vincent-tool-aave/executeRepay] Starting repay operation");
+  console.log(
+    "[@lit-protocol/vincent-tool-aave/executeRepay] Starting repay operation"
+  );
 
   const parsedAmount = parseAmount(amount);
   const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
-  
+
   // First, approve the tokens for repayment
   const approveTxHash = await laUtils.transaction.handler.contractCall({
     provider,
@@ -296,7 +373,10 @@ async function executeRepay(
     args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, parsedAmount],
   });
 
-  console.log("[@lit-protocol/vincent-tool-aave/executeRepay] Approval tx:", approveTxHash);
+  console.log(
+    "[@lit-protocol/vincent-tool-aave/executeRepay] Approval tx:",
+    approveTxHash
+  );
 
   // Now repay the debt
   const txHash = await laUtils.transaction.handler.contractCall({

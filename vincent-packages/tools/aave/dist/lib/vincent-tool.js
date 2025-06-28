@@ -37,7 +37,9 @@ export const vincentTool = createVincentTool({
         }
         // Validate interest rate mode for borrow operations
         if (operation === AaveOperation.BORROW) {
-            if (!interestRateMode || (interestRateMode !== INTEREST_RATE_MODE.STABLE && interestRateMode !== INTEREST_RATE_MODE.VARIABLE)) {
+            if (!interestRateMode ||
+                (interestRateMode !== INTEREST_RATE_MODE.STABLE &&
+                    interestRateMode !== INTEREST_RATE_MODE.VARIABLE)) {
                 return fail({
                     error: "[@lit-protocol/vincent-tool-aave/precheck] Interest rate mode is required for borrow operations (1 = Stable, 2 = Variable)",
                 });
@@ -63,15 +65,26 @@ export const vincentTool = createVincentTool({
                 amount,
                 interestRateMode,
             });
-            // Get provider - use Yellowstone provider for now (we'll modify this for Sepolia in E2E tests)
-            const provider = await laUtils.chain.getYellowstoneProvider();
+            // Get provider - for AAVE operations, we need to work with Sepolia testnet
+            // The Vincent framework typically uses Yellowstone, but AAVE is deployed on Sepolia
+            let provider;
+            try {
+                // For now, try to get the default provider, but this will need configuration
+                // In a real deployment, this would be configured via Vincent SDK settings
+                provider = await laUtils.chain.getYellowstoneProvider();
+                console.log("[@lit-protocol/vincent-tool-aave/execute] Using configured provider");
+            }
+            catch (error) {
+                console.error("[@lit-protocol/vincent-tool-aave/execute] Provider error:", error);
+                throw new Error("Unable to obtain blockchain provider for AAVE operations");
+            }
             // Get PKP public key from delegation context
             const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
             if (!pkpPublicKey) {
                 throw new Error("PKP public key not available from delegation context");
             }
             // Get PKP address using ethers utils
-            const pkpAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
+            const pkpAddress = ethers.utils.computeAddress(pkpPublicKey);
             console.log("[@lit-protocol/vincent-tool-aave/execute] PKP Address:", pkpAddress);
             // Prepare transaction based on operation
             let txHash;

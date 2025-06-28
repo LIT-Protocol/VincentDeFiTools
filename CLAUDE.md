@@ -105,3 +105,7 @@ Project configuration is in `vincent.json`:
 - Tool prefix: `vincent-tool-`
 - Policy prefix: `vincent-policy-`
 - Auto-discovery of tools and policies from configured directories
+
+## Lit Protocol and Lit Actions
+
+The Lit Protocol is a decentralized key management system that stores user wallets in a PKP (Programmable Key Pair). The PKP is a public key that is used to sign transactions. The private key is stored and used within Lit Protocol, held by a network of node operators via threshold cryptography. The Lit Protocol Mainnet is called "datil". It can sign and broadcast transactions on any EVM network.
