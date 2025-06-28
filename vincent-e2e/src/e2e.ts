@@ -6,13 +6,14 @@ import {
 } from "@lit-protocol/vincent-scaffold-sdk/e2e";
 
 // Apply log suppression FIRST, before any imports that might trigger logs
-suppressLitLogs(false);
+suppressLitLogs(true);
 
 import { getVincentToolClient } from "@lit-protocol/vincent-app-sdk";
 // Tools and Policies that we wil be testing
 import { vincentPolicyMetadata as sendLimitPolicyMetadata } from "../../vincent-packages/policies/send-counter-limit/dist/index.js";
 import { bundledVincentTool as nativeSendTool } from "../../vincent-packages/tools/native-send/dist/index.js";
 import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aave/dist/index.js";
+import { ethers } from "ethers";
 
 (async () => {
   /**
@@ -53,7 +54,7 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
       toolIpfsCids: [
         // helloWorldTool.ipfsCid,
         nativeSendTool.ipfsCid,
-        aaveTool.ipfsCid, // QmNoMcEzm6pUC6f6kSKJg1qK9nnCjKX77himkaV5HmiHdt
+        aaveTool.ipfsCid,
         // ...add more tool IPFS CIDs here
       ],
       toolPolicies: [
@@ -116,6 +117,8 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
   const agentWalletPkp = await accounts.agentWalletPkpOwner.mintAgentWalletPkp({
     toolAndPolicyIpfsCids: toolAndPolicyIpfsCids,
   });
+  console.log("toolAndPolicyIpfsCids", toolAndPolicyIpfsCids);
+  console.log("appConfig.TOOL_IPFS_CIDS", appConfig.TOOL_IPFS_CIDS);
 
   console.log("🤖 Agent Wallet PKP:", agentWalletPkp);
 
@@ -172,18 +175,38 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
    * Validate delegatee permissions (debugging)
    * ====================================
    */
-  const validation = await chainClient.validateToolExecution({
+  let validation = await chainClient.validateToolExecution({
     delegateeAddress: accounts.delegatee.ethersWallet.address,
     pkpTokenId: agentWalletPkp.tokenId,
     toolIpfsCid: nativeSendTool.ipfsCid,
   });
 
-  console.log("✅ Tool execution validation:", validation);
+  console.log("✅ Native Send Tool execution validation:", validation);
 
   if (!validation.isPermitted) {
     throw new Error(
-      `❌ Delegatee is not permitted to execute tool for PKP. Validation: ${JSON.stringify(
-        validation
+      `❌ Delegatee is not permitted to execute native send tool for PKP for IPFS CID: ${
+        nativeSendTool.ipfsCid
+      }. Validation: ${JSON.stringify(validation, (key, value) =>
+        typeof value === "bigint" ? value.toString() : value
+      )}`
+    );
+  }
+
+  validation = await chainClient.validateToolExecution({
+    delegateeAddress: accounts.delegatee.ethersWallet.address,
+    pkpTokenId: agentWalletPkp.tokenId,
+    toolIpfsCid: aaveTool.ipfsCid,
+  });
+
+  console.log("✅ AAVE Tool execution validation:", validation);
+
+  if (!validation.isPermitted) {
+    throw new Error(
+      `❌ Delegatee is not permitted to execute aave tool for PKP for IPFS CID: ${
+        aaveTool.ipfsCid
+      }. Validation: ${JSON.stringify(validation, (key, value) =>
+        typeof value === "bigint" ? value.toString() : value
       )}`
     );
   }
@@ -362,7 +385,7 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
 
   // Fund PKP with WETH from TEST_FUNDER_PRIVATE_KEY wallet
   const TEST_WETH_ADDRESS = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c"; // WETH on Sepolia
-  const WETH_FUND_AMOUNT = "0.1"; // 0.1 WETH
+  const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
 
   try {
     console.log("🏦 Funding PKP with WETH from funder wallet");
@@ -370,19 +393,59 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
     console.log(`   WETH Amount: ${WETH_FUND_AMOUNT}`);
     console.log(`   WETH Contract: ${TEST_WETH_ADDRESS}`);
 
-    // Note: In actual implementation, we would need to:
-    // 1. Create a provider for Sepolia using ETH_SEPOLIA_RPC_URL
-    // 2. Use TEST_FUNDER_PRIVATE_KEY to send WETH to PKP
-    // 3. For now, we'll simulate this step
-    console.log(
-      "⚠️  WETH funding would be executed here with Sepolia provider"
+    // Create Sepolia provider for WETH funding
+    const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+      process.env.ETH_SEPOLIA_RPC_URL ||
+        "https://sepolia.infura.io/v3/your-project-id"
     );
-    console.log("⚠️  Simulating successful WETH transfer to PKP");
+
+    // Create funder wallet using private key
+    const funderWallet = new ethers.Wallet(
+      process.env.TEST_FUNDER_PRIVATE_KEY ||
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      sepoliaProvider
+    );
+
+    // WETH contract ABI for transfer function
+    const wethAbi = [
+      "function transfer(address to, uint256 amount) returns (bool)",
+      "function balanceOf(address account) view returns (uint256)",
+    ];
+    const wethContract = new ethers.Contract(
+      TEST_WETH_ADDRESS,
+      wethAbi,
+      funderWallet
+    );
+
+    // Convert amount to wei
+    const wethAmountWei = ethers.utils.parseEther(WETH_FUND_AMOUNT);
+
+    console.log(`   Funder Address: ${funderWallet.address}`);
+    console.log(
+      `   Transferring ${WETH_FUND_AMOUNT} WETH (${wethAmountWei.toString()} wei)`
+    );
+
+    // Execute WETH transfer
+    const transferTx = await wethContract.transfer(
+      agentWalletPkp.ethAddress,
+      wethAmountWei
+    );
+    console.log(`   Transfer transaction hash: ${transferTx.hash}`);
+
+    // Wait for transaction confirmation
+    const receipt = await transferTx.wait();
+    console.log(
+      `   ✅ WETH transfer confirmed in block ${receipt.blockNumber}`
+    );
+
+    // Verify balance
+    const pkpBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+    console.log(
+      `   PKP WETH balance: ${ethers.utils.formatEther(pkpBalance)} WETH`
+    );
   } catch (error) {
-    console.log(
-      "ℹ️  WETH funding step - expected in simulation:",
-      error?.message || error
-    );
+    console.error("❌ WETH funding failed:", error?.message || error);
+    throw new Error(`WETH funding failed: ${error?.message || error}`);
   }
 
   // ========================================
@@ -399,7 +462,7 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
   console.log("(AAVE-STEP-1) Supply WETH as collateral");
 
   const TEST_USDC_ADDRESS = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC on Sepolia
-  const WETH_SUPPLY_AMOUNT = "0.05"; // 0.05 WETH as collateral
+  const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
 
   console.log(`   Supplying ${WETH_SUPPLY_AMOUNT} WETH as collateral`);
   console.log(`   WETH Address: ${TEST_WETH_ADDRESS}`);
@@ -466,7 +529,7 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
   // ========================================
   console.log("(AAVE-STEP-2) Borrow USDC against WETH collateral");
 
-  const USDC_BORROW_AMOUNT = "10.0"; // 10 USDC
+  const USDC_BORROW_AMOUNT = "1.0"; // 1 USDC
   console.log(`   Borrowing ${USDC_BORROW_AMOUNT} USDC`);
   console.log(`   USDC Address: ${TEST_USDC_ADDRESS}`);
 
