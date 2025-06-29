@@ -15,6 +15,44 @@ import { bundledVincentTool as nativeSendTool } from "../../vincent-packages/too
 import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aave/dist/index.js";
 import { ethers } from "ethers";
 
+// Test tracking system
+interface TestResult {
+  name: string;
+  passed: boolean;
+  error?: string;
+}
+
+const testResults: TestResult[] = [];
+
+function addTestResult(name: string, passed: boolean, error?: string) {
+  testResults.push({ name, passed, error });
+  const status = passed ? "✅" : "❌";
+  console.log(`${status} TEST: ${name}${error ? ` - ${error}` : ""}`);
+}
+
+function printTestSummary() {
+  const passed = testResults.filter(t => t.passed).length;
+  const failed = testResults.filter(t => !t.passed).length;
+  const total = testResults.length;
+  
+  console.log("\n" + "=".repeat(60));
+  console.log("🧪 TEST SUMMARY");
+  console.log("=".repeat(60));
+  console.log(`Total Tests: ${total}`);
+  console.log(`✅ Passed: ${passed}`);
+  console.log(`❌ Failed: ${failed}`);
+  console.log("=".repeat(60));
+  
+  if (failed > 0) {
+    console.log("\n❌ FAILED TESTS:");
+    testResults.filter(t => !t.passed).forEach(test => {
+      console.log(`  - ${test.name}: ${test.error || "Unknown error"}`);
+    });
+  }
+  
+  return failed === 0;
+}
+
 (async () => {
   /**
    * ====================================
@@ -175,208 +213,53 @@ import { ethers } from "ethers";
    * Validate delegatee permissions (debugging)
    * ====================================
    */
-  let validation = await chainClient.validateToolExecution({
-    delegateeAddress: accounts.delegatee.ethersWallet.address,
-    pkpTokenId: agentWalletPkp.tokenId,
-    toolIpfsCid: nativeSendTool.ipfsCid,
-  });
+  // Test 1: Native Send Tool Validation
+  try {
+    let validation = await chainClient.validateToolExecution({
+      delegateeAddress: accounts.delegatee.ethersWallet.address,
+      pkpTokenId: agentWalletPkp.tokenId,
+      toolIpfsCid: nativeSendTool.ipfsCid,
+    });
 
-  console.log("✅ Native Send Tool execution validation:", validation);
+    console.log("✅ Native Send Tool execution validation:", validation);
 
-  if (!validation.isPermitted) {
-    throw new Error(
-      `❌ Delegatee is not permitted to execute native send tool for PKP for IPFS CID: ${
-        nativeSendTool.ipfsCid
-      }. Validation: ${JSON.stringify(validation, (key, value) =>
-        typeof value === "bigint" ? value.toString() : value
-      )}`
-    );
+    if (!validation.isPermitted) {
+      throw new Error(
+        `Delegatee is not permitted to execute native send tool for PKP for IPFS CID: ${
+          nativeSendTool.ipfsCid
+        }. Validation: ${JSON.stringify(validation, (_, value) =>
+          typeof value === "bigint" ? value.toString() : value
+        )}`
+      );
+    }
+    addTestResult("Native Send Tool Validation", true);
+  } catch (error) {
+    addTestResult("Native Send Tool Validation", false, error.message);
   }
 
-  validation = await chainClient.validateToolExecution({
-    delegateeAddress: accounts.delegatee.ethersWallet.address,
-    pkpTokenId: agentWalletPkp.tokenId,
-    toolIpfsCid: aaveTool.ipfsCid,
-  });
+  // Test 2: AAVE Tool Validation
+  try {
+    let validation = await chainClient.validateToolExecution({
+      delegateeAddress: accounts.delegatee.ethersWallet.address,
+      pkpTokenId: agentWalletPkp.tokenId,
+      toolIpfsCid: aaveTool.ipfsCid,
+    });
 
-  console.log("✅ AAVE Tool execution validation:", validation);
+    console.log("✅ AAVE Tool execution validation:", validation);
 
-  if (!validation.isPermitted) {
-    throw new Error(
-      `❌ Delegatee is not permitted to execute aave tool for PKP for IPFS CID: ${
-        aaveTool.ipfsCid
-      }. Validation: ${JSON.stringify(validation, (key, value) =>
-        typeof value === "bigint" ? value.toString() : value
-      )}`
-    );
+    if (!validation.isPermitted) {
+      throw new Error(
+        `Delegatee is not permitted to execute aave tool for PKP for IPFS CID: ${
+          aaveTool.ipfsCid
+        }. Validation: ${JSON.stringify(validation, (_, value) =>
+          typeof value === "bigint" ? value.toString() : value
+        )}`
+      );
+    }
+    addTestResult("AAVE Tool Validation", true);
+  } catch (error) {
+    addTestResult("AAVE Tool Validation", false, error.message);
   }
-
-  /**
-   * ====================================
-   * Test your tools and policies here
-   * ====================================
-   *
-   * This section is where you validate that your custom tools and policies
-   * work together as expected.
-   *
-   * Replace this example with tests relevant to your tools and policies.
-   * ====================================
-   */
-  // console.log("🧪 Testing send limit policy");
-
-  // const TEST_RECIPIENT = accounts.delegatee.ethersWallet.address;
-  // const TEST_AMOUNT = "0.00001";
-
-  // // ----------------------------------------
-  // // Test 1: First send should succeed
-  // // ----------------------------------------
-  // console.log("(PRECHECK-TEST-1) First send (should succeed)");
-  // const nativeSendPrecheckRes1 = await nativeSendToolClient.precheck(
-  //   {
-  //     to: TEST_RECIPIENT,
-  //     amount: TEST_AMOUNT,
-  //   },
-  //   {
-  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-  //   }
-  // );
-
-  // console.log("(PRECHECK-RES[1]): ", nativeSendPrecheckRes1);
-
-  // if (!nativeSendPrecheckRes1.success) {
-  //   throw new Error(
-  //     `❌ First precheck should succeed: ${JSON.stringify(
-  //       nativeSendPrecheckRes1
-  //     )}`
-  //   );
-  // }
-
-  // console.log("(EXECUTE-TEST-1) First send (should succeed)");
-  // const executeRes1 = await nativeSendToolClient.execute(
-  //   {
-  //     to: TEST_RECIPIENT,
-  //     amount: TEST_AMOUNT,
-  //   },
-  //   {
-  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-  //   }
-  // );
-
-  // console.log("(EXECUTE-RES[1]): ", executeRes1);
-
-  // if (!executeRes1.success) {
-  //   throw new Error(
-  //     `❌ First execute should succeed: ${JSON.stringify(executeRes1)}`
-  //   );
-  // }
-
-  // console.log("(✅ EXECUTE-TEST-1) First send completed successfully");
-
-  // // ----------------------------------------
-  // // Test 2: Second send should succeed
-  // // ----------------------------------------
-  // console.log("(PRECHECK-TEST-2) Second send (should succeed)");
-  // const nativeSendPrecheckRes2 = await nativeSendToolClient.precheck(
-  //   {
-  //     to: TEST_RECIPIENT,
-  //     amount: TEST_AMOUNT,
-  //   },
-  //   {
-  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-  //   }
-  // );
-
-  // console.log("(PRECHECK-RES[2]): ", nativeSendPrecheckRes2);
-
-  // if (!nativeSendPrecheckRes2.success) {
-  //   throw new Error(
-  //     `❌ (PRECHECK-TEST-2) Second precheck should succeed: ${JSON.stringify(
-  //       nativeSendPrecheckRes2
-  //     )}`
-  //   );
-  // }
-
-  // const executeRes2 = await nativeSendToolClient.execute(
-  //   {
-  //     to: TEST_RECIPIENT,
-  //     amount: TEST_AMOUNT,
-  //   },
-  //   {
-  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-  //   }
-  // );
-
-  // console.log("(EXECUTE-RES[2]): ", executeRes2);
-
-  // if (!executeRes2.success) {
-  //   throw new Error(
-  //     `❌ (EXECUTE-TEST-2) Second execute should succeed: ${JSON.stringify(
-  //       executeRes2
-  //     )}`
-  //   );
-  // }
-
-  // console.log("(✅ EXECUTE-TEST-2) Second send completed successfully");
-
-  // // ----------------------------------------
-  // // Test 3: Third send should fail (limit exceeded)
-  // // ----------------------------------------
-  // console.log("(PRECHECK-TEST-3) Third send (should fail - limit exceeded)");
-  // const nativeSendPrecheckRes3 = await nativeSendToolClient.precheck(
-  //   {
-  //     to: TEST_RECIPIENT,
-  //     amount: TEST_AMOUNT,
-  //   },
-  //   {
-  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-  //   }
-  // );
-
-  // console.log("(PRECHECK-RES[3]): ", nativeSendPrecheckRes3);
-
-  // if (nativeSendPrecheckRes3.success) {
-  //   console.log(
-  //     "✅ (PRECHECK-TEST-3) Third precheck succeeded (expected - precheck only validates tool parameters)"
-  //   );
-
-  //   // Test if execution is properly blocked by policy
-  //   console.log(
-  //     "🧪 (EXECUTE-TEST-3) Testing if execution is blocked by policy (this is where enforcement happens)..."
-  //   );
-
-  //   const executeRes3 = await nativeSendToolClient.execute(
-  //     {
-  //       to: TEST_RECIPIENT,
-  //       amount: TEST_AMOUNT,
-  //     },
-  //     {
-  //       delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-  //     }
-  //   );
-
-  //   console.log("(EXECUTE-RES[3]): ", executeRes3);
-
-  //   if (executeRes3.success) {
-  //     throw new Error(
-  //       "❌ (EXECUTE-TEST-3) CRITICAL: Third execution should have been blocked by policy but succeeded!"
-  //     );
-  //   } else {
-  //     console.log(
-  //       "✅ (EXECUTE-TEST-3) PERFECT: Third execution correctly blocked by send limit policy!"
-  //     );
-  //     console.log(
-  //       "🎉 (EXECUTE-TEST-3) SEND LIMIT POLICY SYSTEM WORKING CORRECTLY!"
-  //     );
-  //     console.log(
-  //       "📊 (EXECUTE-TEST-3) Policy properly enforced: 2 sends allowed, 3rd send blocked"
-  //     );
-  //   }
-  // } else {
-  //   console.log(
-  //     "🟨 (PRECHECK-TEST-3) Third send precheck failed (unexpected but also fine)"
-  //   );
-  //   console.log("🎉 (PRECHECK-TEST-3) POLICY ENFORCEMENT WORKING!");
-  // }
 
   // ========================================
   // WETH Funding Setup for AAVE Testing
@@ -387,6 +270,7 @@ import { ethers } from "ethers";
   const TEST_WETH_ADDRESS = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c"; // WETH on Sepolia
   const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
 
+  // Test 3: WETH Funding
   try {
     console.log("🏦 Funding PKP with WETH from funder wallet");
     console.log(`   PKP Address: ${agentWalletPkp.ethAddress}`);
@@ -443,9 +327,11 @@ import { ethers } from "ethers";
     console.log(
       `   PKP WETH balance: ${ethers.utils.formatEther(pkpBalance)} WETH`
     );
+    
+    addTestResult("WETH Funding Setup", true);
   } catch (error) {
     console.error("❌ WETH funding failed:", error?.message || error);
-    throw new Error(`WETH funding failed: ${error?.message || error}`);
+    addTestResult("WETH Funding Setup", false, error?.message || error.toString());
   }
 
   // ========================================
@@ -467,6 +353,7 @@ import { ethers } from "ethers";
   console.log(`   Supplying ${WETH_SUPPLY_AMOUNT} WETH as collateral`);
   console.log(`   WETH Address: ${TEST_WETH_ADDRESS}`);
 
+  // Test 4: AAVE Supply Operation
   try {
     const aaveSupplyPrecheckRes = await aaveToolClient.precheck(
       {
@@ -503,23 +390,27 @@ import { ethers } from "ethers";
       if (aaveSupplyExecuteRes.success) {
         console.log("✅ (AAVE-STEP-1) WETH supply completed successfully!");
         console.log(`   Tx hash: ${aaveSupplyExecuteRes.result.txHash}`);
+        addTestResult("AAVE Supply WETH", true);
       } else {
         console.log(
           "❌ (AAVE-STEP-1) WETH supply failed:",
           aaveSupplyExecuteRes.error
         );
+        addTestResult("AAVE Supply WETH", false, aaveSupplyExecuteRes.error);
       }
     } else {
       console.log(
         "ℹ️  (AAVE-PRECHECK-SUPPLY) Supply precheck failed:",
         aaveSupplyPrecheckRes.error
       );
+      addTestResult("AAVE Supply WETH", false, aaveSupplyPrecheckRes.error);
     }
   } catch (error) {
     console.log(
       "ℹ️  (AAVE-SUPPLY) Expected error due to network configuration:",
       error.message
     );
+    addTestResult("AAVE Supply WETH", false, error.message);
   }
 
   // ========================================
@@ -531,6 +422,7 @@ import { ethers } from "ethers";
   console.log(`   Borrowing ${USDC_BORROW_AMOUNT} USDC`);
   console.log(`   USDC Address: ${TEST_USDC_ADDRESS}`);
 
+  // Test 5: AAVE Borrow Operation
   try {
     const aaveBorrowPrecheckRes = await aaveToolClient.precheck(
       {
@@ -571,23 +463,27 @@ import { ethers } from "ethers";
         console.log(
           `   Transaction Hash: ${(aaveBorrowExecuteRes as any).txHash}`
         );
+        addTestResult("AAVE Borrow USDC", true);
       } else {
         console.log(
           "❌ (AAVE-STEP-2) USDC borrow failed:",
           aaveBorrowExecuteRes.error
         );
+        addTestResult("AAVE Borrow USDC", false, aaveBorrowExecuteRes.error);
       }
     } else {
       console.log(
         "ℹ️  (AAVE-PRECHECK-BORROW) Borrow precheck failed:",
         aaveBorrowPrecheckRes.error
       );
+      addTestResult("AAVE Borrow USDC", false, aaveBorrowPrecheckRes.error);
     }
   } catch (error) {
     console.log(
       "ℹ️  (AAVE-BORROW) Expected error due to network configuration:",
       error.message
     );
+    addTestResult("AAVE Borrow USDC", false, error.message);
   }
 
   // ========================================
@@ -598,6 +494,7 @@ import { ethers } from "ethers";
   const USDC_REPAY_AMOUNT = USDC_BORROW_AMOUNT; // Repay full amount
   console.log(`   Repaying ${USDC_REPAY_AMOUNT} USDC`);
 
+  // Test 6: AAVE Repay Operation
   try {
     const aaveRepayPrecheckRes = await aaveToolClient.precheck(
       {
@@ -638,23 +535,27 @@ import { ethers } from "ethers";
         console.log(
           `   Transaction Hash: ${(aaveRepayExecuteRes as any).txHash}`
         );
+        addTestResult("AAVE Repay USDC", true);
       } else {
         console.log(
           "❌ (AAVE-STEP-3) USDC repay failed:",
           aaveRepayExecuteRes.error
         );
+        addTestResult("AAVE Repay USDC", false, aaveRepayExecuteRes.error);
       }
     } else {
       console.log(
         "ℹ️  (AAVE-PRECHECK-REPAY) Repay precheck failed:",
         aaveRepayPrecheckRes.error
       );
+      addTestResult("AAVE Repay USDC", false, aaveRepayPrecheckRes.error);
     }
   } catch (error) {
     console.log(
-      "ℹ️  (AAVE-WITHDRAW) Expected error due to network configuration:",
+      "ℹ️  (AAVE-REPAY) Expected error due to network configuration:",
       error.message
     );
+    addTestResult("AAVE Repay USDC", false, error.message);
   }
 
   // ========================================
@@ -665,6 +566,7 @@ import { ethers } from "ethers";
   const WETH_WITHDRAW_AMOUNT = WETH_SUPPLY_AMOUNT; // Withdraw full collateral
   console.log(`   Withdrawing ${WETH_WITHDRAW_AMOUNT} WETH`);
 
+  // Test 7: AAVE Withdraw Operation
   try {
     const aaveWithdrawPrecheckRes = await aaveToolClient.precheck(
       {
@@ -703,24 +605,32 @@ import { ethers } from "ethers";
         console.log(
           `   Transaction Hash: ${(aaveWithdrawExecuteRes as any).txHash}`
         );
+        addTestResult("AAVE Withdraw WETH", true);
       } else {
         console.log(
           "❌ (AAVE-STEP-4) WETH withdraw failed:",
           aaveWithdrawExecuteRes.error
         );
+        addTestResult("AAVE Withdraw WETH", false, aaveWithdrawExecuteRes.error);
       }
     } else {
       console.log(
         "ℹ️  (AAVE-PRECHECK-WITHDRAW) Withdraw precheck failed:",
         aaveWithdrawPrecheckRes.error
       );
+      addTestResult("AAVE Withdraw WETH", false, aaveWithdrawPrecheckRes.error);
     }
   } catch (error) {
     console.log(
-      "ℹ️  (AAVE-REPAY) Expected error due to network configuration:",
+      "ℹ️  (AAVE-WITHDRAW) Expected error due to network configuration:",
       error.message
     );
+    addTestResult("AAVE Withdraw WETH", false, error.message);
   }
 
-  process.exit();
+  // ========================================
+  // Print Test Summary and Exit
+  // ========================================
+  const allTestsPassed = printTestSummary();
+  process.exit(allTestsPassed ? 0 : 1);
 })();
