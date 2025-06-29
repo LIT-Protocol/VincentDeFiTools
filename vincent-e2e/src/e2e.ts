@@ -35,10 +35,10 @@ function addTestResult(name: string, passed: boolean, error?: string) {
 }
 
 function printTestSummary() {
-  const passed = testResults.filter(t => t.passed).length;
-  const failed = testResults.filter(t => !t.passed).length;
+  const passed = testResults.filter((t) => t.passed).length;
+  const failed = testResults.filter((t) => !t.passed).length;
   const total = testResults.length;
-  
+
   console.log("\n" + "=".repeat(60));
   console.log("🧪 TEST SUMMARY");
   console.log("=".repeat(60));
@@ -46,14 +46,16 @@ function printTestSummary() {
   console.log(`✅ Passed: ${passed}`);
   console.log(`❌ Failed: ${failed}`);
   console.log("=".repeat(60));
-  
+
   if (failed > 0) {
     console.log("\n❌ FAILED TESTS:");
-    testResults.filter(t => !t.passed).forEach(test => {
-      console.log(`  - ${test.name}: ${test.error || "Unknown error"}`);
-    });
+    testResults
+      .filter((t) => !t.passed)
+      .forEach((test) => {
+        console.log(`  - ${test.name}: ${test.error || "Unknown error"}`);
+      });
   }
-  
+
   return failed === 0;
 }
 
@@ -283,7 +285,8 @@ function printTestSummary() {
 
     // Create Sepolia provider for WETH operations
     const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-      process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+      process.env.ETH_SEPOLIA_RPC_URL ||
+        "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
     );
 
     // Create funder wallet using private key
@@ -305,13 +308,17 @@ function printTestSummary() {
     );
 
     // Check current PKP WETH balance
-    const currentBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+    const currentBalance = await wethContract.balanceOf(
+      agentWalletPkp.ethAddress
+    );
     const currentBalanceFormatted = ethers.utils.formatEther(currentBalance);
     console.log(`   Current PKP WETH balance: ${currentBalanceFormatted} WETH`);
     console.log(`   Required WETH balance: ${WETH_FUND_AMOUNT} WETH`);
 
     if (currentBalance.gte(REQUIRED_WETH_BALANCE)) {
-      console.log("✅ PKP already has sufficient WETH balance, skipping funding");
+      console.log(
+        "✅ PKP already has sufficient WETH balance, skipping funding"
+      );
       addTestResult("WETH Balance Check", true);
     } else {
       console.log("🏦 PKP needs WETH funding, proceeding with transfer");
@@ -334,16 +341,22 @@ function printTestSummary() {
       );
 
       // Verify new balance
-      const newBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+      const newBalance = await wethContract.balanceOf(
+        agentWalletPkp.ethAddress
+      );
       console.log(
         `   New PKP WETH balance: ${ethers.utils.formatEther(newBalance)} WETH`
       );
-      
+
       addTestResult("WETH Funding Setup", true);
     }
   } catch (error) {
     console.error("❌ WETH funding setup failed:", error?.message || error);
-    addTestResult("WETH Funding Setup", false, error?.message || error.toString());
+    addTestResult(
+      "WETH Funding Setup",
+      false,
+      error?.message || error.toString()
+    );
   }
 
   // ========================================
@@ -358,20 +371,21 @@ function printTestSummary() {
   const TEST_USDC_ADDRESS = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC on Sepolia
   const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
   const USDC_BORROW_AMOUNT = "1.0"; // 1 USDC
-  
+
   // Store initial balances for comparison throughout the workflow
   let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);
   let initialUsdcBalance: ethers.BigNumber = ethers.BigNumber.from(0);
-  
+
   // Test: Initial Balance Check
   try {
     console.log("🔍 Recording initial token balances...");
-    
+
     // Create Sepolia provider for balance checking
     const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-      process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+      process.env.ETH_SEPOLIA_RPC_URL ||
+        "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
     );
-    
+
     // WETH contract for balance checking
     const wethAbi = [
       "function balanceOf(address account) view returns (uint256)",
@@ -381,7 +395,7 @@ function printTestSummary() {
       wethAbi,
       sepoliaProvider
     );
-    
+
     // USDC contract for balance checking
     const usdcAbi = [
       "function balanceOf(address account) view returns (uint256)",
@@ -392,24 +406,33 @@ function printTestSummary() {
       usdcAbi,
       sepoliaProvider
     );
-    
+
     // Get initial balances
-    initialWethBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
-    initialUsdcBalance = await usdcContract.balanceOf(agentWalletPkp.ethAddress);
+    initialWethBalance = await wethContract.balanceOf(
+      agentWalletPkp.ethAddress
+    );
+    initialUsdcBalance = await usdcContract.balanceOf(
+      agentWalletPkp.ethAddress
+    );
     const usdcDecimals = await usdcContract.decimals();
-    
+
     const initialWethFormatted = ethers.utils.formatEther(initialWethBalance);
-    const initialUsdcFormatted = ethers.utils.formatUnits(initialUsdcBalance, usdcDecimals);
-    
+    const initialUsdcFormatted = ethers.utils.formatUnits(
+      initialUsdcBalance,
+      usdcDecimals
+    );
+
     console.log(`   Initial WETH balance: ${initialWethFormatted} WETH`);
     console.log(`   Initial USDC balance: ${initialUsdcFormatted} USDC`);
-    
+
     // Verify PKP has sufficient WETH for the test
     const requiredWethBalance = ethers.utils.parseEther(WETH_SUPPLY_AMOUNT);
     if (initialWethBalance.lt(requiredWethBalance)) {
-      throw new Error(`Insufficient WETH balance. Required: ${WETH_SUPPLY_AMOUNT} WETH, Available: ${initialWethFormatted} WETH`);
+      throw new Error(
+        `Insufficient WETH balance. Required: ${WETH_SUPPLY_AMOUNT} WETH, Available: ${initialWethFormatted} WETH`
+      );
     }
-    
+
     addTestResult("Initial Balance Check", true);
   } catch (error) {
     console.error("❌ Initial balance check failed:", error.message);
@@ -461,31 +484,42 @@ function printTestSummary() {
       if (aaveSupplyExecuteRes.success) {
         console.log("✅ (AAVE-STEP-1) WETH supply completed successfully!");
         console.log(`   Tx hash: ${aaveSupplyExecuteRes.result.txHash}`);
-        
+
         // Wait for transaction confirmation
         try {
           console.log("⏳ Waiting for supply transaction confirmation...");
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
-          
-          const receipt = await sepoliaProvider.waitForTransaction(aaveSupplyExecuteRes.result.txHash, 1, 180000); // 1 confirmation, 3 minute timeout
-          console.log(`   ✅ Supply transaction confirmed in block ${receipt.blockNumber}`);
+
+          const receipt = await sepoliaProvider.waitForTransaction(
+            aaveSupplyExecuteRes.result.txHash,
+            1,
+            180000
+          ); // 1 confirmation, 3 minute timeout
+          console.log(
+            `   ✅ Supply transaction confirmed in block ${receipt.blockNumber}`
+          );
         } catch (confirmError) {
-          console.log("⚠️  Transaction confirmation failed, proceeding anyway:", confirmError.message);
+          console.log(
+            "⚠️  Transaction confirmation failed, proceeding anyway:",
+            confirmError.message
+          );
           // Add a small delay to let the transaction potentially propagate
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          await new Promise((resolve) => setTimeout(resolve, 5000));
         }
-        
+
         // Verify balance after supply
         try {
           console.log("🔍 Verifying WETH balance after supply...");
-          
+
           // Create Sepolia provider for balance checking
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
-          
+
           // WETH contract for balance checking
           const wethAbi = [
             "function balanceOf(address account) view returns (uint256)",
@@ -495,18 +529,26 @@ function printTestSummary() {
             wethAbi,
             sepoliaProvider
           );
-          
-          const postSupplyBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
-          const postSupplyBalanceFormatted = ethers.utils.formatEther(postSupplyBalance);
-          console.log(`   Post-supply WETH balance: ${postSupplyBalanceFormatted} WETH`);
-          
+
+          const postSupplyBalance = await wethContract.balanceOf(
+            agentWalletPkp.ethAddress
+          );
+          const postSupplyBalanceFormatted =
+            ethers.utils.formatEther(postSupplyBalance);
+          console.log(
+            `   Post-supply WETH balance: ${postSupplyBalanceFormatted} WETH`
+          );
+
           // Expected: balance should be reduced by the supplied amount
           const suppliedAmount = ethers.utils.parseEther(WETH_SUPPLY_AMOUNT);
           const expectedBalance = initialWethBalance.sub(suppliedAmount);
-          const expectedBalanceFormatted = ethers.utils.formatEther(expectedBalance);
-          
-          console.log(`   Expected WETH balance: ${expectedBalanceFormatted} WETH`);
-          
+          const expectedBalanceFormatted =
+            ethers.utils.formatEther(expectedBalance);
+
+          console.log(
+            `   Expected WETH balance: ${expectedBalanceFormatted} WETH`
+          );
+
           if (postSupplyBalance.eq(expectedBalance)) {
             console.log("✅ WETH balance correctly reduced after supply");
             addTestResult("AAVE Supply WETH", true);
@@ -516,8 +558,15 @@ function printTestSummary() {
             addTestResult("AAVE Supply WETH", false, errorMsg);
           }
         } catch (balanceError) {
-          console.log("❌ Could not verify balance after supply:", balanceError.message);
-          addTestResult("AAVE Supply WETH", false, `Balance verification failed: ${balanceError.message}`);
+          console.log(
+            "❌ Could not verify balance after supply:",
+            balanceError.message
+          );
+          addTestResult(
+            "AAVE Supply WETH",
+            false,
+            `Balance verification failed: ${balanceError.message}`
+          );
         }
       } else {
         console.log(
@@ -590,31 +639,42 @@ function printTestSummary() {
         console.log(
           `   Transaction Hash: ${aaveBorrowExecuteRes.result.txHash}`
         );
-        
+
         // Wait for transaction confirmation
         try {
           console.log("⏳ Waiting for borrow transaction confirmation...");
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
-          
-          const receipt = await sepoliaProvider.waitForTransaction(aaveBorrowExecuteRes.result.txHash, 1, 180000); // 1 confirmation, 3 minute timeout
-          console.log(`   ✅ Borrow transaction confirmed in block ${receipt.blockNumber}`);
+
+          const receipt = await sepoliaProvider.waitForTransaction(
+            aaveBorrowExecuteRes.result.txHash,
+            1,
+            180000
+          ); // 1 confirmation, 3 minute timeout
+          console.log(
+            `   ✅ Borrow transaction confirmed in block ${receipt.blockNumber}`
+          );
         } catch (confirmError) {
-          console.log("⚠️  Transaction confirmation failed, proceeding anyway:", confirmError.message);
+          console.log(
+            "⚠️  Transaction confirmation failed, proceeding anyway:",
+            confirmError.message
+          );
           // Add a small delay to let the transaction potentially propagate
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          await new Promise((resolve) => setTimeout(resolve, 5000));
         }
-        
+
         // Verify USDC balance after borrow
         try {
           console.log("🔍 Verifying USDC balance after borrow...");
-          
+
           // Create Sepolia provider for balance checking
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
-          
+
           // USDC contract for balance checking
           const usdcAbi = [
             "function balanceOf(address account) view returns (uint256)",
@@ -625,19 +685,34 @@ function printTestSummary() {
             usdcAbi,
             sepoliaProvider
           );
-          
-          const postBorrowBalance = await usdcContract.balanceOf(agentWalletPkp.ethAddress);
+
+          const postBorrowBalance = await usdcContract.balanceOf(
+            agentWalletPkp.ethAddress
+          );
           const decimals = await usdcContract.decimals();
-          const postBorrowBalanceFormatted = ethers.utils.formatUnits(postBorrowBalance, decimals);
-          console.log(`   Post-borrow USDC balance: ${postBorrowBalanceFormatted} USDC`);
-          
+          const postBorrowBalanceFormatted = ethers.utils.formatUnits(
+            postBorrowBalance,
+            decimals
+          );
+          console.log(
+            `   Post-borrow USDC balance: ${postBorrowBalanceFormatted} USDC`
+          );
+
           // Expected: balance should be increased by borrowed amount
-          const borrowedAmount = ethers.utils.parseUnits(USDC_BORROW_AMOUNT, decimals);
+          const borrowedAmount = ethers.utils.parseUnits(
+            USDC_BORROW_AMOUNT,
+            decimals
+          );
           const expectedBalance = initialUsdcBalance.add(borrowedAmount);
-          const expectedBalanceFormatted = ethers.utils.formatUnits(expectedBalance, decimals);
-          
-          console.log(`   Expected USDC balance: ${expectedBalanceFormatted} USDC`);
-          
+          const expectedBalanceFormatted = ethers.utils.formatUnits(
+            expectedBalance,
+            decimals
+          );
+
+          console.log(
+            `   Expected USDC balance: ${expectedBalanceFormatted} USDC`
+          );
+
           if (postBorrowBalance.eq(expectedBalance)) {
             console.log("✅ USDC balance correctly increased after borrow");
             addTestResult("AAVE Borrow USDC", true);
@@ -647,8 +722,15 @@ function printTestSummary() {
             addTestResult("AAVE Borrow USDC", false, errorMsg);
           }
         } catch (balanceError) {
-          console.log("❌ Could not verify balance after borrow:", balanceError.message);
-          addTestResult("AAVE Borrow USDC", false, `Balance verification failed: ${balanceError.message}`);
+          console.log(
+            "❌ Could not verify balance after borrow:",
+            balanceError.message
+          );
+          addTestResult(
+            "AAVE Borrow USDC",
+            false,
+            `Balance verification failed: ${balanceError.message}`
+          );
         }
       } else {
         console.log(
@@ -721,31 +803,42 @@ function printTestSummary() {
         console.log(
           `   Transaction Hash: ${aaveRepayExecuteRes.result.txHash}`
         );
-        
+
         // Wait for transaction confirmation
         try {
           console.log("⏳ Waiting for repay transaction confirmation...");
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
-          
-          const receipt = await sepoliaProvider.waitForTransaction(aaveRepayExecuteRes.result.txHash, 1, 180000); // 1 confirmation, 3 minute timeout
-          console.log(`   ✅ Repay transaction confirmed in block ${receipt.blockNumber}`);
+
+          const receipt = await sepoliaProvider.waitForTransaction(
+            aaveRepayExecuteRes.result.txHash,
+            1,
+            180000
+          ); // 1 confirmation, 3 minute timeout
+          console.log(
+            `   ✅ Repay transaction confirmed in block ${receipt.blockNumber}`
+          );
         } catch (confirmError) {
-          console.log("⚠️  Transaction confirmation failed, proceeding anyway:", confirmError.message);
+          console.log(
+            "⚠️  Transaction confirmation failed, proceeding anyway:",
+            confirmError.message
+          );
           // Add a small delay to let the transaction potentially propagate
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          await new Promise((resolve) => setTimeout(resolve, 5000));
         }
-        
+
         // Verify USDC balance after repay
         try {
           console.log("🔍 Verifying USDC balance after repay...");
-          
+
           // Create Sepolia provider for balance checking
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
-          
+
           // USDC contract for balance checking
           const usdcAbi = [
             "function balanceOf(address account) view returns (uint256)",
@@ -756,20 +849,34 @@ function printTestSummary() {
             usdcAbi,
             sepoliaProvider
           );
-          
-          const postRepayBalance = await usdcContract.balanceOf(agentWalletPkp.ethAddress);
+
+          const postRepayBalance = await usdcContract.balanceOf(
+            agentWalletPkp.ethAddress
+          );
           const decimals = await usdcContract.decimals();
-          const postRepayBalanceFormatted = ethers.utils.formatUnits(postRepayBalance, decimals);
-          console.log(`   Post-repay USDC balance: ${postRepayBalanceFormatted} USDC`);
-          
+          const postRepayBalanceFormatted = ethers.utils.formatUnits(
+            postRepayBalance,
+            decimals
+          );
+          console.log(
+            `   Post-repay USDC balance: ${postRepayBalanceFormatted} USDC`
+          );
+
           // Expected: balance should return to initial amount (borrowed amount repaid)
           const expectedBalance = initialUsdcBalance;
-          const expectedBalanceFormatted = ethers.utils.formatUnits(expectedBalance, decimals);
-          
-          console.log(`   Expected USDC balance: ${expectedBalanceFormatted} USDC`);
-          
+          const expectedBalanceFormatted = ethers.utils.formatUnits(
+            expectedBalance,
+            decimals
+          );
+
+          console.log(
+            `   Expected USDC balance: ${expectedBalanceFormatted} USDC`
+          );
+
           if (postRepayBalance.eq(expectedBalance)) {
-            console.log("✅ USDC balance correctly returned to initial amount after repay");
+            console.log(
+              "✅ USDC balance correctly returned to initial amount after repay"
+            );
             addTestResult("AAVE Repay USDC", true);
           } else {
             const errorMsg = `Balance mismatch after repay. Expected: ${expectedBalanceFormatted} USDC, Got: ${postRepayBalanceFormatted} USDC`;
@@ -777,8 +884,15 @@ function printTestSummary() {
             addTestResult("AAVE Repay USDC", false, errorMsg);
           }
         } catch (balanceError) {
-          console.log("❌ Could not verify balance after repay:", balanceError.message);
-          addTestResult("AAVE Repay USDC", false, `Balance verification failed: ${balanceError.message}`);
+          console.log(
+            "❌ Could not verify balance after repay:",
+            balanceError.message
+          );
+          addTestResult(
+            "AAVE Repay USDC",
+            false,
+            `Balance verification failed: ${balanceError.message}`
+          );
         }
       } else {
         console.log(
@@ -849,31 +963,42 @@ function printTestSummary() {
         console.log(
           `   Transaction Hash: ${aaveWithdrawExecuteRes.result.txHash}`
         );
-        
+
         // Wait for transaction confirmation
         try {
           console.log("⏳ Waiting for withdraw transaction confirmation...");
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
-          
-          const receipt = await sepoliaProvider.waitForTransaction(aaveWithdrawExecuteRes.result.txHash, 1, 180000); // 1 confirmation, 3 minute timeout
-          console.log(`   ✅ Withdraw transaction confirmed in block ${receipt.blockNumber}`);
+
+          const receipt = await sepoliaProvider.waitForTransaction(
+            aaveWithdrawExecuteRes.result.txHash,
+            1,
+            180000
+          ); // 1 confirmation, 3 minute timeout
+          console.log(
+            `   ✅ Withdraw transaction confirmed in block ${receipt.blockNumber}`
+          );
         } catch (confirmError) {
-          console.log("⚠️  Transaction confirmation failed, proceeding anyway:", confirmError.message);
+          console.log(
+            "⚠️  Transaction confirmation failed, proceeding anyway:",
+            confirmError.message
+          );
           // Add a small delay to let the transaction potentially propagate
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          await new Promise((resolve) => setTimeout(resolve, 5000));
         }
-        
+
         // Verify WETH balance after withdraw
         try {
           console.log("🔍 Verifying WETH balance after withdraw...");
-          
+
           // Create Sepolia provider for balance checking
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
-          
+
           // WETH contract for balance checking
           const wethAbi = [
             "function balanceOf(address account) view returns (uint256)",
@@ -883,19 +1008,29 @@ function printTestSummary() {
             wethAbi,
             sepoliaProvider
           );
-          
-          const postWithdrawBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
-          const postWithdrawBalanceFormatted = ethers.utils.formatEther(postWithdrawBalance);
-          console.log(`   Post-withdraw WETH balance: ${postWithdrawBalanceFormatted} WETH`);
-          
+
+          const postWithdrawBalance = await wethContract.balanceOf(
+            agentWalletPkp.ethAddress
+          );
+          const postWithdrawBalanceFormatted =
+            ethers.utils.formatEther(postWithdrawBalance);
+          console.log(
+            `   Post-withdraw WETH balance: ${postWithdrawBalanceFormatted} WETH`
+          );
+
           // Expected: balance should return to initial amount (collateral withdrawn)
           const expectedBalance = initialWethBalance;
-          const expectedBalanceFormatted = ethers.utils.formatEther(expectedBalance);
-          
-          console.log(`   Expected WETH balance: ${expectedBalanceFormatted} WETH`);
-          
+          const expectedBalanceFormatted =
+            ethers.utils.formatEther(expectedBalance);
+
+          console.log(
+            `   Expected WETH balance: ${expectedBalanceFormatted} WETH`
+          );
+
           if (postWithdrawBalance.eq(expectedBalance)) {
-            console.log("✅ WETH balance correctly returned to initial amount after withdraw");
+            console.log(
+              "✅ WETH balance correctly returned to initial amount after withdraw"
+            );
             addTestResult("AAVE Withdraw WETH", true);
           } else {
             const errorMsg = `Balance mismatch after withdraw. Expected: ${expectedBalanceFormatted} WETH, Got: ${postWithdrawBalanceFormatted} WETH`;
@@ -903,15 +1038,26 @@ function printTestSummary() {
             addTestResult("AAVE Withdraw WETH", false, errorMsg);
           }
         } catch (balanceError) {
-          console.log("❌ Could not verify balance after withdraw:", balanceError.message);
-          addTestResult("AAVE Withdraw WETH", false, `Balance verification failed: ${balanceError.message}`);
+          console.log(
+            "❌ Could not verify balance after withdraw:",
+            balanceError.message
+          );
+          addTestResult(
+            "AAVE Withdraw WETH",
+            false,
+            `Balance verification failed: ${balanceError.message}`
+          );
         }
       } else {
         console.log(
           "❌ (AAVE-STEP-4) WETH withdraw failed:",
           aaveWithdrawExecuteRes.error
         );
-        addTestResult("AAVE Withdraw WETH", false, aaveWithdrawExecuteRes.error);
+        addTestResult(
+          "AAVE Withdraw WETH",
+          false,
+          aaveWithdrawExecuteRes.error
+        );
       }
     } else {
       console.log(
