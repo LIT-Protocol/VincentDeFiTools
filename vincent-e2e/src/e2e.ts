@@ -269,15 +269,15 @@ function printTestSummary() {
   // Fund PKP with WETH from TEST_FUNDER_PRIVATE_KEY wallet
   const TEST_WETH_ADDRESS = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c"; // WETH on Sepolia
   const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
+  const REQUIRED_WETH_BALANCE = ethers.utils.parseEther(WETH_FUND_AMOUNT);
 
-  // Test 3: WETH Funding
+  // Test 3: WETH Balance Check and Conditional Funding
   try {
-    console.log("🏦 Funding PKP with WETH from funder wallet");
+    console.log("🔍 Checking PKP WETH balance");
     console.log(`   PKP Address: ${agentWalletPkp.ethAddress}`);
-    console.log(`   WETH Amount: ${WETH_FUND_AMOUNT}`);
     console.log(`   WETH Contract: ${TEST_WETH_ADDRESS}`);
 
-    // Create Sepolia provider for WETH funding
+    // Create Sepolia provider for WETH operations
     const sepoliaProvider = new ethers.providers.JsonRpcProvider(
       process.env.ETH_SEPOLIA_RPC_URL ||
         "https://sepolia.infura.io/v3/your-project-id"
@@ -290,7 +290,7 @@ function printTestSummary() {
       sepoliaProvider
     );
 
-    // WETH contract ABI for transfer function
+    // WETH contract ABI for transfer and balance functions
     const wethAbi = [
       "function transfer(address to, uint256 amount) returns (bool)",
       "function balanceOf(address account) view returns (uint256)",
@@ -301,36 +301,45 @@ function printTestSummary() {
       funderWallet
     );
 
-    // Convert amount to wei
-    const wethAmountWei = ethers.utils.parseEther(WETH_FUND_AMOUNT);
+    // Check current PKP WETH balance
+    const currentBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+    const currentBalanceFormatted = ethers.utils.formatEther(currentBalance);
+    console.log(`   Current PKP WETH balance: ${currentBalanceFormatted} WETH`);
+    console.log(`   Required WETH balance: ${WETH_FUND_AMOUNT} WETH`);
 
-    console.log(`   Funder Address: ${funderWallet.address}`);
-    console.log(
-      `   Transferring ${WETH_FUND_AMOUNT} WETH (${wethAmountWei.toString()} wei)`
-    );
+    if (currentBalance.gte(REQUIRED_WETH_BALANCE)) {
+      console.log("✅ PKP already has sufficient WETH balance, skipping funding");
+      addTestResult("WETH Balance Check", true);
+    } else {
+      console.log("🏦 PKP needs WETH funding, proceeding with transfer");
+      console.log(`   Funder Address: ${funderWallet.address}`);
+      console.log(
+        `   Transferring ${WETH_FUND_AMOUNT} WETH (${REQUIRED_WETH_BALANCE.toString()} wei)`
+      );
 
-    // Execute WETH transfer
-    const transferTx = await wethContract.transfer(
-      agentWalletPkp.ethAddress,
-      wethAmountWei
-    );
-    console.log(`   Transfer transaction hash: ${transferTx.hash}`);
+      // Execute WETH transfer
+      const transferTx = await wethContract.transfer(
+        agentWalletPkp.ethAddress,
+        REQUIRED_WETH_BALANCE
+      );
+      console.log(`   Transfer transaction hash: ${transferTx.hash}`);
 
-    // Wait for transaction confirmation
-    const receipt = await transferTx.wait();
-    console.log(
-      `   ✅ WETH transfer confirmed in block ${receipt.blockNumber}`
-    );
+      // Wait for transaction confirmation
+      const receipt = await transferTx.wait();
+      console.log(
+        `   ✅ WETH transfer confirmed in block ${receipt.blockNumber}`
+      );
 
-    // Verify balance
-    const pkpBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
-    console.log(
-      `   PKP WETH balance: ${ethers.utils.formatEther(pkpBalance)} WETH`
-    );
-    
-    addTestResult("WETH Funding Setup", true);
+      // Verify new balance
+      const newBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+      console.log(
+        `   New PKP WETH balance: ${ethers.utils.formatEther(newBalance)} WETH`
+      );
+      
+      addTestResult("WETH Funding Setup", true);
+    }
   } catch (error) {
-    console.error("❌ WETH funding failed:", error?.message || error);
+    console.error("❌ WETH funding setup failed:", error?.message || error);
     addTestResult("WETH Funding Setup", false, error?.message || error.toString());
   }
 
