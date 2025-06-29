@@ -222,161 +222,161 @@ import { ethers } from "ethers";
    * Replace this example with tests relevant to your tools and policies.
    * ====================================
    */
-  console.log("🧪 Testing send limit policy");
+  // console.log("🧪 Testing send limit policy");
 
-  const TEST_RECIPIENT = accounts.delegatee.ethersWallet.address;
-  const TEST_AMOUNT = "0.00001";
+  // const TEST_RECIPIENT = accounts.delegatee.ethersWallet.address;
+  // const TEST_AMOUNT = "0.00001";
 
-  // ----------------------------------------
-  // Test 1: First send should succeed
-  // ----------------------------------------
-  console.log("(PRECHECK-TEST-1) First send (should succeed)");
-  const nativeSendPrecheckRes1 = await nativeSendToolClient.precheck(
-    {
-      to: TEST_RECIPIENT,
-      amount: TEST_AMOUNT,
-    },
-    {
-      delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-    }
-  );
+  // // ----------------------------------------
+  // // Test 1: First send should succeed
+  // // ----------------------------------------
+  // console.log("(PRECHECK-TEST-1) First send (should succeed)");
+  // const nativeSendPrecheckRes1 = await nativeSendToolClient.precheck(
+  //   {
+  //     to: TEST_RECIPIENT,
+  //     amount: TEST_AMOUNT,
+  //   },
+  //   {
+  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+  //   }
+  // );
 
-  console.log("(PRECHECK-RES[1]): ", nativeSendPrecheckRes1);
+  // console.log("(PRECHECK-RES[1]): ", nativeSendPrecheckRes1);
 
-  if (!nativeSendPrecheckRes1.success) {
-    throw new Error(
-      `❌ First precheck should succeed: ${JSON.stringify(
-        nativeSendPrecheckRes1
-      )}`
-    );
-  }
+  // if (!nativeSendPrecheckRes1.success) {
+  //   throw new Error(
+  //     `❌ First precheck should succeed: ${JSON.stringify(
+  //       nativeSendPrecheckRes1
+  //     )}`
+  //   );
+  // }
 
-  console.log("(EXECUTE-TEST-1) First send (should succeed)");
-  const executeRes1 = await nativeSendToolClient.execute(
-    {
-      to: TEST_RECIPIENT,
-      amount: TEST_AMOUNT,
-    },
-    {
-      delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-    }
-  );
+  // console.log("(EXECUTE-TEST-1) First send (should succeed)");
+  // const executeRes1 = await nativeSendToolClient.execute(
+  //   {
+  //     to: TEST_RECIPIENT,
+  //     amount: TEST_AMOUNT,
+  //   },
+  //   {
+  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+  //   }
+  // );
 
-  console.log("(EXECUTE-RES[1]): ", executeRes1);
+  // console.log("(EXECUTE-RES[1]): ", executeRes1);
 
-  if (!executeRes1.success) {
-    throw new Error(
-      `❌ First execute should succeed: ${JSON.stringify(executeRes1)}`
-    );
-  }
+  // if (!executeRes1.success) {
+  //   throw new Error(
+  //     `❌ First execute should succeed: ${JSON.stringify(executeRes1)}`
+  //   );
+  // }
 
-  console.log("(✅ EXECUTE-TEST-1) First send completed successfully");
+  // console.log("(✅ EXECUTE-TEST-1) First send completed successfully");
 
-  // ----------------------------------------
-  // Test 2: Second send should succeed
-  // ----------------------------------------
-  console.log("(PRECHECK-TEST-2) Second send (should succeed)");
-  const nativeSendPrecheckRes2 = await nativeSendToolClient.precheck(
-    {
-      to: TEST_RECIPIENT,
-      amount: TEST_AMOUNT,
-    },
-    {
-      delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-    }
-  );
+  // // ----------------------------------------
+  // // Test 2: Second send should succeed
+  // // ----------------------------------------
+  // console.log("(PRECHECK-TEST-2) Second send (should succeed)");
+  // const nativeSendPrecheckRes2 = await nativeSendToolClient.precheck(
+  //   {
+  //     to: TEST_RECIPIENT,
+  //     amount: TEST_AMOUNT,
+  //   },
+  //   {
+  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+  //   }
+  // );
 
-  console.log("(PRECHECK-RES[2]): ", nativeSendPrecheckRes2);
+  // console.log("(PRECHECK-RES[2]): ", nativeSendPrecheckRes2);
 
-  if (!nativeSendPrecheckRes2.success) {
-    throw new Error(
-      `❌ (PRECHECK-TEST-2) Second precheck should succeed: ${JSON.stringify(
-        nativeSendPrecheckRes2
-      )}`
-    );
-  }
+  // if (!nativeSendPrecheckRes2.success) {
+  //   throw new Error(
+  //     `❌ (PRECHECK-TEST-2) Second precheck should succeed: ${JSON.stringify(
+  //       nativeSendPrecheckRes2
+  //     )}`
+  //   );
+  // }
 
-  const executeRes2 = await nativeSendToolClient.execute(
-    {
-      to: TEST_RECIPIENT,
-      amount: TEST_AMOUNT,
-    },
-    {
-      delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-    }
-  );
+  // const executeRes2 = await nativeSendToolClient.execute(
+  //   {
+  //     to: TEST_RECIPIENT,
+  //     amount: TEST_AMOUNT,
+  //   },
+  //   {
+  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+  //   }
+  // );
 
-  console.log("(EXECUTE-RES[2]): ", executeRes2);
+  // console.log("(EXECUTE-RES[2]): ", executeRes2);
 
-  if (!executeRes2.success) {
-    throw new Error(
-      `❌ (EXECUTE-TEST-2) Second execute should succeed: ${JSON.stringify(
-        executeRes2
-      )}`
-    );
-  }
+  // if (!executeRes2.success) {
+  //   throw new Error(
+  //     `❌ (EXECUTE-TEST-2) Second execute should succeed: ${JSON.stringify(
+  //       executeRes2
+  //     )}`
+  //   );
+  // }
 
-  console.log("(✅ EXECUTE-TEST-2) Second send completed successfully");
+  // console.log("(✅ EXECUTE-TEST-2) Second send completed successfully");
 
-  // ----------------------------------------
-  // Test 3: Third send should fail (limit exceeded)
-  // ----------------------------------------
-  console.log("(PRECHECK-TEST-3) Third send (should fail - limit exceeded)");
-  const nativeSendPrecheckRes3 = await nativeSendToolClient.precheck(
-    {
-      to: TEST_RECIPIENT,
-      amount: TEST_AMOUNT,
-    },
-    {
-      delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-    }
-  );
+  // // ----------------------------------------
+  // // Test 3: Third send should fail (limit exceeded)
+  // // ----------------------------------------
+  // console.log("(PRECHECK-TEST-3) Third send (should fail - limit exceeded)");
+  // const nativeSendPrecheckRes3 = await nativeSendToolClient.precheck(
+  //   {
+  //     to: TEST_RECIPIENT,
+  //     amount: TEST_AMOUNT,
+  //   },
+  //   {
+  //     delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+  //   }
+  // );
 
-  console.log("(PRECHECK-RES[3]): ", nativeSendPrecheckRes3);
+  // console.log("(PRECHECK-RES[3]): ", nativeSendPrecheckRes3);
 
-  if (nativeSendPrecheckRes3.success) {
-    console.log(
-      "✅ (PRECHECK-TEST-3) Third precheck succeeded (expected - precheck only validates tool parameters)"
-    );
+  // if (nativeSendPrecheckRes3.success) {
+  //   console.log(
+  //     "✅ (PRECHECK-TEST-3) Third precheck succeeded (expected - precheck only validates tool parameters)"
+  //   );
 
-    // Test if execution is properly blocked by policy
-    console.log(
-      "🧪 (EXECUTE-TEST-3) Testing if execution is blocked by policy (this is where enforcement happens)..."
-    );
+  //   // Test if execution is properly blocked by policy
+  //   console.log(
+  //     "🧪 (EXECUTE-TEST-3) Testing if execution is blocked by policy (this is where enforcement happens)..."
+  //   );
 
-    const executeRes3 = await nativeSendToolClient.execute(
-      {
-        to: TEST_RECIPIENT,
-        amount: TEST_AMOUNT,
-      },
-      {
-        delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-      }
-    );
+  //   const executeRes3 = await nativeSendToolClient.execute(
+  //     {
+  //       to: TEST_RECIPIENT,
+  //       amount: TEST_AMOUNT,
+  //     },
+  //     {
+  //       delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+  //     }
+  //   );
 
-    console.log("(EXECUTE-RES[3]): ", executeRes3);
+  //   console.log("(EXECUTE-RES[3]): ", executeRes3);
 
-    if (executeRes3.success) {
-      throw new Error(
-        "❌ (EXECUTE-TEST-3) CRITICAL: Third execution should have been blocked by policy but succeeded!"
-      );
-    } else {
-      console.log(
-        "✅ (EXECUTE-TEST-3) PERFECT: Third execution correctly blocked by send limit policy!"
-      );
-      console.log(
-        "🎉 (EXECUTE-TEST-3) SEND LIMIT POLICY SYSTEM WORKING CORRECTLY!"
-      );
-      console.log(
-        "📊 (EXECUTE-TEST-3) Policy properly enforced: 2 sends allowed, 3rd send blocked"
-      );
-    }
-  } else {
-    console.log(
-      "🟨 (PRECHECK-TEST-3) Third send precheck failed (unexpected but also fine)"
-    );
-    console.log("🎉 (PRECHECK-TEST-3) POLICY ENFORCEMENT WORKING!");
-  }
+  //   if (executeRes3.success) {
+  //     throw new Error(
+  //       "❌ (EXECUTE-TEST-3) CRITICAL: Third execution should have been blocked by policy but succeeded!"
+  //     );
+  //   } else {
+  //     console.log(
+  //       "✅ (EXECUTE-TEST-3) PERFECT: Third execution correctly blocked by send limit policy!"
+  //     );
+  //     console.log(
+  //       "🎉 (EXECUTE-TEST-3) SEND LIMIT POLICY SYSTEM WORKING CORRECTLY!"
+  //     );
+  //     console.log(
+  //       "📊 (EXECUTE-TEST-3) Policy properly enforced: 2 sends allowed, 3rd send blocked"
+  //     );
+  //   }
+  // } else {
+  //   console.log(
+  //     "🟨 (PRECHECK-TEST-3) Third send precheck failed (unexpected but also fine)"
+  //   );
+  //   console.log("🎉 (PRECHECK-TEST-3) POLICY ENFORCEMENT WORKING!");
+  // }
 
   // ========================================
   // WETH Funding Setup for AAVE Testing
@@ -502,9 +502,7 @@ import { ethers } from "ethers";
 
       if (aaveSupplyExecuteRes.success) {
         console.log("✅ (AAVE-STEP-1) WETH supply completed successfully!");
-        console.log(
-          `   Transaction Hash: ${(aaveSupplyExecuteRes as any).txHash}`
-        );
+        console.log(`   Tx hash: ${aaveSupplyExecuteRes.result.txHash}`);
       } else {
         console.log(
           "❌ (AAVE-STEP-1) WETH supply failed:",
@@ -723,24 +721,6 @@ import { ethers } from "ethers";
       error.message
     );
   }
-
-  console.log("🎉 AAVE Complete DeFi Workflow Testing Completed!");
-  console.log("");
-  console.log("📊 WORKFLOW SUMMARY:");
-  console.log("   ✅ Step 1: Supply WETH as collateral to AAVE");
-  console.log("   ✅ Step 2: Borrow USDC against WETH collateral");
-  console.log("   ✅ Step 3: Repay USDC debt in full");
-  console.log("   ✅ Step 4: Withdraw WETH collateral");
-  console.log("");
-  console.log("🔧 INTEGRATION STATUS:");
-  console.log("   - AAVE v3 protocol integration: Complete");
-  console.log("   - Vincent framework integration: Complete");
-  console.log("   - Sepolia testnet configuration: Complete");
-  console.log("   - Complete DeFi workflow: Implemented");
-  console.log("");
-  console.log("💡 NEXT STEPS:");
-  console.log("   - Configure Vincent framework for Sepolia provider");
-  console.log("   - Execute real transactions on Sepolia testnet");
 
   process.exit();
 })();

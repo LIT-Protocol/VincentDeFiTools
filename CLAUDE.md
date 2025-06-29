@@ -13,7 +13,7 @@ This is a **Vincent Scaffold SDK** monorepo for building blockchain tools and po
 ```bash
 npm run vincent:hardreset         # Reset all state and rebuild
 npm run vincent:build              # Build all tools and policies
-npm run vincent:e2e:reset         # Reset E2E test state only
+npm run vincent:e2e:reset         # Reset E2E test state.  Run this after adding a new tool or policy.
 npm run vincent:e2e               # Run native transfer E2E tests
 npm run vincent:e2e:erc20         # Run ERC-20 transfer E2E tests
 ```

@@ -251,7 +251,7 @@ async function executeSupply(
 
   // First, we need to approve the AAVE Pool to spend the tokens
   const parsedAmount = parseAmount(amount);
-  const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
+  const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
 
   // Approve tokens for AAVE Pool
   const approveTxHash = await laUtils.transaction.handler.contractCall({
@@ -298,7 +298,7 @@ async function executeWithdraw(
   );
 
   const parsedAmount = parseAmount(amount);
-  const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
+  const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
 
   const txHash = await laUtils.transaction.handler.contractCall({
     provider,
@@ -329,7 +329,7 @@ async function executeBorrow(
   );
 
   const parsedAmount = parseAmount(amount);
-  const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
+  const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
 
   const txHash = await laUtils.transaction.handler.contractCall({
     provider,
@@ -360,7 +360,7 @@ async function executeRepay(
   );
 
   const parsedAmount = parseAmount(amount);
-  const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
+  const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
 
   // First, approve the tokens for repayment
   const approveTxHash = await laUtils.transaction.handler.contractCall({

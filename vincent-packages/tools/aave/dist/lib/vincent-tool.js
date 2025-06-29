@@ -137,7 +137,7 @@ async function executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf) 
     console.log("[@lit-protocol/vincent-tool-aave/executeSupply] Starting supply operation");
     // First, we need to approve the AAVE Pool to spend the tokens
     const parsedAmount = parseAmount(amount);
-    const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
+    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
     // Approve tokens for AAVE Pool
     const approveTxHash = await laUtils.transaction.handler.contractCall({
         provider,
@@ -167,7 +167,7 @@ async function executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf) 
 async function executeWithdraw(provider, pkpPublicKey, asset, amount, to) {
     console.log("[@lit-protocol/vincent-tool-aave/executeWithdraw] Starting withdraw operation");
     const parsedAmount = parseAmount(amount);
-    const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
+    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
     const txHash = await laUtils.transaction.handler.contractCall({
         provider,
         pkpPublicKey,
@@ -185,7 +185,7 @@ async function executeWithdraw(provider, pkpPublicKey, asset, amount, to) {
 async function executeBorrow(provider, pkpPublicKey, asset, amount, interestRateMode, onBehalfOf) {
     console.log("[@lit-protocol/vincent-tool-aave/executeBorrow] Starting borrow operation");
     const parsedAmount = parseAmount(amount);
-    const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
+    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
     const txHash = await laUtils.transaction.handler.contractCall({
         provider,
         pkpPublicKey,
@@ -203,7 +203,7 @@ async function executeBorrow(provider, pkpPublicKey, asset, amount, interestRate
 async function executeRepay(provider, pkpPublicKey, asset, amount, rateMode, onBehalfOf) {
     console.log("[@lit-protocol/vincent-tool-aave/executeRepay] Starting repay operation");
     const parsedAmount = parseAmount(amount);
-    const callerAddress = ethers.utils.computeAddress("0x" + pkpPublicKey);
+    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
     // First, approve the tokens for repayment
     const approveTxHash = await laUtils.transaction.handler.contractCall({
         provider,
