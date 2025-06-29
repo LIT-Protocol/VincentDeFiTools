@@ -454,13 +454,14 @@ function printTestSummary() {
         operation: "supply",
         asset: TEST_WETH_ADDRESS,
         amount: WETH_SUPPLY_AMOUNT,
+        chain: "sepolia",
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
       }
     );
 
-    console.log("(AAVE-PRECHECK-SUPPLY): ", aaveSupplyPrecheckRes);
+    console.log("(AAVE-PRECHECK-SUPPLY): ", JSON.stringify(aaveSupplyPrecheckRes, null, 2));
 
     if (aaveSupplyPrecheckRes.success) {
       console.log("✅ (AAVE-PRECHECK-SUPPLY) WETH supply precheck passed");
@@ -473,13 +474,14 @@ function printTestSummary() {
           operation: "supply",
           asset: TEST_WETH_ADDRESS,
           amount: WETH_SUPPLY_AMOUNT,
+          chain: "sepolia",
         },
         {
           delegatorPkpEthAddress: agentWalletPkp.ethAddress,
         }
       );
 
-      console.log("(AAVE-EXECUTE-SUPPLY): ", aaveSupplyExecuteRes);
+      console.log("(AAVE-EXECUTE-SUPPLY): ", JSON.stringify(aaveSupplyExecuteRes, null, 2));
 
       if (aaveSupplyExecuteRes.success) {
         console.log("✅ (AAVE-STEP-1) WETH supply completed successfully!");
@@ -569,25 +571,22 @@ function printTestSummary() {
           );
         }
       } else {
-        console.log(
-          "❌ (AAVE-STEP-1) WETH supply failed:",
-          aaveSupplyExecuteRes.error
-        );
-        addTestResult("AAVE Supply WETH", false, aaveSupplyExecuteRes.error);
+        const errorMsg = `Supply execution failed: ${aaveSupplyExecuteRes.error || "Unknown execution error"}`;
+        console.log("❌ (AAVE-STEP-1) WETH supply failed:", errorMsg);
+        console.log("   Full execution response:", JSON.stringify(aaveSupplyExecuteRes, null, 2));
+        addTestResult("AAVE Supply WETH", false, errorMsg);
       }
     } else {
-      console.log(
-        "ℹ️  (AAVE-PRECHECK-SUPPLY) Supply precheck failed:",
-        aaveSupplyPrecheckRes.error
-      );
-      addTestResult("AAVE Supply WETH", false, aaveSupplyPrecheckRes.error);
+      const errorMsg = `Supply precheck failed: ${aaveSupplyPrecheckRes.error || "Unknown precheck error"}`;
+      console.log("❌ (AAVE-PRECHECK-SUPPLY)", errorMsg);
+      console.log("   Full precheck response:", JSON.stringify(aaveSupplyPrecheckRes, null, 2));
+      addTestResult("AAVE Supply WETH", false, errorMsg);
     }
   } catch (error) {
-    console.log(
-      "ℹ️  (AAVE-SUPPLY) Expected error due to network configuration:",
-      error.message
-    );
-    addTestResult("AAVE Supply WETH", false, error.message);
+    const errorMsg = `AAVE Supply operation threw exception: ${error.message || error}`;
+    console.log("❌ (AAVE-SUPPLY) Unexpected error:", errorMsg);
+    console.log("   Error stack:", error.stack);
+    addTestResult("AAVE Supply WETH", false, errorMsg);
   }
 
   // ========================================
@@ -606,13 +605,14 @@ function printTestSummary() {
         asset: TEST_USDC_ADDRESS,
         amount: USDC_BORROW_AMOUNT,
         interestRateMode: 2, // Variable rate
+        chain: "sepolia",
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
       }
     );
 
-    console.log("(AAVE-PRECHECK-BORROW): ", aaveBorrowPrecheckRes);
+    console.log("(AAVE-PRECHECK-BORROW): ", JSON.stringify(aaveBorrowPrecheckRes, null, 2));
 
     if (aaveBorrowPrecheckRes.success) {
       console.log("✅ (AAVE-PRECHECK-BORROW) USDC borrow precheck passed");
@@ -626,13 +626,14 @@ function printTestSummary() {
           asset: TEST_USDC_ADDRESS,
           amount: USDC_BORROW_AMOUNT,
           interestRateMode: 2, // Variable rate
+          chain: "sepolia",
         },
         {
           delegatorPkpEthAddress: agentWalletPkp.ethAddress,
         }
       );
 
-      console.log("(AAVE-EXECUTE-BORROW): ", aaveBorrowExecuteRes);
+      console.log("(AAVE-EXECUTE-BORROW): ", JSON.stringify(aaveBorrowExecuteRes, null, 2));
 
       if (aaveBorrowExecuteRes.success) {
         console.log("✅ (AAVE-STEP-2) USDC borrow completed successfully!");
@@ -733,25 +734,22 @@ function printTestSummary() {
           );
         }
       } else {
-        console.log(
-          "❌ (AAVE-STEP-2) USDC borrow failed:",
-          aaveBorrowExecuteRes.error
-        );
-        addTestResult("AAVE Borrow USDC", false, aaveBorrowExecuteRes.error);
+        const errorMsg = `Borrow execution failed: ${aaveBorrowExecuteRes.error || "Unknown execution error"}`;
+        console.log("❌ (AAVE-STEP-2) USDC borrow failed:", errorMsg);
+        console.log("   Full execution response:", JSON.stringify(aaveBorrowExecuteRes, null, 2));
+        addTestResult("AAVE Borrow USDC", false, errorMsg);
       }
     } else {
-      console.log(
-        "ℹ️  (AAVE-PRECHECK-BORROW) Borrow precheck failed:",
-        aaveBorrowPrecheckRes.error
-      );
-      addTestResult("AAVE Borrow USDC", false, aaveBorrowPrecheckRes.error);
+      const errorMsg = `Borrow precheck failed: ${aaveBorrowPrecheckRes.error || "Unknown precheck error"}`;
+      console.log("❌ (AAVE-PRECHECK-BORROW)", errorMsg);
+      console.log("   Full precheck response:", JSON.stringify(aaveBorrowPrecheckRes, null, 2));
+      addTestResult("AAVE Borrow USDC", false, errorMsg);
     }
   } catch (error) {
-    console.log(
-      "ℹ️  (AAVE-BORROW) Expected error due to network configuration:",
-      error.message
-    );
-    addTestResult("AAVE Borrow USDC", false, error.message);
+    const errorMsg = `AAVE Borrow operation threw exception: ${error.message || error}`;
+    console.log("❌ (AAVE-BORROW) Unexpected error:", errorMsg);
+    console.log("   Error stack:", error.stack);
+    addTestResult("AAVE Borrow USDC", false, errorMsg);
   }
 
   // ========================================
@@ -770,13 +768,14 @@ function printTestSummary() {
         asset: TEST_USDC_ADDRESS,
         amount: USDC_REPAY_AMOUNT,
         interestRateMode: 2, // Variable rate
+        chain: "sepolia",
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
       }
     );
 
-    console.log("(AAVE-PRECHECK-REPAY): ", aaveRepayPrecheckRes);
+    console.log("(AAVE-PRECHECK-REPAY): ", JSON.stringify(aaveRepayPrecheckRes, null, 2));
 
     if (aaveRepayPrecheckRes.success) {
       console.log("✅ (AAVE-PRECHECK-REPAY) USDC repay precheck passed");
@@ -790,13 +789,14 @@ function printTestSummary() {
           asset: TEST_USDC_ADDRESS,
           amount: USDC_REPAY_AMOUNT,
           interestRateMode: 2, // Variable rate
+          chain: "sepolia",
         },
         {
           delegatorPkpEthAddress: agentWalletPkp.ethAddress,
         }
       );
 
-      console.log("(AAVE-EXECUTE-REPAY): ", aaveRepayExecuteRes);
+      console.log("(AAVE-EXECUTE-REPAY): ", JSON.stringify(aaveRepayExecuteRes, null, 2));
 
       if (aaveRepayExecuteRes.success) {
         console.log("✅ (AAVE-STEP-3) USDC repay completed successfully!");
@@ -895,25 +895,22 @@ function printTestSummary() {
           );
         }
       } else {
-        console.log(
-          "❌ (AAVE-STEP-3) USDC repay failed:",
-          aaveRepayExecuteRes.error
-        );
-        addTestResult("AAVE Repay USDC", false, aaveRepayExecuteRes.error);
+        const errorMsg = `Repay execution failed: ${aaveRepayExecuteRes.error || "Unknown execution error"}`;
+        console.log("❌ (AAVE-STEP-3) USDC repay failed:", errorMsg);
+        console.log("   Full execution response:", JSON.stringify(aaveRepayExecuteRes, null, 2));
+        addTestResult("AAVE Repay USDC", false, errorMsg);
       }
     } else {
-      console.log(
-        "ℹ️  (AAVE-PRECHECK-REPAY) Repay precheck failed:",
-        aaveRepayPrecheckRes.error
-      );
-      addTestResult("AAVE Repay USDC", false, aaveRepayPrecheckRes.error);
+      const errorMsg = `Repay precheck failed: ${aaveRepayPrecheckRes.error || "Unknown precheck error"}`;
+      console.log("❌ (AAVE-PRECHECK-REPAY)", errorMsg);
+      console.log("   Full precheck response:", JSON.stringify(aaveRepayPrecheckRes, null, 2));
+      addTestResult("AAVE Repay USDC", false, errorMsg);
     }
   } catch (error) {
-    console.log(
-      "ℹ️  (AAVE-REPAY) Expected error due to network configuration:",
-      error.message
-    );
-    addTestResult("AAVE Repay USDC", false, error.message);
+    const errorMsg = `AAVE Repay operation threw exception: ${error.message || error}`;
+    console.log("❌ (AAVE-REPAY) Unexpected error:", errorMsg);
+    console.log("   Error stack:", error.stack);
+    addTestResult("AAVE Repay USDC", false, errorMsg);
   }
 
   // ========================================
@@ -931,13 +928,14 @@ function printTestSummary() {
         operation: "withdraw",
         asset: TEST_WETH_ADDRESS,
         amount: WETH_WITHDRAW_AMOUNT,
+        chain: "sepolia",
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
       }
     );
 
-    console.log("(AAVE-PRECHECK-WITHDRAW): ", aaveWithdrawPrecheckRes);
+    console.log("(AAVE-PRECHECK-WITHDRAW): ", JSON.stringify(aaveWithdrawPrecheckRes, null, 2));
 
     if (aaveWithdrawPrecheckRes.success) {
       console.log("✅ (AAVE-PRECHECK-WITHDRAW) WETH withdraw precheck passed");
@@ -950,13 +948,14 @@ function printTestSummary() {
           operation: "withdraw",
           asset: TEST_WETH_ADDRESS,
           amount: WETH_WITHDRAW_AMOUNT,
+          chain: "sepolia",
         },
         {
           delegatorPkpEthAddress: agentWalletPkp.ethAddress,
         }
       );
 
-      console.log("(AAVE-EXECUTE-WITHDRAW): ", aaveWithdrawExecuteRes);
+      console.log("(AAVE-EXECUTE-WITHDRAW): ", JSON.stringify(aaveWithdrawExecuteRes, null, 2));
 
       if (aaveWithdrawExecuteRes.success) {
         console.log("✅ (AAVE-STEP-4) WETH withdraw completed successfully!");
@@ -1049,29 +1048,22 @@ function printTestSummary() {
           );
         }
       } else {
-        console.log(
-          "❌ (AAVE-STEP-4) WETH withdraw failed:",
-          aaveWithdrawExecuteRes.error
-        );
-        addTestResult(
-          "AAVE Withdraw WETH",
-          false,
-          aaveWithdrawExecuteRes.error
-        );
+        const errorMsg = `Withdraw execution failed: ${aaveWithdrawExecuteRes.error || "Unknown execution error"}`;
+        console.log("❌ (AAVE-STEP-4) WETH withdraw failed:", errorMsg);
+        console.log("   Full execution response:", JSON.stringify(aaveWithdrawExecuteRes, null, 2));
+        addTestResult("AAVE Withdraw WETH", false, errorMsg);
       }
     } else {
-      console.log(
-        "ℹ️  (AAVE-PRECHECK-WITHDRAW) Withdraw precheck failed:",
-        aaveWithdrawPrecheckRes.error
-      );
-      addTestResult("AAVE Withdraw WETH", false, aaveWithdrawPrecheckRes.error);
+      const errorMsg = `Withdraw precheck failed: ${aaveWithdrawPrecheckRes.error || "Unknown precheck error"}`;
+      console.log("❌ (AAVE-PRECHECK-WITHDRAW)", errorMsg);
+      console.log("   Full precheck response:", JSON.stringify(aaveWithdrawPrecheckRes, null, 2));
+      addTestResult("AAVE Withdraw WETH", false, errorMsg);
     }
   } catch (error) {
-    console.log(
-      "ℹ️  (AAVE-WITHDRAW) Expected error due to network configuration:",
-      error.message
-    );
-    addTestResult("AAVE Withdraw WETH", false, error.message);
+    const errorMsg = `AAVE Withdraw operation threw exception: ${error.message || error}`;
+    console.log("❌ (AAVE-WITHDRAW) Unexpected error:", errorMsg);
+    console.log("   Error stack:", error.stack);
+    addTestResult("AAVE Withdraw WETH", false, errorMsg);
   }
 
   // ========================================
