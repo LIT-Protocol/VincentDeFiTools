@@ -7,7 +7,7 @@ export enum AaveOperation {
   SUPPLY = "supply",
   WITHDRAW = "withdraw",
   BORROW = "borrow",
-  REPAY = "repay"
+  REPAY = "repay",
 }
 
 /**
@@ -21,7 +21,11 @@ export const toolParamsSchema = z.object({
     .regex(/^\d*\.?\d+$/, "Invalid amount format")
     .refine((val) => parseFloat(val) > 0, "Amount must be greater than 0"),
   interestRateMode: z.number().int().min(1).max(2).optional(), // 1 = Stable, 2 = Variable (only for borrow)
-  onBehalfOf: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "Invalid address").optional(),
+  onBehalfOf: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid address")
+    .optional(),
+  chain: z.string(),
 });
 
 /**

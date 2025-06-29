@@ -58,7 +58,7 @@ export const vincentTool = createVincentTool({
     },
     execute: async ({ toolParams }, { succeed, fail, delegation }) => {
         try {
-            const { operation, asset, amount, interestRateMode, onBehalfOf } = toolParams;
+            const { operation, asset, amount, interestRateMode, onBehalfOf, chain } = toolParams;
             console.log("[@lit-protocol/vincent-tool-aave/execute] Executing AAVE Tool", {
                 operation,
                 asset,
@@ -71,7 +71,8 @@ export const vincentTool = createVincentTool({
             try {
                 // For now, try to get the default provider, but this will need configuration
                 // In a real deployment, this would be configured via Vincent SDK settings
-                provider = await laUtils.chain.getYellowstoneProvider();
+                provider = new ethers.providers.JsonRpcProvider(await Lit.Actions.getRpcUrl({ chain }));
+                console.log("provider", provider);
                 console.log("[@lit-protocol/vincent-tool-aave/execute] Using configured provider");
             }
             catch (error) {
