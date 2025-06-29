@@ -4,6 +4,10 @@ import {
   init,
   suppressLitLogs,
 } from "@lit-protocol/vincent-scaffold-sdk/e2e";
+import * as dotenv from "dotenv";
+
+// Load environment variables
+dotenv.config();
 
 // Apply log suppression FIRST, before any imports that might trigger logs
 suppressLitLogs(true);
@@ -279,8 +283,7 @@ function printTestSummary() {
 
     // Create Sepolia provider for WETH operations
     const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-      process.env.ETH_SEPOLIA_RPC_URL ||
-        "https://sepolia.infura.io/v3/your-project-id"
+      process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
     );
 
     // Create funder wallet using private key
@@ -366,8 +369,7 @@ function printTestSummary() {
     
     // Create Sepolia provider for balance checking
     const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-      process.env.ETH_SEPOLIA_RPC_URL ||
-        "https://sepolia.infura.io/v3/your-project-id"
+      process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
     );
     
     // WETH contract for balance checking
@@ -460,14 +462,28 @@ function printTestSummary() {
         console.log("✅ (AAVE-STEP-1) WETH supply completed successfully!");
         console.log(`   Tx hash: ${aaveSupplyExecuteRes.result.txHash}`);
         
+        // Wait for transaction confirmation
+        try {
+          console.log("⏳ Waiting for supply transaction confirmation...");
+          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+          );
+          
+          const receipt = await sepoliaProvider.waitForTransaction(aaveSupplyExecuteRes.result.txHash, 1, 180000); // 1 confirmation, 3 minute timeout
+          console.log(`   ✅ Supply transaction confirmed in block ${receipt.blockNumber}`);
+        } catch (confirmError) {
+          console.log("⚠️  Transaction confirmation failed, proceeding anyway:", confirmError.message);
+          // Add a small delay to let the transaction potentially propagate
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+        
         // Verify balance after supply
         try {
           console.log("🔍 Verifying WETH balance after supply...");
           
           // Create Sepolia provider for balance checking
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/your-project-id"
+            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
           
           // WETH contract for balance checking
@@ -572,8 +588,23 @@ function printTestSummary() {
       if (aaveBorrowExecuteRes.success) {
         console.log("✅ (AAVE-STEP-2) USDC borrow completed successfully!");
         console.log(
-          `   Transaction Hash: ${(aaveBorrowExecuteRes as any).txHash}`
+          `   Transaction Hash: ${aaveBorrowExecuteRes.result.txHash}`
         );
+        
+        // Wait for transaction confirmation
+        try {
+          console.log("⏳ Waiting for borrow transaction confirmation...");
+          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+          );
+          
+          const receipt = await sepoliaProvider.waitForTransaction(aaveBorrowExecuteRes.result.txHash, 1, 180000); // 1 confirmation, 3 minute timeout
+          console.log(`   ✅ Borrow transaction confirmed in block ${receipt.blockNumber}`);
+        } catch (confirmError) {
+          console.log("⚠️  Transaction confirmation failed, proceeding anyway:", confirmError.message);
+          // Add a small delay to let the transaction potentially propagate
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
         
         // Verify USDC balance after borrow
         try {
@@ -581,8 +612,7 @@ function printTestSummary() {
           
           // Create Sepolia provider for balance checking
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/your-project-id"
+            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
           
           // USDC contract for balance checking
@@ -689,8 +719,23 @@ function printTestSummary() {
       if (aaveRepayExecuteRes.success) {
         console.log("✅ (AAVE-STEP-3) USDC repay completed successfully!");
         console.log(
-          `   Transaction Hash: ${(aaveRepayExecuteRes as any).txHash}`
+          `   Transaction Hash: ${aaveRepayExecuteRes.result.txHash}`
         );
+        
+        // Wait for transaction confirmation
+        try {
+          console.log("⏳ Waiting for repay transaction confirmation...");
+          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+          );
+          
+          const receipt = await sepoliaProvider.waitForTransaction(aaveRepayExecuteRes.result.txHash, 1, 180000); // 1 confirmation, 3 minute timeout
+          console.log(`   ✅ Repay transaction confirmed in block ${receipt.blockNumber}`);
+        } catch (confirmError) {
+          console.log("⚠️  Transaction confirmation failed, proceeding anyway:", confirmError.message);
+          // Add a small delay to let the transaction potentially propagate
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
         
         // Verify USDC balance after repay
         try {
@@ -698,8 +743,7 @@ function printTestSummary() {
           
           // Create Sepolia provider for balance checking
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/your-project-id"
+            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
           
           // USDC contract for balance checking
@@ -803,8 +847,23 @@ function printTestSummary() {
       if (aaveWithdrawExecuteRes.success) {
         console.log("✅ (AAVE-STEP-4) WETH withdraw completed successfully!");
         console.log(
-          `   Transaction Hash: ${(aaveWithdrawExecuteRes as any).txHash}`
+          `   Transaction Hash: ${aaveWithdrawExecuteRes.result.txHash}`
         );
+        
+        // Wait for transaction confirmation
+        try {
+          console.log("⏳ Waiting for withdraw transaction confirmation...");
+          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+          );
+          
+          const receipt = await sepoliaProvider.waitForTransaction(aaveWithdrawExecuteRes.result.txHash, 1, 180000); // 1 confirmation, 3 minute timeout
+          console.log(`   ✅ Withdraw transaction confirmed in block ${receipt.blockNumber}`);
+        } catch (confirmError) {
+          console.log("⚠️  Transaction confirmation failed, proceeding anyway:", confirmError.message);
+          // Add a small delay to let the transaction potentially propagate
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
         
         // Verify WETH balance after withdraw
         try {
@@ -812,8 +871,7 @@ function printTestSummary() {
           
           // Create Sepolia provider for balance checking
           const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/your-project-id"
+            process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
           );
           
           // WETH contract for balance checking
