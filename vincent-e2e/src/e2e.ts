@@ -351,13 +351,73 @@ function printTestSummary() {
     "📋 Workflow: Supply WETH → Borrow USDC → Repay USDC → Withdraw WETH"
   );
 
+  // Define constants for AAVE workflow
+  const TEST_USDC_ADDRESS = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC on Sepolia
+  const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
+  const USDC_BORROW_AMOUNT = "1.0"; // 1 USDC
+  
+  // Store initial balances for comparison throughout the workflow
+  let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);
+  let initialUsdcBalance: ethers.BigNumber = ethers.BigNumber.from(0);
+  
+  // Test: Initial Balance Check
+  try {
+    console.log("🔍 Recording initial token balances...");
+    
+    // Create Sepolia provider for balance checking
+    const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+      process.env.ETH_SEPOLIA_RPC_URL ||
+        "https://sepolia.infura.io/v3/your-project-id"
+    );
+    
+    // WETH contract for balance checking
+    const wethAbi = [
+      "function balanceOf(address account) view returns (uint256)",
+    ];
+    const wethContract = new ethers.Contract(
+      TEST_WETH_ADDRESS,
+      wethAbi,
+      sepoliaProvider
+    );
+    
+    // USDC contract for balance checking
+    const usdcAbi = [
+      "function balanceOf(address account) view returns (uint256)",
+      "function decimals() view returns (uint8)",
+    ];
+    const usdcContract = new ethers.Contract(
+      TEST_USDC_ADDRESS,
+      usdcAbi,
+      sepoliaProvider
+    );
+    
+    // Get initial balances
+    initialWethBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+    initialUsdcBalance = await usdcContract.balanceOf(agentWalletPkp.ethAddress);
+    const usdcDecimals = await usdcContract.decimals();
+    
+    const initialWethFormatted = ethers.utils.formatEther(initialWethBalance);
+    const initialUsdcFormatted = ethers.utils.formatUnits(initialUsdcBalance, usdcDecimals);
+    
+    console.log(`   Initial WETH balance: ${initialWethFormatted} WETH`);
+    console.log(`   Initial USDC balance: ${initialUsdcFormatted} USDC`);
+    
+    // Verify PKP has sufficient WETH for the test
+    const requiredWethBalance = ethers.utils.parseEther(WETH_SUPPLY_AMOUNT);
+    if (initialWethBalance.lt(requiredWethBalance)) {
+      throw new Error(`Insufficient WETH balance. Required: ${WETH_SUPPLY_AMOUNT} WETH, Available: ${initialWethFormatted} WETH`);
+    }
+    
+    addTestResult("Initial Balance Check", true);
+  } catch (error) {
+    console.error("❌ Initial balance check failed:", error.message);
+    addTestResult("Initial Balance Check", false, error.message);
+  }
+
   // ========================================
   // STEP 1: Supply WETH as Collateral
   // ========================================
   console.log("(AAVE-STEP-1) Supply WETH as collateral");
-
-  const TEST_USDC_ADDRESS = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC on Sepolia
-  const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
 
   console.log(`   Supplying ${WETH_SUPPLY_AMOUNT} WETH as collateral`);
   console.log(`   WETH Address: ${TEST_WETH_ADDRESS}`);
@@ -399,7 +459,50 @@ function printTestSummary() {
       if (aaveSupplyExecuteRes.success) {
         console.log("✅ (AAVE-STEP-1) WETH supply completed successfully!");
         console.log(`   Tx hash: ${aaveSupplyExecuteRes.result.txHash}`);
-        addTestResult("AAVE Supply WETH", true);
+        
+        // Verify balance after supply
+        try {
+          console.log("🔍 Verifying WETH balance after supply...");
+          
+          // Create Sepolia provider for balance checking
+          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/your-project-id"
+          );
+          
+          // WETH contract for balance checking
+          const wethAbi = [
+            "function balanceOf(address account) view returns (uint256)",
+          ];
+          const wethContract = new ethers.Contract(
+            TEST_WETH_ADDRESS,
+            wethAbi,
+            sepoliaProvider
+          );
+          
+          const postSupplyBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+          const postSupplyBalanceFormatted = ethers.utils.formatEther(postSupplyBalance);
+          console.log(`   Post-supply WETH balance: ${postSupplyBalanceFormatted} WETH`);
+          
+          // Expected: balance should be reduced by the supplied amount
+          const suppliedAmount = ethers.utils.parseEther(WETH_SUPPLY_AMOUNT);
+          const expectedBalance = initialWethBalance.sub(suppliedAmount);
+          const expectedBalanceFormatted = ethers.utils.formatEther(expectedBalance);
+          
+          console.log(`   Expected WETH balance: ${expectedBalanceFormatted} WETH`);
+          
+          if (postSupplyBalance.eq(expectedBalance)) {
+            console.log("✅ WETH balance correctly reduced after supply");
+            addTestResult("AAVE Supply WETH", true);
+          } else {
+            const errorMsg = `Balance mismatch after supply. Expected: ${expectedBalanceFormatted} WETH, Got: ${postSupplyBalanceFormatted} WETH`;
+            console.log(`❌ ${errorMsg}`);
+            addTestResult("AAVE Supply WETH", false, errorMsg);
+          }
+        } catch (balanceError) {
+          console.log("❌ Could not verify balance after supply:", balanceError.message);
+          addTestResult("AAVE Supply WETH", false, `Balance verification failed: ${balanceError.message}`);
+        }
       } else {
         console.log(
           "❌ (AAVE-STEP-1) WETH supply failed:",
@@ -427,7 +530,6 @@ function printTestSummary() {
   // ========================================
   console.log("(AAVE-STEP-2) Borrow USDC against WETH collateral");
 
-  const USDC_BORROW_AMOUNT = "1.0"; // 1 USDC
   console.log(`   Borrowing ${USDC_BORROW_AMOUNT} USDC`);
   console.log(`   USDC Address: ${TEST_USDC_ADDRESS}`);
 
@@ -472,7 +574,52 @@ function printTestSummary() {
         console.log(
           `   Transaction Hash: ${(aaveBorrowExecuteRes as any).txHash}`
         );
-        addTestResult("AAVE Borrow USDC", true);
+        
+        // Verify USDC balance after borrow
+        try {
+          console.log("🔍 Verifying USDC balance after borrow...");
+          
+          // Create Sepolia provider for balance checking
+          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/your-project-id"
+          );
+          
+          // USDC contract for balance checking
+          const usdcAbi = [
+            "function balanceOf(address account) view returns (uint256)",
+            "function decimals() view returns (uint8)",
+          ];
+          const usdcContract = new ethers.Contract(
+            TEST_USDC_ADDRESS,
+            usdcAbi,
+            sepoliaProvider
+          );
+          
+          const postBorrowBalance = await usdcContract.balanceOf(agentWalletPkp.ethAddress);
+          const decimals = await usdcContract.decimals();
+          const postBorrowBalanceFormatted = ethers.utils.formatUnits(postBorrowBalance, decimals);
+          console.log(`   Post-borrow USDC balance: ${postBorrowBalanceFormatted} USDC`);
+          
+          // Expected: balance should be increased by borrowed amount
+          const borrowedAmount = ethers.utils.parseUnits(USDC_BORROW_AMOUNT, decimals);
+          const expectedBalance = initialUsdcBalance.add(borrowedAmount);
+          const expectedBalanceFormatted = ethers.utils.formatUnits(expectedBalance, decimals);
+          
+          console.log(`   Expected USDC balance: ${expectedBalanceFormatted} USDC`);
+          
+          if (postBorrowBalance.eq(expectedBalance)) {
+            console.log("✅ USDC balance correctly increased after borrow");
+            addTestResult("AAVE Borrow USDC", true);
+          } else {
+            const errorMsg = `Balance mismatch after borrow. Expected: ${expectedBalanceFormatted} USDC, Got: ${postBorrowBalanceFormatted} USDC`;
+            console.log(`❌ ${errorMsg}`);
+            addTestResult("AAVE Borrow USDC", false, errorMsg);
+          }
+        } catch (balanceError) {
+          console.log("❌ Could not verify balance after borrow:", balanceError.message);
+          addTestResult("AAVE Borrow USDC", false, `Balance verification failed: ${balanceError.message}`);
+        }
       } else {
         console.log(
           "❌ (AAVE-STEP-2) USDC borrow failed:",
@@ -544,7 +691,51 @@ function printTestSummary() {
         console.log(
           `   Transaction Hash: ${(aaveRepayExecuteRes as any).txHash}`
         );
-        addTestResult("AAVE Repay USDC", true);
+        
+        // Verify USDC balance after repay
+        try {
+          console.log("🔍 Verifying USDC balance after repay...");
+          
+          // Create Sepolia provider for balance checking
+          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/your-project-id"
+          );
+          
+          // USDC contract for balance checking
+          const usdcAbi = [
+            "function balanceOf(address account) view returns (uint256)",
+            "function decimals() view returns (uint8)",
+          ];
+          const usdcContract = new ethers.Contract(
+            TEST_USDC_ADDRESS,
+            usdcAbi,
+            sepoliaProvider
+          );
+          
+          const postRepayBalance = await usdcContract.balanceOf(agentWalletPkp.ethAddress);
+          const decimals = await usdcContract.decimals();
+          const postRepayBalanceFormatted = ethers.utils.formatUnits(postRepayBalance, decimals);
+          console.log(`   Post-repay USDC balance: ${postRepayBalanceFormatted} USDC`);
+          
+          // Expected: balance should return to initial amount (borrowed amount repaid)
+          const expectedBalance = initialUsdcBalance;
+          const expectedBalanceFormatted = ethers.utils.formatUnits(expectedBalance, decimals);
+          
+          console.log(`   Expected USDC balance: ${expectedBalanceFormatted} USDC`);
+          
+          if (postRepayBalance.eq(expectedBalance)) {
+            console.log("✅ USDC balance correctly returned to initial amount after repay");
+            addTestResult("AAVE Repay USDC", true);
+          } else {
+            const errorMsg = `Balance mismatch after repay. Expected: ${expectedBalanceFormatted} USDC, Got: ${postRepayBalanceFormatted} USDC`;
+            console.log(`❌ ${errorMsg}`);
+            addTestResult("AAVE Repay USDC", false, errorMsg);
+          }
+        } catch (balanceError) {
+          console.log("❌ Could not verify balance after repay:", balanceError.message);
+          addTestResult("AAVE Repay USDC", false, `Balance verification failed: ${balanceError.message}`);
+        }
       } else {
         console.log(
           "❌ (AAVE-STEP-3) USDC repay failed:",
@@ -614,7 +805,49 @@ function printTestSummary() {
         console.log(
           `   Transaction Hash: ${(aaveWithdrawExecuteRes as any).txHash}`
         );
-        addTestResult("AAVE Withdraw WETH", true);
+        
+        // Verify WETH balance after withdraw
+        try {
+          console.log("🔍 Verifying WETH balance after withdraw...");
+          
+          // Create Sepolia provider for balance checking
+          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+            process.env.ETH_SEPOLIA_RPC_URL ||
+              "https://sepolia.infura.io/v3/your-project-id"
+          );
+          
+          // WETH contract for balance checking
+          const wethAbi = [
+            "function balanceOf(address account) view returns (uint256)",
+          ];
+          const wethContract = new ethers.Contract(
+            TEST_WETH_ADDRESS,
+            wethAbi,
+            sepoliaProvider
+          );
+          
+          const postWithdrawBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+          const postWithdrawBalanceFormatted = ethers.utils.formatEther(postWithdrawBalance);
+          console.log(`   Post-withdraw WETH balance: ${postWithdrawBalanceFormatted} WETH`);
+          
+          // Expected: balance should return to initial amount (collateral withdrawn)
+          const expectedBalance = initialWethBalance;
+          const expectedBalanceFormatted = ethers.utils.formatEther(expectedBalance);
+          
+          console.log(`   Expected WETH balance: ${expectedBalanceFormatted} WETH`);
+          
+          if (postWithdrawBalance.eq(expectedBalance)) {
+            console.log("✅ WETH balance correctly returned to initial amount after withdraw");
+            addTestResult("AAVE Withdraw WETH", true);
+          } else {
+            const errorMsg = `Balance mismatch after withdraw. Expected: ${expectedBalanceFormatted} WETH, Got: ${postWithdrawBalanceFormatted} WETH`;
+            console.log(`❌ ${errorMsg}`);
+            addTestResult("AAVE Withdraw WETH", false, errorMsg);
+          }
+        } catch (balanceError) {
+          console.log("❌ Could not verify balance after withdraw:", balanceError.message);
+          addTestResult("AAVE Withdraw WETH", false, `Balance verification failed: ${balanceError.message}`);
+        }
       } else {
         console.log(
           "❌ (AAVE-STEP-4) WETH withdraw failed:",
