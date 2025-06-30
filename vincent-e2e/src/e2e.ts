@@ -594,6 +594,7 @@ function printTestSummary() {
         asset: TEST_WETH_ADDRESS,
         amount: WETH_SUPPLY_AMOUNT,
         rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
+        chain: "sepolia",
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -752,6 +753,7 @@ function printTestSummary() {
         amount: USDC_BORROW_AMOUNT,
         interestRateMode: 2, // Variable rate
         rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
+        chain: "sepolia",
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -998,6 +1000,7 @@ function printTestSummary() {
         asset: TEST_USDC_ADDRESS,
         amount: USDC_REPAY_AMOUNT,
         interestRateMode: 2, // Variable rate
+        chain: "sepolia",
         rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
       },
       {
@@ -1167,6 +1170,7 @@ function printTestSummary() {
         asset: TEST_WETH_ADDRESS,
         amount: WETH_WITHDRAW_AMOUNT,
         rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
+        chain: "sepolia",
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
