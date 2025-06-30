@@ -272,35 +272,7 @@ async function executeSupply(
     "[@lit-protocol/vincent-tool-aave/executeSupply] Starting supply operation"
   );
 
-  // First, we need to approve the AAVE Pool to spend the tokens
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
-
-  // Approve tokens for AAVE Pool
-  const approveTxHash = await laUtils.transaction.handler.contractCall({
-    provider,
-    pkpPublicKey,
-    callerAddress,
-    abi: ERC20_ABI,
-    contractAddress: asset,
-    functionName: "approve",
-    args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, amount],
-    chainId,
-  });
-
-  console.log(
-    "[@lit-protocol/vincent-tool-aave/executeSupply] Approval tx:",
-    approveTxHash
-  );
-
-  // Wait for approval transaction confirmation
-  console.log(
-    "[@lit-protocol/vincent-tool-aave/executeSupply] Waiting for approval confirmation..."
-  );
-  const approvalReceipt = await provider.waitForTransaction(approveTxHash);
-  console.log(
-    "[@lit-protocol/vincent-tool-aave/executeSupply] Approval confirmed in block:",
-    approvalReceipt.blockNumber
-  );
 
   // Now supply to AAVE
   const txHash = await laUtils.transaction.handler.contractCall({
@@ -397,23 +369,6 @@ async function executeRepay(
   );
 
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
-
-  // // First, approve the tokens for repayment
-  // const approveTxHash = await laUtils.transaction.handler.contractCall({
-  //   provider,
-  //   pkpPublicKey,
-  //   callerAddress,
-  //   abi: ERC20_ABI,
-  //   contractAddress: asset,
-  //   functionName: "approve",
-  //   args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, parsedAmount],
-  //   chainId,
-  // });
-
-  // console.log(
-  //   "[@lit-protocol/vincent-tool-aave/executeRepay] Approval tx:",
-  //   approveTxHash
-  // );
 
   // Now repay the debt
   const txHash = await laUtils.transaction.handler.contractCall({

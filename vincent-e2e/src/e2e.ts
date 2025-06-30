@@ -17,7 +17,9 @@ import { getVincentToolClient } from "@lit-protocol/vincent-app-sdk";
 import { vincentPolicyMetadata as sendLimitPolicyMetadata } from "../../vincent-packages/policies/send-counter-limit/dist/index.js";
 import { bundledVincentTool as nativeSendTool } from "../../vincent-packages/tools/native-send/dist/index.js";
 import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aave/dist/index.js";
+import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { ethers } from "ethers";
+import { AAVE_V3_SEPOLIA_ADDRESSES } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
 
 // Test tracking system
 interface TestResult {
@@ -32,7 +34,7 @@ function addTestResult(name: string, passed: boolean, error?: string) {
   testResults.push({ name, passed, error });
   const status = passed ? "✅" : "❌";
   console.log(`${status} TEST: ${name}${error ? ` - ${error}` : ""}`);
-  
+
   // Stop execution immediately if a test fails
   if (!passed) {
     console.log("\n🛑 Test failed - stopping execution");
@@ -92,6 +94,11 @@ function printTestSummary() {
     ethersSigner: accounts.delegatee.ethersWallet,
   });
 
+  const approveToolClient = getVincentToolClient({
+    bundledVincentTool: erc20ApproveTool,
+    ethersSigner: accounts.delegatee.ethersWallet,
+  });
+
   /**
    * ====================================
    * Prepare the IPFS CIDs for the tools and policies
@@ -106,6 +113,7 @@ function printTestSummary() {
         // helloWorldTool.ipfsCid,
         nativeSendTool.ipfsCid,
         aaveTool.ipfsCid,
+        erc20ApproveTool.ipfsCid,
         // ...add more tool IPFS CIDs here
       ],
       toolPolicies: [
@@ -118,21 +126,27 @@ function printTestSummary() {
         [
           // No policies for AAVE tool for now
         ],
+        [
+          // No policies for ERC20 Approval tool
+        ],
       ],
       toolPolicyParameterNames: [
         // [], // No policy parameter names for helloWorldTool
         ["maxSends", "timeWindowSeconds"], // Policy parameter names for nativeSendTool
         [], // No policy parameter names for aaveTool
+        [], // No policy parameter names for approveTool
       ],
       toolPolicyParameterTypes: [
         // [], // No policy parameter types for helloWorldTool
         [PARAMETER_TYPE.UINT256, PARAMETER_TYPE.UINT256], // uint256 types for maxSends and timeWindowSeconds
         [], // No policy parameter types for aaveTool
+        [], // No policy parameter types for approveTool
       ],
       toolPolicyParameterValues: [
         // [], // No policy parameter values for helloWorldTool
         ["2", "10"], // maxSends: 2, timeWindowSeconds: 10
         [], // No policy parameter values for aaveTool
+        [], // No policy parameter values for approveTool
       ],
     },
 
@@ -143,6 +157,7 @@ function printTestSummary() {
         [nativeSendTool.ipfsCid]: "Native Send Tool",
         [aaveTool.ipfsCid]: "AAVE Tool",
         [sendLimitPolicyMetadata.ipfsCid]: "Send Limit Policy",
+        [erc20ApproveTool.ipfsCid]: "ERC20 Approval Tool",
       },
       debug: true,
     }
@@ -157,6 +172,7 @@ function printTestSummary() {
     // helloWorldTool.ipfsCid,
     nativeSendTool.ipfsCid,
     aaveTool.ipfsCid,
+    erc20ApproveTool.ipfsCid,
     sendLimitPolicyMetadata.ipfsCid,
   ];
 
@@ -396,9 +412,16 @@ function printTestSummary() {
     const currentEthBalance = await sepoliaProvider.getBalance(
       agentWalletPkp.ethAddress
     );
-    const currentEthBalanceFormatted = ethers.utils.formatEther(currentEthBalance);
-    console.log(`   Current PKP ETH balance: ${currentEthBalanceFormatted} ETH`);
-    console.log(`   Required ETH balance threshold: ${ethers.utils.formatEther(REQUIRED_ETH_BALANCE)} ETH`);
+    const currentEthBalanceFormatted =
+      ethers.utils.formatEther(currentEthBalance);
+    console.log(
+      `   Current PKP ETH balance: ${currentEthBalanceFormatted} ETH`
+    );
+    console.log(
+      `   Required ETH balance threshold: ${ethers.utils.formatEther(
+        REQUIRED_ETH_BALANCE
+      )} ETH`
+    );
 
     if (currentEthBalance.gte(REQUIRED_ETH_BALANCE)) {
       console.log(
@@ -524,6 +547,70 @@ function printTestSummary() {
   }
 
   // ========================================
+  // ERC20 Approval for WETH (required for AAVE Supply)
+  // ========================================
+  console.log("🛂 Approving WETH for AAVE supply via ERC20 Approval Tool");
+
+  try {
+    const approveWethParams = {
+      chainId: 11155111, // Sepolia
+      tokenAddress: TEST_WETH_ADDRESS,
+      spenderAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+      tokenAmount: ethers.utils.parseEther(WETH_SUPPLY_AMOUNT).toNumber(),
+      tokenDecimals: 18,
+      rpcUrl:
+        process.env.ETH_SEPOLIA_RPC_URL ||
+        "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213",
+    };
+
+    const approveWethPrecheck = await approveToolClient.precheck(
+      approveWethParams,
+      {
+        delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+      }
+    );
+
+    console.log(
+      "(APPROVE-PRECHECK-WETH): ",
+      JSON.stringify(approveWethPrecheck, null, 2)
+    );
+
+    if (approveWethPrecheck.success) {
+      const approveWethExecute = await approveToolClient.execute(
+        approveWethParams,
+        {
+          delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+        }
+      );
+
+      console.log(
+        "(APPROVE-EXECUTE-WETH): ",
+        JSON.stringify(approveWethExecute, null, 2)
+      );
+
+      if (approveWethExecute.success) {
+        console.log("✅ WETH approval executed successfully");
+        addTestResult("ERC20 Approve WETH", true);
+      } else {
+        const errMsg = approveWethExecute.error || "Unknown execution error";
+        console.log("❌ WETH approval execution failed:", errMsg);
+        addTestResult("ERC20 Approve WETH", false, errMsg);
+      }
+    } else {
+      const errMsg = approveWethPrecheck.error || "Unknown precheck error";
+      console.log("❌ WETH approval precheck failed:", errMsg);
+      addTestResult("ERC20 Approve WETH", false, errMsg);
+    }
+  } catch (error) {
+    console.log("❌ WETH approval unexpected error:", error.message || error);
+    addTestResult(
+      "ERC20 Approve WETH",
+      false,
+      error.message || error.toString()
+    );
+  }
+
+  // ========================================
   // STEP 1: Supply WETH as Collateral
   // ========================================
   console.log("(AAVE-STEP-1) Supply WETH as collateral");
@@ -545,7 +632,10 @@ function printTestSummary() {
       }
     );
 
-    console.log("(AAVE-PRECHECK-SUPPLY): ", JSON.stringify(aaveSupplyPrecheckRes, null, 2));
+    console.log(
+      "(AAVE-PRECHECK-SUPPLY): ",
+      JSON.stringify(aaveSupplyPrecheckRes, null, 2)
+    );
 
     if (aaveSupplyPrecheckRes.success) {
       console.log("✅ (AAVE-PRECHECK-SUPPLY) WETH supply precheck passed");
@@ -565,7 +655,10 @@ function printTestSummary() {
         }
       );
 
-      console.log("(AAVE-EXECUTE-SUPPLY): ", JSON.stringify(aaveSupplyExecuteRes, null, 2));
+      console.log(
+        "(AAVE-EXECUTE-SUPPLY): ",
+        JSON.stringify(aaveSupplyExecuteRes, null, 2)
+      );
 
       if (aaveSupplyExecuteRes.success) {
         console.log("✅ (AAVE-STEP-1) WETH supply completed successfully!");
@@ -655,19 +748,31 @@ function printTestSummary() {
           );
         }
       } else {
-        const errorMsg = `Supply execution failed: ${aaveSupplyExecuteRes.error || "Unknown execution error"}`;
+        const errorMsg = `Supply execution failed: ${
+          aaveSupplyExecuteRes.error || "Unknown execution error"
+        }`;
         console.log("❌ (AAVE-STEP-1) WETH supply failed:", errorMsg);
-        console.log("   Full execution response:", JSON.stringify(aaveSupplyExecuteRes, null, 2));
+        console.log(
+          "   Full execution response:",
+          JSON.stringify(aaveSupplyExecuteRes, null, 2)
+        );
         addTestResult("AAVE Supply WETH", false, errorMsg);
       }
     } else {
-      const errorMsg = `Supply precheck failed: ${aaveSupplyPrecheckRes.error || "Unknown precheck error"}`;
+      const errorMsg = `Supply precheck failed: ${
+        aaveSupplyPrecheckRes.error || "Unknown precheck error"
+      }`;
       console.log("❌ (AAVE-PRECHECK-SUPPLY)", errorMsg);
-      console.log("   Full precheck response:", JSON.stringify(aaveSupplyPrecheckRes, null, 2));
+      console.log(
+        "   Full precheck response:",
+        JSON.stringify(aaveSupplyPrecheckRes, null, 2)
+      );
       addTestResult("AAVE Supply WETH", false, errorMsg);
     }
   } catch (error) {
-    const errorMsg = `AAVE Supply operation threw exception: ${error.message || error}`;
+    const errorMsg = `AAVE Supply operation threw exception: ${
+      error.message || error
+    }`;
     console.log("❌ (AAVE-SUPPLY) Unexpected error:", errorMsg);
     console.log("   Error stack:", error.stack);
     addTestResult("AAVE Supply WETH", false, errorMsg);
@@ -696,7 +801,10 @@ function printTestSummary() {
       }
     );
 
-    console.log("(AAVE-PRECHECK-BORROW): ", JSON.stringify(aaveBorrowPrecheckRes, null, 2));
+    console.log(
+      "(AAVE-PRECHECK-BORROW): ",
+      JSON.stringify(aaveBorrowPrecheckRes, null, 2)
+    );
 
     if (aaveBorrowPrecheckRes.success) {
       console.log("✅ (AAVE-PRECHECK-BORROW) USDC borrow precheck passed");
@@ -717,7 +825,10 @@ function printTestSummary() {
         }
       );
 
-      console.log("(AAVE-EXECUTE-BORROW): ", JSON.stringify(aaveBorrowExecuteRes, null, 2));
+      console.log(
+        "(AAVE-EXECUTE-BORROW): ",
+        JSON.stringify(aaveBorrowExecuteRes, null, 2)
+      );
 
       if (aaveBorrowExecuteRes.success) {
         console.log("✅ (AAVE-STEP-2) USDC borrow completed successfully!");
@@ -818,22 +929,96 @@ function printTestSummary() {
           );
         }
       } else {
-        const errorMsg = `Borrow execution failed: ${aaveBorrowExecuteRes.error || "Unknown execution error"}`;
+        const errorMsg = `Borrow execution failed: ${
+          aaveBorrowExecuteRes.error || "Unknown execution error"
+        }`;
         console.log("❌ (AAVE-STEP-2) USDC borrow failed:", errorMsg);
-        console.log("   Full execution response:", JSON.stringify(aaveBorrowExecuteRes, null, 2));
+        console.log(
+          "   Full execution response:",
+          JSON.stringify(aaveBorrowExecuteRes, null, 2)
+        );
         addTestResult("AAVE Borrow USDC", false, errorMsg);
       }
     } else {
-      const errorMsg = `Borrow precheck failed: ${aaveBorrowPrecheckRes.error || "Unknown precheck error"}`;
+      const errorMsg = `Borrow precheck failed: ${
+        aaveBorrowPrecheckRes.error || "Unknown precheck error"
+      }`;
       console.log("❌ (AAVE-PRECHECK-BORROW)", errorMsg);
-      console.log("   Full precheck response:", JSON.stringify(aaveBorrowPrecheckRes, null, 2));
+      console.log(
+        "   Full precheck response:",
+        JSON.stringify(aaveBorrowPrecheckRes, null, 2)
+      );
       addTestResult("AAVE Borrow USDC", false, errorMsg);
     }
   } catch (error) {
-    const errorMsg = `AAVE Borrow operation threw exception: ${error.message || error}`;
+    const errorMsg = `AAVE Borrow operation threw exception: ${
+      error.message || error
+    }`;
     console.log("❌ (AAVE-BORROW) Unexpected error:", errorMsg);
     console.log("   Error stack:", error.stack);
     addTestResult("AAVE Borrow USDC", false, errorMsg);
+  }
+
+  // ========================================
+  // ERC20 Approval for USDC (required for AAVE Repay)
+  // ========================================
+  console.log("🛂 Approving USDC for AAVE repay via ERC20 Approval Tool");
+
+  try {
+    const approveUsdcParams = {
+      chainId: "11155111", // Sepolia
+      tokenIn: TEST_USDC_ADDRESS,
+      amountIn: ethers.utils.parseUnits(USDC_BORROW_AMOUNT, 6).toString(),
+      rpcUrl:
+        process.env.ETH_SEPOLIA_RPC_URL ||
+        "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213",
+    };
+
+    const approveUsdcPrecheck = await approveToolClient.precheck(
+      approveUsdcParams,
+      {
+        delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+      }
+    );
+
+    console.log(
+      "(APPROVE-PRECHECK-USDC): ",
+      JSON.stringify(approveUsdcPrecheck, null, 2)
+    );
+
+    if (approveUsdcPrecheck.success) {
+      const approveUsdcExecute = await approveToolClient.execute(
+        approveUsdcParams,
+        {
+          delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+        }
+      );
+
+      console.log(
+        "(APPROVE-EXECUTE-USDC): ",
+        JSON.stringify(approveUsdcExecute, null, 2)
+      );
+
+      if (approveUsdcExecute.success) {
+        console.log("✅ USDC approval executed successfully");
+        addTestResult("ERC20 Approve USDC", true);
+      } else {
+        const errMsg = approveUsdcExecute.error || "Unknown execution error";
+        console.log("❌ USDC approval execution failed:", errMsg);
+        addTestResult("ERC20 Approve USDC", false, errMsg);
+      }
+    } else {
+      const errMsg = approveUsdcPrecheck.error || "Unknown precheck error";
+      console.log("❌ USDC approval precheck failed:", errMsg);
+      addTestResult("ERC20 Approve USDC", false, errMsg);
+    }
+  } catch (error) {
+    console.log("❌ USDC approval unexpected error:", error.message || error);
+    addTestResult(
+      "ERC20 Approve USDC",
+      false,
+      error.message || error.toString()
+    );
   }
 
   // ========================================
@@ -859,7 +1044,10 @@ function printTestSummary() {
       }
     );
 
-    console.log("(AAVE-PRECHECK-REPAY): ", JSON.stringify(aaveRepayPrecheckRes, null, 2));
+    console.log(
+      "(AAVE-PRECHECK-REPAY): ",
+      JSON.stringify(aaveRepayPrecheckRes, null, 2)
+    );
 
     if (aaveRepayPrecheckRes.success) {
       console.log("✅ (AAVE-PRECHECK-REPAY) USDC repay precheck passed");
@@ -880,7 +1068,10 @@ function printTestSummary() {
         }
       );
 
-      console.log("(AAVE-EXECUTE-REPAY): ", JSON.stringify(aaveRepayExecuteRes, null, 2));
+      console.log(
+        "(AAVE-EXECUTE-REPAY): ",
+        JSON.stringify(aaveRepayExecuteRes, null, 2)
+      );
 
       if (aaveRepayExecuteRes.success) {
         console.log("✅ (AAVE-STEP-3) USDC repay completed successfully!");
@@ -979,19 +1170,31 @@ function printTestSummary() {
           );
         }
       } else {
-        const errorMsg = `Repay execution failed: ${aaveRepayExecuteRes.error || "Unknown execution error"}`;
+        const errorMsg = `Repay execution failed: ${
+          aaveRepayExecuteRes.error || "Unknown execution error"
+        }`;
         console.log("❌ (AAVE-STEP-3) USDC repay failed:", errorMsg);
-        console.log("   Full execution response:", JSON.stringify(aaveRepayExecuteRes, null, 2));
+        console.log(
+          "   Full execution response:",
+          JSON.stringify(aaveRepayExecuteRes, null, 2)
+        );
         addTestResult("AAVE Repay USDC", false, errorMsg);
       }
     } else {
-      const errorMsg = `Repay precheck failed: ${aaveRepayPrecheckRes.error || "Unknown precheck error"}`;
+      const errorMsg = `Repay precheck failed: ${
+        aaveRepayPrecheckRes.error || "Unknown precheck error"
+      }`;
       console.log("❌ (AAVE-PRECHECK-REPAY)", errorMsg);
-      console.log("   Full precheck response:", JSON.stringify(aaveRepayPrecheckRes, null, 2));
+      console.log(
+        "   Full precheck response:",
+        JSON.stringify(aaveRepayPrecheckRes, null, 2)
+      );
       addTestResult("AAVE Repay USDC", false, errorMsg);
     }
   } catch (error) {
-    const errorMsg = `AAVE Repay operation threw exception: ${error.message || error}`;
+    const errorMsg = `AAVE Repay operation threw exception: ${
+      error.message || error
+    }`;
     console.log("❌ (AAVE-REPAY) Unexpected error:", errorMsg);
     console.log("   Error stack:", error.stack);
     addTestResult("AAVE Repay USDC", false, errorMsg);
@@ -1019,7 +1222,10 @@ function printTestSummary() {
       }
     );
 
-    console.log("(AAVE-PRECHECK-WITHDRAW): ", JSON.stringify(aaveWithdrawPrecheckRes, null, 2));
+    console.log(
+      "(AAVE-PRECHECK-WITHDRAW): ",
+      JSON.stringify(aaveWithdrawPrecheckRes, null, 2)
+    );
 
     if (aaveWithdrawPrecheckRes.success) {
       console.log("✅ (AAVE-PRECHECK-WITHDRAW) WETH withdraw precheck passed");
@@ -1039,7 +1245,10 @@ function printTestSummary() {
         }
       );
 
-      console.log("(AAVE-EXECUTE-WITHDRAW): ", JSON.stringify(aaveWithdrawExecuteRes, null, 2));
+      console.log(
+        "(AAVE-EXECUTE-WITHDRAW): ",
+        JSON.stringify(aaveWithdrawExecuteRes, null, 2)
+      );
 
       if (aaveWithdrawExecuteRes.success) {
         console.log("✅ (AAVE-STEP-4) WETH withdraw completed successfully!");
@@ -1132,19 +1341,31 @@ function printTestSummary() {
           );
         }
       } else {
-        const errorMsg = `Withdraw execution failed: ${aaveWithdrawExecuteRes.error || "Unknown execution error"}`;
+        const errorMsg = `Withdraw execution failed: ${
+          aaveWithdrawExecuteRes.error || "Unknown execution error"
+        }`;
         console.log("❌ (AAVE-STEP-4) WETH withdraw failed:", errorMsg);
-        console.log("   Full execution response:", JSON.stringify(aaveWithdrawExecuteRes, null, 2));
+        console.log(
+          "   Full execution response:",
+          JSON.stringify(aaveWithdrawExecuteRes, null, 2)
+        );
         addTestResult("AAVE Withdraw WETH", false, errorMsg);
       }
     } else {
-      const errorMsg = `Withdraw precheck failed: ${aaveWithdrawPrecheckRes.error || "Unknown precheck error"}`;
+      const errorMsg = `Withdraw precheck failed: ${
+        aaveWithdrawPrecheckRes.error || "Unknown precheck error"
+      }`;
       console.log("❌ (AAVE-PRECHECK-WITHDRAW)", errorMsg);
-      console.log("   Full precheck response:", JSON.stringify(aaveWithdrawPrecheckRes, null, 2));
+      console.log(
+        "   Full precheck response:",
+        JSON.stringify(aaveWithdrawPrecheckRes, null, 2)
+      );
       addTestResult("AAVE Withdraw WETH", false, errorMsg);
     }
   } catch (error) {
-    const errorMsg = `AAVE Withdraw operation threw exception: ${error.message || error}`;
+    const errorMsg = `AAVE Withdraw operation threw exception: ${
+      error.message || error
+    }`;
     console.log("❌ (AAVE-WITHDRAW) Unexpected error:", errorMsg);
     console.log("   Error stack:", error.stack);
     addTestResult("AAVE Withdraw WETH", false, errorMsg);
