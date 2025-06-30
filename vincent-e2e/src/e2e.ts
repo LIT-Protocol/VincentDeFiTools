@@ -360,6 +360,83 @@ function printTestSummary() {
   }
 
   // ========================================
+  // ETH Gas Funding Setup for Sepolia
+  // ========================================
+  console.log("⛽ Setting up ETH gas funding for Sepolia operations");
+
+  const ETH_FUND_AMOUNT = "0.01"; // 0.01 ETH
+  const REQUIRED_ETH_BALANCE = ethers.utils.parseEther("0.002"); // 0.002 ETH threshold
+
+  // Test 4: ETH Balance Check and Conditional Funding
+  try {
+    console.log("🔍 Checking PKP ETH balance for gas fees");
+    console.log(`   PKP Address: ${agentWalletPkp.ethAddress}`);
+
+    // Create Sepolia provider for ETH operations
+    const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+      process.env.ETH_SEPOLIA_RPC_URL ||
+        "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
+    );
+
+    // Create funder wallet using private key
+    const funderWallet = new ethers.Wallet(
+      process.env.TEST_FUNDER_PRIVATE_KEY ||
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      sepoliaProvider
+    );
+
+    // Check current PKP ETH balance
+    const currentEthBalance = await sepoliaProvider.getBalance(
+      agentWalletPkp.ethAddress
+    );
+    const currentEthBalanceFormatted = ethers.utils.formatEther(currentEthBalance);
+    console.log(`   Current PKP ETH balance: ${currentEthBalanceFormatted} ETH`);
+    console.log(`   Required ETH balance threshold: ${ethers.utils.formatEther(REQUIRED_ETH_BALANCE)} ETH`);
+
+    if (currentEthBalance.gte(REQUIRED_ETH_BALANCE)) {
+      console.log(
+        "✅ PKP already has sufficient ETH balance for gas, skipping funding"
+      );
+      addTestResult("ETH Balance Check", true);
+    } else {
+      console.log("⛽ PKP needs ETH funding for gas, proceeding with transfer");
+      console.log(`   Funder Address: ${funderWallet.address}`);
+      console.log(`   Transferring ${ETH_FUND_AMOUNT} ETH`);
+
+      // Execute ETH transfer
+      const transferTx = await funderWallet.sendTransaction({
+        to: agentWalletPkp.ethAddress,
+        value: ethers.utils.parseEther(ETH_FUND_AMOUNT),
+        gasLimit: 21000,
+      });
+      console.log(`   Transfer transaction hash: ${transferTx.hash}`);
+
+      // Wait for transaction confirmation
+      const receipt = await transferTx.wait();
+      console.log(
+        `   ✅ ETH transfer confirmed in block ${receipt.blockNumber}`
+      );
+
+      // Verify new balance
+      const newEthBalance = await sepoliaProvider.getBalance(
+        agentWalletPkp.ethAddress
+      );
+      console.log(
+        `   New PKP ETH balance: ${ethers.utils.formatEther(newEthBalance)} ETH`
+      );
+
+      addTestResult("ETH Funding Setup", true);
+    }
+  } catch (error) {
+    console.error("❌ ETH funding setup failed:", error?.message || error);
+    addTestResult(
+      "ETH Funding Setup",
+      false,
+      error?.message || error.toString()
+    );
+  }
+
+  // ========================================
   // AAVE Tool Testing - Complete Workflow
   // ========================================
   console.log("🧪 Testing AAVE Tool - Complete DeFi Workflow");
