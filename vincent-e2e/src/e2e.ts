@@ -32,6 +32,13 @@ function addTestResult(name: string, passed: boolean, error?: string) {
   testResults.push({ name, passed, error });
   const status = passed ? "✅" : "❌";
   console.log(`${status} TEST: ${name}${error ? ` - ${error}` : ""}`);
+  
+  // Stop execution immediately if a test fails
+  if (!passed) {
+    console.log("\n🛑 Test failed - stopping execution");
+    printTestSummary();
+    process.exit(1);
+  }
 }
 
 function printTestSummary() {
