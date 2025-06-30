@@ -79,6 +79,7 @@ export const vincentTool = createVincentTool({
                 console.error("[@lit-protocol/vincent-tool-aave/execute] Provider error:", error);
                 throw new Error("Unable to obtain blockchain provider for AAVE operations");
             }
+            const { chainId } = await provider.getNetwork();
             // Get PKP public key from delegation context
             const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
             if (!pkpPublicKey) {
@@ -91,19 +92,19 @@ export const vincentTool = createVincentTool({
             let txHash;
             switch (operation) {
                 case AaveOperation.SUPPLY:
-                    txHash = await executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf || pkpAddress);
+                    txHash = await executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf || pkpAddress, chainId);
                     break;
                 case AaveOperation.WITHDRAW:
-                    txHash = await executeWithdraw(provider, pkpPublicKey, asset, amount, pkpAddress);
+                    txHash = await executeWithdraw(provider, pkpPublicKey, asset, amount, pkpAddress, chainId);
                     break;
                 case AaveOperation.BORROW:
                     if (!interestRateMode) {
                         throw new Error("Interest rate mode is required for borrow operations");
                     }
-                    txHash = await executeBorrow(provider, pkpPublicKey, asset, amount, interestRateMode, onBehalfOf || pkpAddress);
+                    txHash = await executeBorrow(provider, pkpPublicKey, asset, amount, interestRateMode, onBehalfOf || pkpAddress, chainId);
                     break;
                 case AaveOperation.REPAY:
-                    txHash = await executeRepay(provider, pkpPublicKey, asset, amount, interestRateMode || INTEREST_RATE_MODE.VARIABLE, onBehalfOf || pkpAddress);
+                    txHash = await executeRepay(provider, pkpPublicKey, asset, amount, interestRateMode || INTEREST_RATE_MODE.VARIABLE, onBehalfOf || pkpAddress, chainId);
                     break;
                 default:
                     throw new Error(`Unsupported operation: ${operation}`);
@@ -134,7 +135,7 @@ export const vincentTool = createVincentTool({
 /**
  * Execute AAVE Supply operation
  */
-async function executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf) {
+async function executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf, chainId) {
     console.log("[@lit-protocol/vincent-tool-aave/executeSupply] Starting supply operation");
     // First, we need to approve the AAVE Pool to spend the tokens
     const parsedAmount = parseAmount(amount);
@@ -148,8 +149,13 @@ async function executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf) 
         contractAddress: asset,
         functionName: "approve",
         args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, parsedAmount],
+        chainId,
     });
     console.log("[@lit-protocol/vincent-tool-aave/executeSupply] Approval tx:", approveTxHash);
+    // Wait for approval transaction confirmation
+    console.log("[@lit-protocol/vincent-tool-aave/executeSupply] Waiting for approval confirmation...");
+    const approvalReceipt = await provider.waitForTransaction(approveTxHash);
+    console.log("[@lit-protocol/vincent-tool-aave/executeSupply] Approval confirmed in block:", approvalReceipt.blockNumber);
     // Now supply to AAVE
     const txHash = await laUtils.transaction.handler.contractCall({
         provider,
@@ -159,13 +165,14 @@ async function executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf) 
         contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
         functionName: "supply",
         args: [asset, parsedAmount, onBehalfOf, 0],
+        chainId,
     });
     return txHash;
 }
 /**
  * Execute AAVE Withdraw operation
  */
-async function executeWithdraw(provider, pkpPublicKey, asset, amount, to) {
+async function executeWithdraw(provider, pkpPublicKey, asset, amount, to, chainId) {
     console.log("[@lit-protocol/vincent-tool-aave/executeWithdraw] Starting withdraw operation");
     const parsedAmount = parseAmount(amount);
     const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
@@ -177,13 +184,14 @@ async function executeWithdraw(provider, pkpPublicKey, asset, amount, to) {
         contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
         functionName: "withdraw",
         args: [asset, parsedAmount, to],
+        chainId,
     });
     return txHash;
 }
 /**
  * Execute AAVE Borrow operation
  */
-async function executeBorrow(provider, pkpPublicKey, asset, amount, interestRateMode, onBehalfOf) {
+async function executeBorrow(provider, pkpPublicKey, asset, amount, interestRateMode, onBehalfOf, chainId) {
     console.log("[@lit-protocol/vincent-tool-aave/executeBorrow] Starting borrow operation");
     const parsedAmount = parseAmount(amount);
     const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
@@ -195,27 +203,32 @@ async function executeBorrow(provider, pkpPublicKey, asset, amount, interestRate
         contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
         functionName: "borrow",
         args: [asset, parsedAmount, interestRateMode, 0, onBehalfOf],
+        chainId,
     });
     return txHash;
 }
 /**
  * Execute AAVE Repay operation
  */
-async function executeRepay(provider, pkpPublicKey, asset, amount, rateMode, onBehalfOf) {
+async function executeRepay(provider, pkpPublicKey, asset, amount, rateMode, onBehalfOf, chainId) {
     console.log("[@lit-protocol/vincent-tool-aave/executeRepay] Starting repay operation");
     const parsedAmount = parseAmount(amount);
     const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
-    // First, approve the tokens for repayment
-    const approveTxHash = await laUtils.transaction.handler.contractCall({
-        provider,
-        pkpPublicKey,
-        callerAddress,
-        abi: ERC20_ABI,
-        contractAddress: asset,
-        functionName: "approve",
-        args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, parsedAmount],
-    });
-    console.log("[@lit-protocol/vincent-tool-aave/executeRepay] Approval tx:", approveTxHash);
+    // // First, approve the tokens for repayment
+    // const approveTxHash = await laUtils.transaction.handler.contractCall({
+    //   provider,
+    //   pkpPublicKey,
+    //   callerAddress,
+    //   abi: ERC20_ABI,
+    //   contractAddress: asset,
+    //   functionName: "approve",
+    //   args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, parsedAmount],
+    //   chainId,
+    // });
+    // console.log(
+    //   "[@lit-protocol/vincent-tool-aave/executeRepay] Approval tx:",
+    //   approveTxHash
+    // );
     // Now repay the debt
     const txHash = await laUtils.transaction.handler.contractCall({
         provider,
@@ -225,6 +238,7 @@ async function executeRepay(provider, pkpPublicKey, asset, amount, rateMode, onB
         contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
         functionName: "repay",
         args: [asset, parsedAmount, rateMode, onBehalfOf],
+        chainId,
     });
     return txHash;
 }

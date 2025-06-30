@@ -13,12 +13,15 @@
     "vincent:gen-abi": "cd ./vincent-policy-contracts/counter && npx forge-to-signature Counter.s.sol 175188 ./generated -n counterSignatures"
   },
   "devDependencies": {
-    "tsx": "4.0.0",
-    "dotenv-cli": "8.0.0",
-    "viem": "2.31.4",
-    "chalk": "4.1.2",
+    "@ansonhkg/abi-extractor": "1.1.0",
     "@lit-protocol/vincent-app-sdk": "*",
     "@lit-protocol/vincent-scaffold-sdk": "*",
-    "@ansonhkg/abi-extractor": "1.1.0"
+    "chalk": "4.1.2",
+    "dotenv-cli": "8.0.0",
+    "tsx": "4.0.0",
+    "viem": "2.31.4"
+  },
+  "dependencies": {
+    "ethers": "^5.8.0"
   }
 }

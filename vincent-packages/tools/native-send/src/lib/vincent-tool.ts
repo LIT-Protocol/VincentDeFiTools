@@ -47,7 +47,8 @@ export const vincentTool = createVincentTool({
     // Basic validation without using ethers directly
     if (!to || !to.startsWith("0x") || to.length !== 42) {
       return fail({
-        error: "[@lit-protocol/vincent-tool-native-send/precheck] Invalid recipient address format",
+        error:
+          "[@lit-protocol/vincent-tool-native-send/precheck] Invalid recipient address format",
       });
     }
 
@@ -74,7 +75,10 @@ export const vincentTool = createVincentTool({
       amountValid: true,
     };
 
-    console.log("[@lit-protocol/vincent-tool-native-send/precheck] Success result:", successResult);
+    console.log(
+      "[@lit-protocol/vincent-tool-native-send/precheck] Success result:",
+      successResult
+    );
     const successResponse = succeed(successResult);
     console.log(
       "[NativeSendTool/precheck] Success response:",
@@ -90,13 +94,18 @@ export const vincentTool = createVincentTool({
     try {
       const { to, amount } = toolParams;
 
-      console.log("[@lit-protocol/vincent-tool-native-send/execute] Executing Native Send Tool", {
-        to,
-        amount,
-      });
+      console.log(
+        "[@lit-protocol/vincent-tool-native-send/execute] Executing Native Send Tool",
+        {
+          to,
+          amount,
+        }
+      );
 
       // Get provider
-      const provider = await laUtils.chain.getYellowstoneProvider();
+      const provider = new ethers.providers.JsonRpcProvider(
+        await Lit.Actions.getRpcUrl({ chain: "yellowstone" })
+      );
 
       // Get PKP public key from delegation context
       const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
@@ -112,11 +121,14 @@ export const vincentTool = createVincentTool({
         to,
       });
 
-      console.log("[@lit-protocol/vincent-tool-native-send/execute] Native send successful", {
-        txHash,
-        to,
-        amount,
-      });
+      console.log(
+        "[@lit-protocol/vincent-tool-native-send/execute] Native send successful",
+        {
+          txHash,
+          to,
+          amount,
+        }
+      );
 
       // Manually call policy commit function using the correct pattern
       console.log(
@@ -193,7 +205,10 @@ export const vincentTool = createVincentTool({
         timestamp: Date.now(),
       });
     } catch (error) {
-      console.error("[@lit-protocol/vincent-tool-native-send/execute] Native send failed", error);
+      console.error(
+        "[@lit-protocol/vincent-tool-native-send/execute] Native send failed",
+        error
+      );
 
       return fail({
         error:

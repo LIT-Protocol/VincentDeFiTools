@@ -138,6 +138,8 @@ export const vincentTool = createVincentTool({
         );
       }
 
+      const { chainId } = await provider.getNetwork();
+
       // Get PKP public key from delegation context
       const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
       if (!pkpPublicKey) {
@@ -161,7 +163,8 @@ export const vincentTool = createVincentTool({
             pkpPublicKey,
             asset,
             amount,
-            onBehalfOf || pkpAddress
+            onBehalfOf || pkpAddress,
+            chainId
           );
           break;
 
@@ -171,7 +174,8 @@ export const vincentTool = createVincentTool({
             pkpPublicKey,
             asset,
             amount,
-            pkpAddress
+            pkpAddress,
+            chainId
           );
           break;
 
@@ -187,7 +191,8 @@ export const vincentTool = createVincentTool({
             asset,
             amount,
             interestRateMode,
-            onBehalfOf || pkpAddress
+            onBehalfOf || pkpAddress,
+            chainId
           );
           break;
 
@@ -198,7 +203,8 @@ export const vincentTool = createVincentTool({
             asset,
             amount,
             interestRateMode || INTEREST_RATE_MODE.VARIABLE,
-            onBehalfOf || pkpAddress
+            onBehalfOf || pkpAddress,
+            chainId
           );
           break;
 
@@ -246,7 +252,8 @@ async function executeSupply(
   pkpPublicKey: string,
   asset: string,
   amount: string,
-  onBehalfOf: string
+  onBehalfOf: string,
+  chainId: number
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeSupply] Starting supply operation"
@@ -265,11 +272,22 @@ async function executeSupply(
     contractAddress: asset,
     functionName: "approve",
     args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, parsedAmount],
+    chainId,
   });
 
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeSupply] Approval tx:",
     approveTxHash
+  );
+
+  // Wait for approval transaction confirmation
+  console.log(
+    "[@lit-protocol/vincent-tool-aave/executeSupply] Waiting for approval confirmation..."
+  );
+  const approvalReceipt = await provider.waitForTransaction(approveTxHash);
+  console.log(
+    "[@lit-protocol/vincent-tool-aave/executeSupply] Approval confirmed in block:",
+    approvalReceipt.blockNumber
   );
 
   // Now supply to AAVE
@@ -281,6 +299,7 @@ async function executeSupply(
     contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
     functionName: "supply",
     args: [asset, parsedAmount, onBehalfOf, 0],
+    chainId,
   });
 
   return txHash;
@@ -294,7 +313,8 @@ async function executeWithdraw(
   pkpPublicKey: string,
   asset: string,
   amount: string,
-  to: string
+  to: string,
+  chainId: number
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeWithdraw] Starting withdraw operation"
@@ -311,6 +331,7 @@ async function executeWithdraw(
     contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
     functionName: "withdraw",
     args: [asset, parsedAmount, to],
+    chainId,
   });
 
   return txHash;
@@ -325,7 +346,8 @@ async function executeBorrow(
   asset: string,
   amount: string,
   interestRateMode: number,
-  onBehalfOf: string
+  onBehalfOf: string,
+  chainId: number
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeBorrow] Starting borrow operation"
@@ -342,6 +364,7 @@ async function executeBorrow(
     contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
     functionName: "borrow",
     args: [asset, parsedAmount, interestRateMode, 0, onBehalfOf],
+    chainId,
   });
 
   return txHash;
@@ -356,7 +379,8 @@ async function executeRepay(
   asset: string,
   amount: string,
   rateMode: number,
-  onBehalfOf: string
+  onBehalfOf: string,
+  chainId: number
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeRepay] Starting repay operation"
@@ -365,21 +389,22 @@ async function executeRepay(
   const parsedAmount = parseAmount(amount);
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
 
-  // First, approve the tokens for repayment
-  const approveTxHash = await laUtils.transaction.handler.contractCall({
-    provider,
-    pkpPublicKey,
-    callerAddress,
-    abi: ERC20_ABI,
-    contractAddress: asset,
-    functionName: "approve",
-    args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, parsedAmount],
-  });
+  // // First, approve the tokens for repayment
+  // const approveTxHash = await laUtils.transaction.handler.contractCall({
+  //   provider,
+  //   pkpPublicKey,
+  //   callerAddress,
+  //   abi: ERC20_ABI,
+  //   contractAddress: asset,
+  //   functionName: "approve",
+  //   args: [AAVE_V3_SEPOLIA_ADDRESSES.POOL, parsedAmount],
+  //   chainId,
+  // });
 
-  console.log(
-    "[@lit-protocol/vincent-tool-aave/executeRepay] Approval tx:",
-    approveTxHash
-  );
+  // console.log(
+  //   "[@lit-protocol/vincent-tool-aave/executeRepay] Approval tx:",
+  //   approveTxHash
+  // );
 
   // Now repay the debt
   const txHash = await laUtils.transaction.handler.contractCall({
@@ -390,6 +415,7 @@ async function executeRepay(
     contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
     functionName: "repay",
     args: [asset, parsedAmount, rateMode, onBehalfOf],
+    chainId,
   });
 
   return txHash;
