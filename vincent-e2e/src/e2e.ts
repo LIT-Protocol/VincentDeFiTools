@@ -79,6 +79,10 @@ function printTestSummary() {
     deploymentStatus: "dev",
   });
 
+  const sepoliaProvider = new ethers.providers.JsonRpcProvider(
+    process.env.ETH_SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/someApiKey"
+  );
+
   /**
    * ====================================
    * (🫵 You) Prepare the tools and policies
@@ -306,12 +310,6 @@ function printTestSummary() {
     console.log(`   PKP Address: ${agentWalletPkp.ethAddress}`);
     console.log(`   WETH Contract: ${TEST_WETH_ADDRESS}`);
 
-    // Create Sepolia provider for WETH operations
-    const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-      process.env.ETH_SEPOLIA_RPC_URL ||
-        "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-    );
-
     // Create funder wallet using private key
     const funderWallet = new ethers.Wallet(
       process.env.TEST_FUNDER_PRIVATE_KEY ||
@@ -394,12 +392,6 @@ function printTestSummary() {
   try {
     console.log("🔍 Checking PKP ETH balance for gas fees");
     console.log(`   PKP Address: ${agentWalletPkp.ethAddress}`);
-
-    // Create Sepolia provider for ETH operations
-    const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-      process.env.ETH_SEPOLIA_RPC_URL ||
-        "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-    );
 
     // Create funder wallet using private key
     const funderWallet = new ethers.Wallet(
@@ -487,12 +479,6 @@ function printTestSummary() {
   try {
     console.log("🔍 Recording initial token balances...");
 
-    // Create Sepolia provider for balance checking
-    const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-      process.env.ETH_SEPOLIA_RPC_URL ||
-        "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-    );
-
     // WETH contract for balance checking
     const wethAbi = [
       "function balanceOf(address account) view returns (uint256)",
@@ -556,7 +542,7 @@ function printTestSummary() {
       chainId: 11155111, // Sepolia
       tokenAddress: TEST_WETH_ADDRESS,
       spenderAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
-      tokenAmount: ethers.utils.parseEther(WETH_SUPPLY_AMOUNT).toNumber(),
+      tokenAmount: parseFloat(WETH_SUPPLY_AMOUNT),
       tokenDecimals: 18,
       rpcUrl:
         process.env.ETH_SEPOLIA_RPC_URL ||
@@ -590,11 +576,28 @@ function printTestSummary() {
 
       if (approveWethExecute.success) {
         console.log("✅ WETH approval executed successfully");
+        if (approveWethExecute.result.approvalTxHash) {
+          console.log(
+            "🔍 Waiting for WETH approval transaction confirmation..."
+          );
+          // wait for transaction confirmation
+          const receipt = await sepoliaProvider.waitForTransaction(
+            approveWethExecute.result.approvalTxHash,
+            1,
+            180000
+          );
+          console.log(
+            `   WETH approval confirmed in block ${receipt.blockNumber}`
+          );
+        }
         addTestResult("ERC20 Approve WETH", true);
       } else {
-        const errMsg = approveWethExecute.error || "Unknown execution error";
-        console.log("❌ WETH approval execution failed:", errMsg);
-        addTestResult("ERC20 Approve WETH", false, errMsg);
+        console.log("❌ WETH approval execution failed:", approveWethExecute);
+        addTestResult(
+          "ERC20 Approve WETH",
+          false,
+          JSON.stringify(approveWethExecute, null, 2)
+        );
       }
     } else {
       const errMsg = approveWethPrecheck.error || "Unknown precheck error";
@@ -667,11 +670,6 @@ function printTestSummary() {
         // Wait for transaction confirmation
         try {
           console.log("⏳ Waiting for supply transaction confirmation...");
-          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-          );
-
           const receipt = await sepoliaProvider.waitForTransaction(
             aaveSupplyExecuteRes.result.txHash,
             1,
@@ -692,12 +690,6 @@ function printTestSummary() {
         // Verify balance after supply
         try {
           console.log("🔍 Verifying WETH balance after supply...");
-
-          // Create Sepolia provider for balance checking
-          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-          );
 
           // WETH contract for balance checking
           const wethAbi = [
@@ -839,10 +831,6 @@ function printTestSummary() {
         // Wait for transaction confirmation
         try {
           console.log("⏳ Waiting for borrow transaction confirmation...");
-          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-          );
 
           const receipt = await sepoliaProvider.waitForTransaction(
             aaveBorrowExecuteRes.result.txHash,
@@ -864,12 +852,6 @@ function printTestSummary() {
         // Verify USDC balance after borrow
         try {
           console.log("🔍 Verifying USDC balance after borrow...");
-
-          // Create Sepolia provider for balance checking
-          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-          );
 
           // USDC contract for balance checking
           const usdcAbi = [
@@ -966,9 +948,11 @@ function printTestSummary() {
 
   try {
     const approveUsdcParams = {
-      chainId: "11155111", // Sepolia
-      tokenIn: TEST_USDC_ADDRESS,
-      amountIn: ethers.utils.parseUnits(USDC_BORROW_AMOUNT, 6).toString(),
+      chainId: 11155111, // Sepolia
+      tokenAddress: TEST_USDC_ADDRESS,
+      spenderAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+      tokenAmount: parseFloat(USDC_BORROW_AMOUNT),
+      tokenDecimals: 6,
       rpcUrl:
         process.env.ETH_SEPOLIA_RPC_URL ||
         "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213",
@@ -1001,6 +985,20 @@ function printTestSummary() {
 
       if (approveUsdcExecute.success) {
         console.log("✅ USDC approval executed successfully");
+        if (approveUsdcExecute.result.approvalTxHash) {
+          console.log(
+            "🔍 Waiting for USDC approval transaction confirmation..."
+          );
+          // wait for transaction confirmation
+          const receipt = await sepoliaProvider.waitForTransaction(
+            approveUsdcExecute.result.approvalTxHash,
+            1,
+            180000
+          );
+          console.log(
+            `   USDC approval confirmed in block ${receipt.blockNumber}`
+          );
+        }
         addTestResult("ERC20 Approve USDC", true);
       } else {
         const errMsg = approveUsdcExecute.error || "Unknown execution error";
@@ -1082,10 +1080,6 @@ function printTestSummary() {
         // Wait for transaction confirmation
         try {
           console.log("⏳ Waiting for repay transaction confirmation...");
-          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-          );
 
           const receipt = await sepoliaProvider.waitForTransaction(
             aaveRepayExecuteRes.result.txHash,
@@ -1107,12 +1101,6 @@ function printTestSummary() {
         // Verify USDC balance after repay
         try {
           console.log("🔍 Verifying USDC balance after repay...");
-
-          // Create Sepolia provider for balance checking
-          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-          );
 
           // USDC contract for balance checking
           const usdcAbi = [
@@ -1259,10 +1247,6 @@ function printTestSummary() {
         // Wait for transaction confirmation
         try {
           console.log("⏳ Waiting for withdraw transaction confirmation...");
-          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-          );
 
           const receipt = await sepoliaProvider.waitForTransaction(
             aaveWithdrawExecuteRes.result.txHash,
@@ -1284,12 +1268,6 @@ function printTestSummary() {
         // Verify WETH balance after withdraw
         try {
           console.log("🔍 Verifying WETH balance after withdraw...");
-
-          // Create Sepolia provider for balance checking
-          const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-            process.env.ETH_SEPOLIA_RPC_URL ||
-              "https://sepolia.infura.io/v3/84842078b09946638c03157f83405213"
-          );
 
           // WETH contract for balance checking
           const wethAbi = [
