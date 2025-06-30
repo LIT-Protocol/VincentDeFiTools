@@ -1,5 +1,4 @@
 import {
-  PARAMETER_TYPE,
   createAppConfig,
   init,
   suppressLitLogs,
@@ -15,7 +14,6 @@ suppressLitLogs(true);
 import { getVincentToolClient } from "@lit-protocol/vincent-app-sdk";
 // Tools and Policies that we wil be testing
 import { vincentPolicyMetadata as sendLimitPolicyMetadata } from "../../vincent-packages/policies/send-counter-limit/dist/index.js";
-import { bundledVincentTool as nativeSendTool } from "../../vincent-packages/tools/native-send/dist/index.js";
 import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aave/dist/index.js";
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { ethers } from "ethers";
@@ -88,10 +86,6 @@ function printTestSummary() {
    * (🫵 You) Prepare the tools and policies
    * ====================================
    */
-  const nativeSendToolClient = getVincentToolClient({
-    bundledVincentTool: nativeSendTool,
-    ethersSigner: accounts.delegatee.ethersWallet,
-  });
 
   const aaveToolClient = getVincentToolClient({
     bundledVincentTool: aaveTool,
@@ -115,7 +109,6 @@ function printTestSummary() {
     {
       toolIpfsCids: [
         // helloWorldTool.ipfsCid,
-        nativeSendTool.ipfsCid,
         aaveTool.ipfsCid,
         erc20ApproveTool.ipfsCid,
         // ...add more tool IPFS CIDs here
@@ -125,9 +118,6 @@ function printTestSummary() {
         //   // fooLimitPolicyMetadata.ipfsCid
         // ],
         [
-          sendLimitPolicyMetadata.ipfsCid, // Enable send-counter-limit policy for native-send tool
-        ],
-        [
           // No policies for AAVE tool for now
         ],
         [
@@ -136,19 +126,16 @@ function printTestSummary() {
       ],
       toolPolicyParameterNames: [
         // [], // No policy parameter names for helloWorldTool
-        ["maxSends", "timeWindowSeconds"], // Policy parameter names for nativeSendTool
         [], // No policy parameter names for aaveTool
         [], // No policy parameter names for approveTool
       ],
       toolPolicyParameterTypes: [
         // [], // No policy parameter types for helloWorldTool
-        [PARAMETER_TYPE.UINT256, PARAMETER_TYPE.UINT256], // uint256 types for maxSends and timeWindowSeconds
         [], // No policy parameter types for aaveTool
         [], // No policy parameter types for approveTool
       ],
       toolPolicyParameterValues: [
         // [], // No policy parameter values for helloWorldTool
-        ["2", "10"], // maxSends: 2, timeWindowSeconds: 10
         [], // No policy parameter values for aaveTool
         [], // No policy parameter values for approveTool
       ],
@@ -158,7 +145,6 @@ function printTestSummary() {
     {
       cidToNameMap: {
         // [helloWorldTool.ipfsCid]: "Hello World Tool",
-        [nativeSendTool.ipfsCid]: "Native Send Tool",
         [aaveTool.ipfsCid]: "AAVE Tool",
         [sendLimitPolicyMetadata.ipfsCid]: "Send Limit Policy",
         [erc20ApproveTool.ipfsCid]: "ERC20 Approval Tool",
@@ -174,7 +160,6 @@ function printTestSummary() {
    */
   const toolAndPolicyIpfsCids = [
     // helloWorldTool.ipfsCid,
-    nativeSendTool.ipfsCid,
     aaveTool.ipfsCid,
     erc20ApproveTool.ipfsCid,
     sendLimitPolicyMetadata.ipfsCid,
@@ -246,31 +231,7 @@ function printTestSummary() {
    * Validate delegatee permissions (debugging)
    * ====================================
    */
-  // Test 1: Native Send Tool Validation
-  try {
-    let validation = await chainClient.validateToolExecution({
-      delegateeAddress: accounts.delegatee.ethersWallet.address,
-      pkpTokenId: agentWalletPkp.tokenId,
-      toolIpfsCid: nativeSendTool.ipfsCid,
-    });
-
-    console.log("✅ Native Send Tool execution validation:", validation);
-
-    if (!validation.isPermitted) {
-      throw new Error(
-        `Delegatee is not permitted to execute native send tool for PKP for IPFS CID: ${
-          nativeSendTool.ipfsCid
-        }. Validation: ${JSON.stringify(validation, (_, value) =>
-          typeof value === "bigint" ? value.toString() : value
-        )}`
-      );
-    }
-    addTestResult("Native Send Tool Validation", true);
-  } catch (error) {
-    addTestResult("Native Send Tool Validation", false, error.message);
-  }
-
-  // Test 2: AAVE Tool Validation
+  // Test 1: AAVE Tool Validation
   try {
     let validation = await chainClient.validateToolExecution({
       delegateeAddress: accounts.delegatee.ethersWallet.address,
@@ -304,7 +265,7 @@ function printTestSummary() {
   const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
   const REQUIRED_WETH_BALANCE = ethers.utils.parseEther(WETH_FUND_AMOUNT);
 
-  // Test 3: WETH Balance Check and Conditional Funding
+  // Test 2: WETH Balance Check and Conditional Funding
   try {
     console.log("🔍 Checking PKP WETH balance");
     console.log(`   PKP Address: ${agentWalletPkp.ethAddress}`);
@@ -388,7 +349,7 @@ function printTestSummary() {
   const ETH_FUND_AMOUNT = "0.01"; // 0.01 ETH
   const REQUIRED_ETH_BALANCE = ethers.utils.parseEther("0.002"); // 0.002 ETH threshold
 
-  // Test 4: ETH Balance Check and Conditional Funding
+  // Test 3: ETH Balance Check and Conditional Funding
   try {
     console.log("🔍 Checking PKP ETH balance for gas fees");
     console.log(`   PKP Address: ${agentWalletPkp.ethAddress}`);

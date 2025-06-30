@@ -124,10 +124,6 @@ export const vincentTool = createVincentTool({
         provider = new ethers.providers.JsonRpcProvider(
           await Lit.Actions.getRpcUrl({ chain })
         );
-        console.log("provider", provider);
-        console.log(
-          "[@lit-protocol/vincent-tool-aave/execute] Using configured provider"
-        );
       } catch (error) {
         console.error(
           "[@lit-protocol/vincent-tool-aave/execute] Provider error:",
