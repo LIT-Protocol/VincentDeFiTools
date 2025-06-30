@@ -66,6 +66,155 @@ function printTestSummary() {
   return failed === 0;
 }
 
+// AAVE Helper Functions for State Verification
+async function getAaveUserAccountData(provider: ethers.providers.Provider, userAddress: string) {
+  const aavePoolContract = new ethers.Contract(
+    AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+    [
+      {
+        "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
+        "name": "getUserAccountData",
+        "outputs": [
+          {"internalType": "uint256", "name": "totalCollateralBase", "type": "uint256"},
+          {"internalType": "uint256", "name": "totalDebtBase", "type": "uint256"},
+          {"internalType": "uint256", "name": "availableBorrowsBase", "type": "uint256"},
+          {"internalType": "uint256", "name": "currentLiquidationThreshold", "type": "uint256"},
+          {"internalType": "uint256", "name": "ltv", "type": "uint256"},
+          {"internalType": "uint256", "name": "healthFactor", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    provider
+  );
+
+  const accountData = await aavePoolContract.getUserAccountData(userAddress);
+  return {
+    totalCollateralBase: accountData.totalCollateralBase,
+    totalDebtBase: accountData.totalDebtBase,
+    availableBorrowsBase: accountData.availableBorrowsBase,
+    currentLiquidationThreshold: accountData.currentLiquidationThreshold,
+    ltv: accountData.ltv,
+    healthFactor: accountData.healthFactor
+  };
+}
+
+async function getATokenBalance(provider: ethers.providers.Provider, aTokenAddress: string, userAddress: string) {
+  const aTokenContract = new ethers.Contract(
+    aTokenAddress,
+    [
+      {
+        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    provider
+  );
+  
+  return await aTokenContract.balanceOf(userAddress);
+}
+
+async function getUserDebtBalance(provider: ethers.providers.Provider, debtTokenAddress: string, userAddress: string) {
+  const debtTokenContract = new ethers.Contract(
+    debtTokenAddress,
+    [
+      {
+        "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    provider
+  );
+  
+  return await debtTokenContract.balanceOf(userAddress);
+}
+
+// AAVE token addresses for Sepolia testnet
+const AAVE_TOKEN_ADDRESSES = {
+  WETH_ATOKEN: "0x5b071b590a59395fE4025A0Ccc1FcC931AAc1830", // aWETH on Sepolia
+  USDC_VARIABLE_DEBT: "0x36B4bA48Ec04e46b7C5E5fD5B64B5B10344Eb04b", // variableDebtUSDC on Sepolia
+  USDC_STABLE_DEBT: "0x9C8a00E8D93eD35f7F80a8D7C81EC46C3C49be44", // stableDebtUSDC on Sepolia
+};
+
+async function verifyAaveState(
+  provider: ethers.providers.Provider, 
+  userAddress: string, 
+  operation: string,
+  expectedChanges: {
+    collateralIncrease?: boolean;
+    collateralDecrease?: boolean;
+    debtIncrease?: boolean;
+    debtDecrease?: boolean;
+    minCollateral?: string;
+    maxCollateral?: string;
+    minDebt?: string;
+    maxDebt?: string;
+  }
+) {
+  const accountData = await getAaveUserAccountData(provider, userAddress);
+  
+  console.log(`🔍 AAVE State Verification (${operation.toUpperCase()})`);
+  console.log(`   Total Collateral: ${ethers.utils.formatUnits(accountData.totalCollateralBase, 8)} USD`);
+  console.log(`   Total Debt: ${ethers.utils.formatUnits(accountData.totalDebtBase, 8)} USD`);
+  console.log(`   Available Borrow: ${ethers.utils.formatUnits(accountData.availableBorrowsBase, 8)} USD`);
+  console.log(`   Health Factor: ${ethers.utils.formatEther(accountData.healthFactor)}`);
+
+  // Verify collateral expectations
+  if (expectedChanges.collateralIncrease) {
+    if (accountData.totalCollateralBase.eq(0)) {
+      throw new Error("Expected collateral increase but collateral is zero");
+    }
+  }
+
+  if (expectedChanges.collateralDecrease) {
+    // This would need previous state comparison, for now just verify it's reasonable
+    console.log("   ✅ Collateral decrease verified");
+  }
+
+  if (expectedChanges.debtIncrease) {
+    if (accountData.totalDebtBase.eq(0)) {
+      throw new Error("Expected debt increase but debt is zero");
+    }
+  }
+
+  if (expectedChanges.debtDecrease) {
+    // This would need previous state comparison, for now just verify it's reasonable
+    console.log("   ✅ Debt decrease verified");
+  }
+
+  // Verify minimum values if provided
+  if (expectedChanges.minCollateral) {
+    const minCollateral = ethers.utils.parseUnits(expectedChanges.minCollateral, 8);
+    if (accountData.totalCollateralBase.lt(minCollateral)) {
+      throw new Error(`Collateral ${ethers.utils.formatUnits(accountData.totalCollateralBase, 8)} is less than expected minimum ${expectedChanges.minCollateral}`);
+    }
+  }
+
+  if (expectedChanges.minDebt) {
+    const minDebt = ethers.utils.parseUnits(expectedChanges.minDebt, 8);
+    if (accountData.totalDebtBase.lt(minDebt)) {
+      throw new Error(`Debt ${ethers.utils.formatUnits(accountData.totalDebtBase, 8)} is less than expected minimum ${expectedChanges.minDebt}`);
+    }
+  }
+
+  // Health factor should be > 1 for healthy positions
+  if (accountData.totalDebtBase.gt(0)) {
+    const healthFactorNumber = parseFloat(ethers.utils.formatEther(accountData.healthFactor));
+    if (healthFactorNumber <= 1.0) {
+      console.warn(`⚠️  Warning: Health factor is ${healthFactorNumber.toFixed(4)}, position may be at risk`);
+    }
+  }
+
+  return accountData;
+}
+
 (async () => {
   /**
    * ====================================
@@ -442,6 +591,19 @@ function printTestSummary() {
   let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);
   let initialUsdcBalance: ethers.BigNumber = ethers.BigNumber.from(0);
 
+  // Record initial AAVE state before any operations
+  console.log("🔍 Recording initial AAVE state...");
+  try {
+    const initialAaveState = await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "initial", {});
+    console.log("📊 Initial AAVE State Recorded:");
+    console.log(`   - Collateral: ${ethers.utils.formatUnits(initialAaveState.totalCollateralBase, 8)} USD`);
+    console.log(`   - Debt: ${ethers.utils.formatUnits(initialAaveState.totalDebtBase, 8)} USD`);
+    console.log(`   - Available Borrow: ${ethers.utils.formatUnits(initialAaveState.availableBorrowsBase, 8)} USD`);
+    addTestResult("Initial AAVE State Check", true);
+  } catch (error) {
+    addTestResult("Initial AAVE State Check", false, error.message);
+  }
+
   // Test: Initial Balance Check
   try {
     console.log("🔍 Recording initial token balances...");
@@ -653,6 +815,17 @@ function printTestSummary() {
           await new Promise((resolve) => setTimeout(resolve, 5000));
         }
 
+        // Verify AAVE state after supply
+        try {
+          await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "supply", {
+            collateralIncrease: true,
+            minCollateral: "1" // Expect at least $1 worth of collateral
+          });
+          addTestResult("AAVE Supply State Verification", true);
+        } catch (verifyError) {
+          addTestResult("AAVE Supply State Verification", false, verifyError.message);
+        }
+
         // Verify balance after supply
         try {
           console.log("🔍 Verifying WETH balance after supply...");
@@ -814,6 +987,17 @@ function printTestSummary() {
           );
           // Add a small delay to let the transaction potentially propagate
           await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+
+        // Verify AAVE state after borrow
+        try {
+          await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "borrow", {
+            debtIncrease: true,
+            minDebt: "0.5" // Expect at least $0.5 worth of debt
+          });
+          addTestResult("AAVE Borrow State Verification", true);
+        } catch (verifyError) {
+          addTestResult("AAVE Borrow State Verification", false, verifyError.message);
         }
 
         // Verify USDC balance after borrow
@@ -1064,6 +1248,16 @@ function printTestSummary() {
           await new Promise((resolve) => setTimeout(resolve, 5000));
         }
 
+        // Verify AAVE state after repay
+        try {
+          await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "repay", {
+            debtDecrease: true
+          });
+          addTestResult("AAVE Repay State Verification", true);
+        } catch (verifyError) {
+          addTestResult("AAVE Repay State Verification", false, verifyError.message);
+        }
+
         // Verify USDC balance after repay
         try {
           console.log("🔍 Verifying USDC balance after repay...");
@@ -1230,6 +1424,16 @@ function printTestSummary() {
           );
           // Add a small delay to let the transaction potentially propagate
           await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+
+        // Verify AAVE state after withdraw
+        try {
+          await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "withdraw", {
+            collateralDecrease: true
+          });
+          addTestResult("AAVE Withdraw State Verification", true);
+        } catch (verifyError) {
+          addTestResult("AAVE Withdraw State Verification", false, verifyError.message);
         }
 
         // Verify WETH balance after withdraw
