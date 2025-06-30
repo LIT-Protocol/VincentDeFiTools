@@ -140,6 +140,19 @@ export const vincentTool = createVincentTool({
 
       const { chainId } = await provider.getNetwork();
 
+      // get decimals of asset
+      const assetContract = new ethers.Contract(asset, ERC20_ABI, provider);
+      const assetDecimals = await assetContract.decimals();
+      console.log(
+        "[@lit-protocol/vincent-tool-aave/execute] Asset decimals:",
+        assetDecimals
+      );
+      const convertedAmount = parseAmount(amount, assetDecimals);
+      console.log(
+        "[@lit-protocol/vincent-tool-aave/execute] Converted amount:",
+        convertedAmount
+      );
+
       // Get PKP public key from delegation context
       const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
       if (!pkpPublicKey) {
@@ -162,7 +175,7 @@ export const vincentTool = createVincentTool({
             provider,
             pkpPublicKey,
             asset,
-            amount,
+            convertedAmount,
             onBehalfOf || pkpAddress,
             chainId
           );
@@ -173,7 +186,7 @@ export const vincentTool = createVincentTool({
             provider,
             pkpPublicKey,
             asset,
-            amount,
+            convertedAmount,
             pkpAddress,
             chainId
           );
@@ -189,7 +202,7 @@ export const vincentTool = createVincentTool({
             provider,
             pkpPublicKey,
             asset,
-            amount,
+            convertedAmount,
             interestRateMode,
             onBehalfOf || pkpAddress,
             chainId
@@ -201,7 +214,7 @@ export const vincentTool = createVincentTool({
             provider,
             pkpPublicKey,
             asset,
-            amount,
+            convertedAmount,
             interestRateMode || INTEREST_RATE_MODE.VARIABLE,
             onBehalfOf || pkpAddress,
             chainId

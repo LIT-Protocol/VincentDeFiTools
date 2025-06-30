@@ -80,6 +80,12 @@ export const vincentTool = createVincentTool({
                 throw new Error("Unable to obtain blockchain provider for AAVE operations");
             }
             const { chainId } = await provider.getNetwork();
+            // get decimals of asset
+            const assetContract = new ethers.Contract(asset, ERC20_ABI, provider);
+            const assetDecimals = await assetContract.decimals();
+            console.log("[@lit-protocol/vincent-tool-aave/execute] Asset decimals:", assetDecimals);
+            const convertedAmount = parseAmount(amount, assetDecimals);
+            console.log("[@lit-protocol/vincent-tool-aave/execute] Converted amount:", convertedAmount);
             // Get PKP public key from delegation context
             const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
             if (!pkpPublicKey) {
@@ -92,19 +98,19 @@ export const vincentTool = createVincentTool({
             let txHash;
             switch (operation) {
                 case AaveOperation.SUPPLY:
-                    txHash = await executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf || pkpAddress, chainId);
+                    txHash = await executeSupply(provider, pkpPublicKey, asset, convertedAmount, onBehalfOf || pkpAddress, chainId);
                     break;
                 case AaveOperation.WITHDRAW:
-                    txHash = await executeWithdraw(provider, pkpPublicKey, asset, amount, pkpAddress, chainId);
+                    txHash = await executeWithdraw(provider, pkpPublicKey, asset, convertedAmount, pkpAddress, chainId);
                     break;
                 case AaveOperation.BORROW:
                     if (!interestRateMode) {
                         throw new Error("Interest rate mode is required for borrow operations");
                     }
-                    txHash = await executeBorrow(provider, pkpPublicKey, asset, amount, interestRateMode, onBehalfOf || pkpAddress, chainId);
+                    txHash = await executeBorrow(provider, pkpPublicKey, asset, convertedAmount, interestRateMode, onBehalfOf || pkpAddress, chainId);
                     break;
                 case AaveOperation.REPAY:
-                    txHash = await executeRepay(provider, pkpPublicKey, asset, amount, interestRateMode || INTEREST_RATE_MODE.VARIABLE, onBehalfOf || pkpAddress, chainId);
+                    txHash = await executeRepay(provider, pkpPublicKey, asset, convertedAmount, interestRateMode || INTEREST_RATE_MODE.VARIABLE, onBehalfOf || pkpAddress, chainId);
                     break;
                 default:
                     throw new Error(`Unsupported operation: ${operation}`);
