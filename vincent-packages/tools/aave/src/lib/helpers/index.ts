@@ -167,3 +167,65 @@ export function formatAmount(amount: string, decimals: number = 18): string {
   const formatted = parseFloat(amount) / factor;
   return formatted.toString();
 }
+
+/**
+ * Validate operation-specific requirements
+ */
+export async function validateOperationRequirements(
+  operation: string,
+  userBalance: string,
+  allowance: string,
+  borrowCapacity: string,
+  convertedAmount: string,
+  interestRateMode?: number
+): Promise<{ valid: boolean; error?: string }> {
+  
+  const userBalanceBN = BigInt(userBalance);
+  const allowanceBN = BigInt(allowance);
+  const borrowCapacityBN = BigInt(borrowCapacity);
+  const convertedAmountBN = BigInt(convertedAmount);
+
+  switch (operation) {
+    case "supply":
+      // Check if user has enough balance
+      if (userBalanceBN < convertedAmountBN) {
+        return { valid: false, error: "Insufficient balance for supply operation" };
+      }
+      // Check if user has approved AAVE to spend tokens
+      if (allowanceBN < convertedAmountBN) {
+        return { valid: false, error: "Insufficient allowance for supply operation. Please approve AAVE to spend your tokens first." };
+      }
+      break;
+
+    case "withdraw":
+      // For withdraw, we need to check if user has enough aTokens (collateral)
+      // This would require checking aToken balance, but for now we'll just check if they have any collateral
+      if (borrowCapacityBN === 0n && userBalanceBN === 0n) {
+        return { valid: false, error: "No collateral available for withdrawal" };
+      }
+      break;
+
+    case "borrow":
+      // Check if user has enough borrowing capacity
+      if (borrowCapacityBN < convertedAmountBN) {
+        return { valid: false, error: "Insufficient borrowing capacity" };
+      }
+      break;
+
+    case "repay":
+      // Check if user has enough balance to repay
+      if (userBalanceBN < convertedAmountBN) {
+        return { valid: false, error: "Insufficient balance for repay operation" };
+      }
+      // Check if user has approved AAVE to spend tokens for repayment
+      if (allowanceBN < convertedAmountBN) {
+        return { valid: false, error: "Insufficient allowance for repay operation. Please approve AAVE to spend your tokens first." };
+      }
+      break;
+
+    default:
+      return { valid: false, error: `Unsupported operation: ${operation}` };
+  }
+
+  return { valid: true };
+}

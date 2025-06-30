@@ -20,6 +20,7 @@ import {
   INTEREST_RATE_MODE,
   isValidAddress,
   parseAmount,
+  validateOperationRequirements,
 } from "./helpers";
 
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
@@ -35,69 +36,173 @@ export const vincentTool = createVincentTool({
   executeSuccessSchema,
   executeFailSchema,
 
-  precheck: async ({ toolParams }, { succeed, fail }) => {
-    console.log("[@lit-protocol/vincent-tool-aave/precheck]");
-    console.log("[@lit-protocol/vincent-tool-aave/precheck] params:", {
-      toolParams,
-    });
-
-    const { operation, asset, amount, interestRateMode } = toolParams;
-
-    // Validate operation
-    if (!Object.values(AaveOperation).includes(operation)) {
-      return fail({
-        error:
-          "[@lit-protocol/vincent-tool-aave/precheck] Invalid operation. Must be supply, withdraw, borrow, or repay",
+  precheck: async ({ toolParams }, { succeed, fail, delegation }) => {
+    try {
+      console.log("[@lit-protocol/vincent-tool-aave/precheck]");
+      console.log("[@lit-protocol/vincent-tool-aave/precheck] params:", {
+        toolParams,
       });
-    }
 
-    // Validate asset address
-    if (!isValidAddress(asset)) {
-      return fail({
-        error:
-          "[@lit-protocol/vincent-tool-aave/precheck] Invalid asset address format",
-      });
-    }
+      const { operation, asset, amount, interestRateMode, onBehalfOf, chain } = toolParams;
 
-    // Validate amount
-    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-      return fail({
-        error:
-          "[@lit-protocol/vincent-tool-aave/precheck] Invalid amount format or amount must be greater than 0",
-      });
-    }
-
-    // Validate interest rate mode for borrow operations
-    if (operation === AaveOperation.BORROW) {
-      if (
-        !interestRateMode ||
-        (interestRateMode !== INTEREST_RATE_MODE.STABLE &&
-          interestRateMode !== INTEREST_RATE_MODE.VARIABLE)
-      ) {
+      // Validate operation
+      if (!Object.values(AaveOperation).includes(operation)) {
         return fail({
           error:
-            "[@lit-protocol/vincent-tool-aave/precheck] Interest rate mode is required for borrow operations (1 = Stable, 2 = Variable)",
+            "[@lit-protocol/vincent-tool-aave/precheck] Invalid operation. Must be supply, withdraw, borrow, or repay",
         });
       }
+
+      // Validate asset address
+      if (!isValidAddress(asset)) {
+        return fail({
+          error:
+            "[@lit-protocol/vincent-tool-aave/precheck] Invalid asset address format",
+        });
+      }
+
+      // Validate amount
+      if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+        return fail({
+          error:
+            "[@lit-protocol/vincent-tool-aave/precheck] Invalid amount format or amount must be greater than 0",
+        });
+      }
+
+      // Validate interest rate mode for borrow operations
+      if (operation === AaveOperation.BORROW) {
+        if (
+          !interestRateMode ||
+          (interestRateMode !== INTEREST_RATE_MODE.STABLE &&
+            interestRateMode !== INTEREST_RATE_MODE.VARIABLE)
+        ) {
+          return fail({
+            error:
+              "[@lit-protocol/vincent-tool-aave/precheck] Interest rate mode is required for borrow operations (1 = Stable, 2 = Variable)",
+          });
+        }
+      }
+
+      // Enhanced validation - connect to blockchain and validate everything the execute function would need
+      console.log("[@lit-protocol/vincent-tool-aave/precheck] Starting enhanced validation...");
+
+      // Get provider
+      let provider;
+      try {
+        provider = new ethers.providers.JsonRpcProvider(
+          await Lit.Actions.getRpcUrl({ chain })
+        );
+      } catch (error) {
+        return fail({
+          error: "[@lit-protocol/vincent-tool-aave/precheck] Unable to obtain blockchain provider",
+        });
+      }
+
+      // Get PKP address
+      const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
+      if (!pkpPublicKey) {
+        return fail({
+          error: "[@lit-protocol/vincent-tool-aave/precheck] PKP public key not available",
+        });
+      }
+      const pkpAddress = ethers.utils.computeAddress(pkpPublicKey);
+
+      // Get asset decimals and validate asset exists
+      let assetDecimals: number;
+      let userBalance: string = "0";
+      let allowance: string = "0";
+      try {
+        const assetContract = new ethers.Contract(asset, ERC20_ABI, provider);
+        assetDecimals = await assetContract.decimals();
+        userBalance = (await assetContract.balanceOf(pkpAddress)).toString();
+        allowance = (await assetContract.allowance(pkpAddress, AAVE_V3_SEPOLIA_ADDRESSES.POOL)).toString();
+      } catch (error) {
+        return fail({
+          error: "[@lit-protocol/vincent-tool-aave/precheck] Invalid asset address or asset not found on network",
+        });
+      }
+
+      // Convert amount using proper decimals
+      const convertedAmount = parseAmount(amount, assetDecimals);
+
+      // Get AAVE user account data
+      let borrowCapacity: string = "0";
+      try {
+        const aavePool = new ethers.Contract(AAVE_V3_SEPOLIA_ADDRESSES.POOL, AAVE_POOL_ABI, provider);
+        const accountData = await aavePool.getUserAccountData(pkpAddress);
+        borrowCapacity = accountData.availableBorrowsBase.toString();
+      } catch (error) {
+        return fail({
+          error: "[@lit-protocol/vincent-tool-aave/precheck] Failed to fetch AAVE account data",
+        });
+      }
+
+      // Operation-specific validations
+      const operationChecks = await validateOperationRequirements(
+        operation,
+        userBalance,
+        allowance,
+        borrowCapacity,
+        convertedAmount,
+        interestRateMode
+      );
+
+      if (!operationChecks.valid) {
+        return fail({
+          error: `[@lit-protocol/vincent-tool-aave/precheck] ${operationChecks.error}`,
+        });
+      }
+
+      // Estimate gas for the operation
+      let estimatedGas: number = 0;
+      try {
+        const aavePool = new ethers.Contract(AAVE_V3_SEPOLIA_ADDRESSES.POOL, AAVE_POOL_ABI, provider);
+        const targetAddress = onBehalfOf || pkpAddress;
+        
+        switch (operation) {
+          case AaveOperation.SUPPLY:
+            estimatedGas = (await aavePool.estimateGas.supply(asset, convertedAmount, targetAddress, 0)).toNumber();
+            break;
+          case AaveOperation.WITHDRAW:
+            estimatedGas = (await aavePool.estimateGas.withdraw(asset, convertedAmount, pkpAddress)).toNumber();
+            break;
+          case AaveOperation.BORROW:
+            estimatedGas = (await aavePool.estimateGas.borrow(asset, convertedAmount, interestRateMode, 0, targetAddress)).toNumber();
+            break;
+          case AaveOperation.REPAY:
+            estimatedGas = (await aavePool.estimateGas.repay(asset, convertedAmount, interestRateMode || INTEREST_RATE_MODE.VARIABLE, targetAddress)).toNumber();
+            break;
+        }
+      } catch (error) {
+        console.warn("[@lit-protocol/vincent-tool-aave/precheck] Gas estimation failed:", error);
+        // Don't fail precheck for gas estimation failure, just set a default
+        estimatedGas = 200000; // Default gas estimate
+      }
+
+      // Enhanced validation passed
+      const successResult = {
+        operationValid: true,
+        assetValid: true,
+        amountValid: true,
+        userBalance,
+        allowance,
+        borrowCapacity,
+        estimatedGas,
+      };
+
+      console.log(
+        "[@lit-protocol/vincent-tool-aave/precheck] Enhanced validation successful:",
+        successResult
+      );
+      
+      return succeed(successResult);
+
+    } catch (error) {
+      console.error("[@lit-protocol/vincent-tool-aave/precheck] Error:", error);
+      return fail({
+        error: `[@lit-protocol/vincent-tool-aave/precheck] Validation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      });
     }
-
-    // Basic validation passed
-    const successResult = {
-      operationValid: true,
-      assetValid: true,
-      amountValid: true,
-    };
-
-    console.log(
-      "[@lit-protocol/vincent-tool-aave/precheck] Success result:",
-      successResult
-    );
-    const successResponse = succeed(successResult);
-    console.log(
-      "[@lit-protocol/vincent-tool-aave/precheck] Success response:",
-      JSON.stringify(successResponse, null, 2)
-    );
-    return successResponse;
   },
 
   execute: async ({ toolParams }, { succeed, fail, delegation }) => {
