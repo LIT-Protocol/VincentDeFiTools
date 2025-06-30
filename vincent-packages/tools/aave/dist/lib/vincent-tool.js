@@ -17,7 +17,7 @@ export const vincentTool = createVincentTool({
             console.log("[@lit-protocol/vincent-tool-aave/precheck] params:", {
                 toolParams,
             });
-            const { operation, asset, amount, interestRateMode, onBehalfOf, chain } = toolParams;
+            const { operation, asset, amount, interestRateMode, onBehalfOf, rpcUrl } = toolParams;
             // Validate operation
             if (!Object.values(AaveOperation).includes(operation)) {
                 return fail({
@@ -48,10 +48,15 @@ export const vincentTool = createVincentTool({
             }
             // Enhanced validation - connect to blockchain and validate everything the execute function would need
             console.log("[@lit-protocol/vincent-tool-aave/precheck] Starting enhanced validation...");
+            if (!rpcUrl) {
+                return fail({
+                    error: "[@lit-protocol/vincent-tool-aave/precheck] RPC URL is required for precheck",
+                });
+            }
             // Get provider
             let provider;
             try {
-                provider = new ethers.providers.JsonRpcProvider(await Lit.Actions.getRpcUrl({ chain }));
+                provider = new ethers.providers.JsonRpcProvider(rpcUrl);
             }
             catch (error) {
                 return fail({
@@ -124,8 +129,9 @@ export const vincentTool = createVincentTool({
             }
             catch (error) {
                 console.warn("[@lit-protocol/vincent-tool-aave/precheck] Gas estimation failed:", error);
-                // Don't fail precheck for gas estimation failure, just set a default
-                estimatedGas = 200000; // Default gas estimate
+                return fail({
+                    error: `[@lit-protocol/vincent-tool-aave/precheck] Gas estimation failed: ${error instanceof Error ? error.message : error.toString()}`,
+                });
             }
             // Enhanced validation passed
             const successResult = {
@@ -149,13 +155,18 @@ export const vincentTool = createVincentTool({
     },
     execute: async ({ toolParams }, { succeed, fail, delegation }) => {
         try {
-            const { operation, asset, amount, interestRateMode, onBehalfOf, chain } = toolParams;
+            const { operation, asset, amount, interestRateMode, onBehalfOf, chain, rpcUrl, } = toolParams;
             console.log("[@lit-protocol/vincent-tool-aave/execute] Executing AAVE Tool", {
                 operation,
                 asset,
                 amount,
                 interestRateMode,
             });
+            if (rpcUrl) {
+                return fail({
+                    error: "[@lit-protocol/vincent-tool-aave/execute] RPC URL is not permitted for execute.  Use the `chain` parameter, and the Lit Nodes will provide the RPC URL for you with the Lit.Actions.getRpcUrl() function",
+                });
+            }
             // Get provider - for AAVE operations, we need to work with Sepolia testnet
             // The Vincent framework typically uses Yellowstone, but AAVE is deployed on Sepolia
             let provider;
