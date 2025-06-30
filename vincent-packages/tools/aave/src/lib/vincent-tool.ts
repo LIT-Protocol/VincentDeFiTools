@@ -43,7 +43,8 @@ export const vincentTool = createVincentTool({
         toolParams,
       });
 
-      const { operation, asset, amount, interestRateMode, onBehalfOf, chain } = toolParams;
+      const { operation, asset, amount, interestRateMode, onBehalfOf, rpcUrl } =
+        toolParams;
 
       // Validate operation
       if (!Object.values(AaveOperation).includes(operation)) {
@@ -84,17 +85,25 @@ export const vincentTool = createVincentTool({
       }
 
       // Enhanced validation - connect to blockchain and validate everything the execute function would need
-      console.log("[@lit-protocol/vincent-tool-aave/precheck] Starting enhanced validation...");
+      console.log(
+        "[@lit-protocol/vincent-tool-aave/precheck] Starting enhanced validation..."
+      );
+
+      if (!rpcUrl) {
+        return fail({
+          error:
+            "[@lit-protocol/vincent-tool-aave/precheck] RPC URL is required for precheck",
+        });
+      }
 
       // Get provider
       let provider;
       try {
-        provider = new ethers.providers.JsonRpcProvider(
-          await Lit.Actions.getRpcUrl({ chain })
-        );
+        provider = new ethers.providers.JsonRpcProvider(rpcUrl);
       } catch (error) {
         return fail({
-          error: "[@lit-protocol/vincent-tool-aave/precheck] Unable to obtain blockchain provider",
+          error:
+            "[@lit-protocol/vincent-tool-aave/precheck] Unable to obtain blockchain provider",
         });
       }
 
@@ -102,7 +111,8 @@ export const vincentTool = createVincentTool({
       const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
       if (!pkpPublicKey) {
         return fail({
-          error: "[@lit-protocol/vincent-tool-aave/precheck] PKP public key not available",
+          error:
+            "[@lit-protocol/vincent-tool-aave/precheck] PKP public key not available",
         });
       }
       const pkpAddress = ethers.utils.computeAddress(pkpPublicKey);
@@ -115,10 +125,16 @@ export const vincentTool = createVincentTool({
         const assetContract = new ethers.Contract(asset, ERC20_ABI, provider);
         assetDecimals = await assetContract.decimals();
         userBalance = (await assetContract.balanceOf(pkpAddress)).toString();
-        allowance = (await assetContract.allowance(pkpAddress, AAVE_V3_SEPOLIA_ADDRESSES.POOL)).toString();
+        allowance = (
+          await assetContract.allowance(
+            pkpAddress,
+            AAVE_V3_SEPOLIA_ADDRESSES.POOL
+          )
+        ).toString();
       } catch (error) {
         return fail({
-          error: "[@lit-protocol/vincent-tool-aave/precheck] Invalid asset address or asset not found on network",
+          error:
+            "[@lit-protocol/vincent-tool-aave/precheck] Invalid asset address or asset not found on network",
         });
       }
 
@@ -128,12 +144,17 @@ export const vincentTool = createVincentTool({
       // Get AAVE user account data
       let borrowCapacity: string = "0";
       try {
-        const aavePool = new ethers.Contract(AAVE_V3_SEPOLIA_ADDRESSES.POOL, AAVE_POOL_ABI, provider);
+        const aavePool = new ethers.Contract(
+          AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+          AAVE_POOL_ABI,
+          provider
+        );
         const accountData = await aavePool.getUserAccountData(pkpAddress);
         borrowCapacity = accountData.availableBorrowsBase.toString();
       } catch (error) {
         return fail({
-          error: "[@lit-protocol/vincent-tool-aave/precheck] Failed to fetch AAVE account data",
+          error:
+            "[@lit-protocol/vincent-tool-aave/precheck] Failed to fetch AAVE account data",
         });
       }
 
@@ -156,27 +177,65 @@ export const vincentTool = createVincentTool({
       // Estimate gas for the operation
       let estimatedGas: number = 0;
       try {
-        const aavePool = new ethers.Contract(AAVE_V3_SEPOLIA_ADDRESSES.POOL, AAVE_POOL_ABI, provider);
+        const aavePool = new ethers.Contract(
+          AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+          AAVE_POOL_ABI,
+          provider
+        );
         const targetAddress = onBehalfOf || pkpAddress;
-        
+
         switch (operation) {
           case AaveOperation.SUPPLY:
-            estimatedGas = (await aavePool.estimateGas.supply(asset, convertedAmount, targetAddress, 0)).toNumber();
+            estimatedGas = (
+              await aavePool.estimateGas.supply(
+                asset,
+                convertedAmount,
+                targetAddress,
+                0
+              )
+            ).toNumber();
             break;
           case AaveOperation.WITHDRAW:
-            estimatedGas = (await aavePool.estimateGas.withdraw(asset, convertedAmount, pkpAddress)).toNumber();
+            estimatedGas = (
+              await aavePool.estimateGas.withdraw(
+                asset,
+                convertedAmount,
+                pkpAddress
+              )
+            ).toNumber();
             break;
           case AaveOperation.BORROW:
-            estimatedGas = (await aavePool.estimateGas.borrow(asset, convertedAmount, interestRateMode, 0, targetAddress)).toNumber();
+            estimatedGas = (
+              await aavePool.estimateGas.borrow(
+                asset,
+                convertedAmount,
+                interestRateMode,
+                0,
+                targetAddress
+              )
+            ).toNumber();
             break;
           case AaveOperation.REPAY:
-            estimatedGas = (await aavePool.estimateGas.repay(asset, convertedAmount, interestRateMode || INTEREST_RATE_MODE.VARIABLE, targetAddress)).toNumber();
+            estimatedGas = (
+              await aavePool.estimateGas.repay(
+                asset,
+                convertedAmount,
+                interestRateMode || INTEREST_RATE_MODE.VARIABLE,
+                targetAddress
+              )
+            ).toNumber();
             break;
         }
       } catch (error) {
-        console.warn("[@lit-protocol/vincent-tool-aave/precheck] Gas estimation failed:", error);
-        // Don't fail precheck for gas estimation failure, just set a default
-        estimatedGas = 200000; // Default gas estimate
+        console.warn(
+          "[@lit-protocol/vincent-tool-aave/precheck] Gas estimation failed:",
+          error
+        );
+        return fail({
+          error: `[@lit-protocol/vincent-tool-aave/precheck] Gas estimation failed: ${
+            error instanceof Error ? error.message : error.toString()
+          }`,
+        });
       }
 
       // Enhanced validation passed
@@ -194,21 +253,29 @@ export const vincentTool = createVincentTool({
         "[@lit-protocol/vincent-tool-aave/precheck] Enhanced validation successful:",
         successResult
       );
-      
-      return succeed(successResult);
 
+      return succeed(successResult);
     } catch (error) {
       console.error("[@lit-protocol/vincent-tool-aave/precheck] Error:", error);
       return fail({
-        error: `[@lit-protocol/vincent-tool-aave/precheck] Validation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error: `[@lit-protocol/vincent-tool-aave/precheck] Validation failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
       });
     }
   },
 
   execute: async ({ toolParams }, { succeed, fail, delegation }) => {
     try {
-      const { operation, asset, amount, interestRateMode, onBehalfOf, chain } =
-        toolParams;
+      const {
+        operation,
+        asset,
+        amount,
+        interestRateMode,
+        onBehalfOf,
+        chain,
+        rpcUrl,
+      } = toolParams;
 
       console.log(
         "[@lit-protocol/vincent-tool-aave/execute] Executing AAVE Tool",
@@ -219,6 +286,13 @@ export const vincentTool = createVincentTool({
           interestRateMode,
         }
       );
+
+      if (rpcUrl) {
+        return fail({
+          error:
+            "[@lit-protocol/vincent-tool-aave/execute] RPC URL is not permitted for execute.  Use the `chain` parameter, and the Lit Nodes will provide the RPC URL for you with the Lit.Actions.getRpcUrl() function",
+        });
+      }
 
       // Get provider - for AAVE operations, we need to work with Sepolia testnet
       // The Vincent framework typically uses Yellowstone, but AAVE is deployed on Sepolia

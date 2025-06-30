@@ -26,6 +26,7 @@ export const toolParamsSchema = z.object({
     .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid address")
     .optional(),
   chain: z.string(),
+  rpcUrl: z.string().optional(),
 });
 
 /**
