@@ -115,57 +115,6 @@ async function getAaveUserAccountData(
   };
 }
 
-async function getATokenBalance(
-  provider: ethers.providers.Provider,
-  aTokenAddress: string,
-  userAddress: string
-) {
-  const aTokenContract = new ethers.Contract(
-    aTokenAddress,
-    [
-      {
-        inputs: [{ internalType: "address", name: "account", type: "address" }],
-        name: "balanceOf",
-        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-        stateMutability: "view",
-        type: "function",
-      },
-    ],
-    provider
-  );
-
-  return await aTokenContract.balanceOf(userAddress);
-}
-
-async function getUserDebtBalance(
-  provider: ethers.providers.Provider,
-  debtTokenAddress: string,
-  userAddress: string
-) {
-  const debtTokenContract = new ethers.Contract(
-    debtTokenAddress,
-    [
-      {
-        inputs: [{ internalType: "address", name: "user", type: "address" }],
-        name: "balanceOf",
-        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-        stateMutability: "view",
-        type: "function",
-      },
-    ],
-    provider
-  );
-
-  return await debtTokenContract.balanceOf(userAddress);
-}
-
-// AAVE token addresses for Sepolia testnet
-const AAVE_TOKEN_ADDRESSES = {
-  WETH_ATOKEN: "0x5b071b590a59395fE4025A0Ccc1FcC931AAc1830", // aWETH on Sepolia
-  USDC_VARIABLE_DEBT: "0x36B4bA48Ec04e46b7C5E5fD5B64B5B10344Eb04b", // variableDebtUSDC on Sepolia
-  USDC_STABLE_DEBT: "0x9C8a00E8D93eD35f7F80a8D7C81EC46C3C49be44", // stableDebtUSDC on Sepolia
-};
-
 // Enhanced AAVE State interface for tracking changes
 interface AaveAccountData {
   totalCollateralBase: ethers.BigNumber;
@@ -877,13 +826,16 @@ function resetAaveStateTracking() {
   let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);
   let initialUsdcBalance: ethers.BigNumber = ethers.BigNumber.from(0);
 
+  // Store initial AAVE state for end-to-end comparison
+  let initialAaveState: AaveAccountData | null = null;
+
   // Reset state tracking for clean test isolation
   resetAaveStateTracking();
 
   // Record initial AAVE state before any operations
   console.log("🔍 Recording initial AAVE state...");
   try {
-    const initialAaveState = await verifyAaveState(
+    initialAaveState = await verifyAaveState(
       sepoliaProvider,
       agentWalletPkp.ethAddress,
       "initial",
@@ -1815,13 +1767,25 @@ function resetAaveStateTracking() {
       sepoliaProvider,
       agentWalletPkp.ethAddress,
       "final",
-      {
-        maxCollateral: "0.1", // Should be near zero after withdrawing everything
-        maxDebt: "0.1", // Should be near zero after repaying everything
-      }
+      {}
     );
 
-    // Verify we're back to a clean state
+    if (!initialAaveState) {
+      addTestResult(
+        "Final AAVE State - Clean Workflow", 
+        false, 
+        "Initial AAVE state was not captured, cannot compare final state"
+      );
+      return;
+    }
+
+    // Compare final state to initial state
+    const initialCollateral = parseFloat(
+      ethers.utils.formatUnits(initialAaveState.totalCollateralBase, 8)
+    );
+    const initialDebt = parseFloat(
+      ethers.utils.formatUnits(initialAaveState.totalDebtBase, 8)
+    );
     const finalCollateral = parseFloat(
       ethers.utils.formatUnits(finalAaveState.totalCollateralBase, 8)
     );
@@ -1829,20 +1793,41 @@ function resetAaveStateTracking() {
       ethers.utils.formatUnits(finalAaveState.totalDebtBase, 8)
     );
 
-    console.log("📊 Final AAVE State Summary:");
-    console.log(`   - Final Collateral: ${finalCollateral.toFixed(4)} USD`);
-    console.log(`   - Final Debt: ${finalDebt.toFixed(4)} USD`);
+    const collateralDifference = Math.abs(finalCollateral - initialCollateral);
+    const debtDifference = Math.abs(finalDebt - initialDebt);
 
-    if (finalCollateral < 0.1 && finalDebt < 0.1) {
-      console.log("   ✅ Successfully returned to clean state");
+    console.log("📊 Final vs Initial AAVE State Comparison:");
+    console.log(`   - Initial Collateral: ${initialCollateral.toFixed(4)} USD`);
+    console.log(`   - Final Collateral: ${finalCollateral.toFixed(4)} USD`);
+    console.log(`   - Collateral Difference: ${collateralDifference.toFixed(4)} USD`);
+    console.log(`   - Initial Debt: ${initialDebt.toFixed(4)} USD`);
+    console.log(`   - Final Debt: ${finalDebt.toFixed(4)} USD`);
+    console.log(`   - Debt Difference: ${debtDifference.toFixed(4)} USD`);
+
+    // Define acceptable tolerance (small differences due to interest accrual, rounding, etc.)
+    const TOLERANCE_USD = 0.01; // $0.01 tolerance
+
+    const collateralWithinTolerance = collateralDifference <= TOLERANCE_USD;
+    const debtWithinTolerance = debtDifference <= TOLERANCE_USD;
+
+    if (collateralWithinTolerance && debtWithinTolerance) {
+      console.log(`   ✅ Successfully returned to initial state (within ${TOLERANCE_USD} USD tolerance)`);
+      console.log(`      Collateral returned to within ${collateralDifference.toFixed(4)} USD of initial value`);
+      console.log(`      Debt returned to within ${debtDifference.toFixed(4)} USD of initial value`);
       addTestResult("Final AAVE State - Clean Workflow", true);
     } else {
+      const issues: string[] = [];
+      if (!collateralWithinTolerance) {
+        issues.push(`collateral differs by ${collateralDifference.toFixed(4)} USD (tolerance: ${TOLERANCE_USD} USD)`);
+      }
+      if (!debtWithinTolerance) {
+        issues.push(`debt differs by ${debtDifference.toFixed(4)} USD (tolerance: ${TOLERANCE_USD} USD)`);
+      }
+      
       addTestResult(
         "Final AAVE State - Clean Workflow",
         false,
-        `Position not fully closed: ${finalCollateral.toFixed(
-          4
-        )} USD collateral, ${finalDebt.toFixed(4)} USD debt remaining`
+        `Position not returned to initial state: ${issues.join(", ")}`
       );
     }
   } catch (error) {
