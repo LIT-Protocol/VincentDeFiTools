@@ -249,6 +249,7 @@ async function executeSupply(provider, pkpPublicKey, asset, amount, onBehalfOf, 
         functionName: "supply",
         args: [asset, amount, onBehalfOf, 0],
         chainId,
+        gasBumpPercentage: 10,
     });
     return txHash;
 }
@@ -267,6 +268,7 @@ async function executeWithdraw(provider, pkpPublicKey, asset, amount, to, chainI
         functionName: "withdraw",
         args: [asset, amount, to],
         chainId,
+        gasBumpPercentage: 10,
     });
     return txHash;
 }
@@ -285,6 +287,7 @@ async function executeBorrow(provider, pkpPublicKey, asset, amount, interestRate
         functionName: "borrow",
         args: [asset, amount, interestRateMode, 0, onBehalfOf],
         chainId,
+        gasBumpPercentage: 10,
     });
     return txHash;
 }
@@ -304,6 +307,7 @@ async function executeRepay(provider, pkpPublicKey, asset, amount, rateMode, onB
         functionName: "repay",
         args: [asset, amount, rateMode, onBehalfOf],
         chainId,
+        gasBumpPercentage: 10,
     });
     return txHash;
 }

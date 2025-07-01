@@ -18,16 +18,11 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { ethers } from "ethers";
 import { AAVE_V3_SEPOLIA_ADDRESSES } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
-import { verifyAaveState, resetAaveStateTracking, AaveAccountData } from "./test-utils.js";
+import { verifyAaveState, resetAaveStateTracking, AaveAccountData, setupWethFunding, setupEthFunding, setupUsdcContract, TestResult, TEST_WETH_ADDRESS, TEST_USDC_ADDRESS } from "./test-utils.js";
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
 const CONFIRMATIONS_TO_WAIT = 1;
 
 // Test tracking system
-interface TestResult {
-  name: string;
-  passed: boolean;
-  error?: string;
-}
 
 const testResults: TestResult[] = [];
 
@@ -272,180 +267,25 @@ function printTestSummary() {
   }
 
   // ========================================
-  // WETH Funding Setup for AAVE Testing
+  // WETH and ETH Funding Setup
   // ========================================
-  console.log("💰 Setting up WETH funding for AAVE tests");
-
-  // Fund PKP with WETH from TEST_FUNDER_PRIVATE_KEY wallet
-  const TEST_WETH_ADDRESS = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c"; // WETH on Sepolia
-  const TEST_USDC_ADDRESS = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC on Sepolia
-  const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
-  const REQUIRED_WETH_BALANCE = ethers.utils.parseEther(WETH_FUND_AMOUNT);
-
-  // WETH contract for balance checking
-  const wethAbi = [
-    "function transfer(address to, uint256 amount) returns (bool)",
-    "function balanceOf(address account) view returns (uint256)",
-    "function decimals() view returns (uint8)",
-  ];
-  const wethContract = new ethers.Contract(
-    TEST_WETH_ADDRESS,
-    wethAbi,
-    sepoliaProvider
+  const { wethContract, wethDecimals } = await setupWethFunding(
+    sepoliaProvider,
+    agentWalletPkp.ethAddress,
+    process.env.TEST_FUNDER_PRIVATE_KEY,
+    addTestResult,
+    CONFIRMATIONS_TO_WAIT
   );
-  const wethDecimals = await wethContract.decimals();
 
-  // USDC contract for balance checking
-  const usdcAbi = [
-    "function balanceOf(address account) view returns (uint256)",
-    "function decimals() view returns (uint8)",
-  ];
-  const usdcContract = new ethers.Contract(
-    TEST_USDC_ADDRESS,
-    usdcAbi,
-    sepoliaProvider
+  await setupEthFunding(
+    sepoliaProvider,
+    agentWalletPkp.ethAddress,
+    process.env.TEST_FUNDER_PRIVATE_KEY,
+    addTestResult,
+    CONFIRMATIONS_TO_WAIT
   );
-  const usdcDecimals = await usdcContract.decimals();
 
-  // Test 2: WETH Balance Check and Conditional Funding
-  try {
-    console.log("🔍 Checking PKP WETH balance");
-    console.log(`   PKP Address: ${agentWalletPkp.ethAddress}`);
-    console.log(`   WETH Contract: ${TEST_WETH_ADDRESS}`);
-
-    // Create funder wallet using private key
-    const funderWallet = new ethers.Wallet(
-      process.env.TEST_FUNDER_PRIVATE_KEY,
-      sepoliaProvider
-    );
-
-    // Check current PKP WETH balance
-    const currentBalance = await wethContract.balanceOf(
-      agentWalletPkp.ethAddress
-    );
-    const currentBalanceFormatted = ethers.utils.formatEther(currentBalance);
-    console.log(`   Current PKP WETH balance: ${currentBalanceFormatted} WETH`);
-    console.log(`   Required WETH balance: ${WETH_FUND_AMOUNT} WETH`);
-
-    if (currentBalance.gte(REQUIRED_WETH_BALANCE)) {
-      console.log(
-        "✅ PKP already has sufficient WETH balance, skipping funding"
-      );
-      addTestResult("WETH Balance Check", true);
-    } else {
-      console.log("🏦 PKP needs WETH funding, proceeding with transfer");
-      console.log(`   Funder Address: ${funderWallet.address}`);
-      console.log(
-        `   Transferring ${WETH_FUND_AMOUNT} WETH (${REQUIRED_WETH_BALANCE.toString()} wei)`
-      );
-
-      // Execute WETH transfer
-      const transferTx = await wethContract
-        .connect(funderWallet)
-        .transfer(agentWalletPkp.ethAddress, REQUIRED_WETH_BALANCE);
-      console.log(`   Transfer transaction hash: ${transferTx.hash}`);
-
-      // Wait for transaction confirmation
-      const receipt = await transferTx.wait(CONFIRMATIONS_TO_WAIT);
-      console.log(
-        `   ✅ WETH transfer confirmed in block ${receipt.blockNumber}`
-      );
-
-      // Verify new balance
-      const newBalance = await wethContract.balanceOf(
-        agentWalletPkp.ethAddress
-      );
-      console.log(
-        `   New PKP WETH balance: ${ethers.utils.formatEther(newBalance)} WETH`
-      );
-
-      addTestResult("WETH Funding Setup", true);
-    }
-  } catch (error) {
-    console.error("❌ WETH funding setup failed:", error?.message || error);
-    addTestResult(
-      "WETH Funding Setup",
-      false,
-      error?.message || error.toString()
-    );
-  }
-
-  // ========================================
-  // ETH Gas Funding Setup for Sepolia
-  // ========================================
-  console.log("⛽ Setting up ETH gas funding for Sepolia operations");
-
-  const ETH_FUND_AMOUNT = "0.01"; // 0.01 ETH
-  const REQUIRED_ETH_BALANCE = ethers.utils.parseEther("0.002"); // 0.002 ETH threshold
-
-  // Test 3: ETH Balance Check and Conditional Funding
-  try {
-    console.log("🔍 Checking PKP ETH balance for gas fees");
-    console.log(`   PKP Address: ${agentWalletPkp.ethAddress}`);
-
-    // Create funder wallet using private key
-    const funderWallet = new ethers.Wallet(
-      process.env.TEST_FUNDER_PRIVATE_KEY,
-      sepoliaProvider
-    );
-
-    // Check current PKP ETH balance
-    const currentEthBalance = await sepoliaProvider.getBalance(
-      agentWalletPkp.ethAddress
-    );
-    const currentEthBalanceFormatted =
-      ethers.utils.formatEther(currentEthBalance);
-    console.log(
-      `   Current PKP ETH balance: ${currentEthBalanceFormatted} ETH`
-    );
-    console.log(
-      `   Required ETH balance threshold: ${ethers.utils.formatEther(
-        REQUIRED_ETH_BALANCE
-      )} ETH`
-    );
-
-    if (currentEthBalance.gte(REQUIRED_ETH_BALANCE)) {
-      console.log(
-        "✅ PKP already has sufficient ETH balance for gas, skipping funding"
-      );
-      addTestResult("ETH Balance Check", true);
-    } else {
-      console.log("⛽ PKP needs ETH funding for gas, proceeding with transfer");
-      console.log(`   Funder Address: ${funderWallet.address}`);
-      console.log(`   Transferring ${ETH_FUND_AMOUNT} ETH`);
-
-      // Execute ETH transfer
-      const transferTx = await funderWallet.sendTransaction({
-        to: agentWalletPkp.ethAddress,
-        value: ethers.utils.parseEther(ETH_FUND_AMOUNT),
-        gasLimit: 21000,
-      });
-      console.log(`   Transfer transaction hash: ${transferTx.hash}`);
-
-      // Wait for transaction confirmation
-      const receipt = await transferTx.wait(CONFIRMATIONS_TO_WAIT);
-      console.log(
-        `   ✅ ETH transfer confirmed in block ${receipt.blockNumber}`
-      );
-
-      // Verify new balance
-      const newEthBalance = await sepoliaProvider.getBalance(
-        agentWalletPkp.ethAddress
-      );
-      console.log(
-        `   New PKP ETH balance: ${ethers.utils.formatEther(newEthBalance)} ETH`
-      );
-
-      addTestResult("ETH Funding Setup", true);
-    }
-  } catch (error) {
-    console.error("❌ ETH funding setup failed:", error?.message || error);
-    addTestResult(
-      "ETH Funding Setup",
-      false,
-      error?.message || error.toString()
-    );
-  }
+  const { usdcContract, usdcDecimals } = await setupUsdcContract(sepoliaProvider);
 
   // ========================================
   // AAVE Tool Testing - Complete Workflow

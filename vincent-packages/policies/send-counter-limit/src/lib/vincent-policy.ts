@@ -34,13 +34,18 @@ export const vincentPolicy = createVincentPolicy({
     { toolParams, userParams },
     { allow, deny, appId, delegation: { delegatorPkpInfo } }
   ) => {
-    console.log("[@lit-protocol/vincent-policy-send-counter-limit/precheck] 🔍 POLICY PRECHECK CALLED");
-    console.log("[@lit-protocol/vincent-policy-send-counter-limit/precheck] 🔍 Policy precheck params:", {
-      toolParams,
-      userParams,
-      ethAddress: delegatorPkpInfo.ethAddress,
-      appId,
-    });
+    console.log(
+      "[@lit-protocol/vincent-policy-send-counter-limit/precheck] 🔍 POLICY PRECHECK CALLED"
+    );
+    console.log(
+      "[@lit-protocol/vincent-policy-send-counter-limit/precheck] 🔍 Policy precheck params:",
+      {
+        toolParams,
+        userParams,
+        ethAddress: delegatorPkpInfo.ethAddress,
+        appId,
+      }
+    );
 
     // Only use what we actually need - no defaults in policy logic
     const { maxSends, timeWindowSeconds } = userParams;
@@ -148,10 +153,13 @@ export const vincentPolicy = createVincentPolicy({
     { toolParams, userParams },
     { allow, deny, appId, delegation: { delegatorPkpInfo } }
   ) => {
-    console.log("[@lit-protocol/vincent-policy-send-counter-limit/evaluate] Evaluating send limit policy", {
-      toolParams,
-      userParams,
-    });
+    console.log(
+      "[@lit-protocol/vincent-policy-send-counter-limit/evaluate] Evaluating send limit policy",
+      {
+        toolParams,
+        userParams,
+      }
+    );
 
     // Only use what we actually need - no defaults in policy logic
     const { maxSends, timeWindowSeconds } = userParams;
@@ -211,11 +219,14 @@ export const vincentPolicy = createVincentPolicy({
       });
     }
 
-    console.log("[@lit-protocol/vincent-policy-send-counter-limit/evaluate] Evaluated send limit policy", {
-      currentCount,
-      maxSends,
-      remainingSends,
-    });
+    console.log(
+      "[@lit-protocol/vincent-policy-send-counter-limit/evaluate] Evaluated send limit policy",
+      {
+        currentCount,
+        maxSends,
+        remainingSends,
+      }
+    );
 
     return allow({
       currentCount,
@@ -231,7 +242,9 @@ export const vincentPolicy = createVincentPolicy({
   ) => {
     const { ethAddress } = delegatorPkpInfo;
 
-    console.log("[@lit-protocol/vincent-policy-send-counter-limit/commit] 🚀 IM COMMITING!");
+    console.log(
+      "[@lit-protocol/vincent-policy-send-counter-limit/commit] 🚀 IM COMMITING!"
+    );
 
     // Check if we need to reset the counter first
     const checkResponse = await checkSendLimit(
@@ -267,7 +280,7 @@ export const vincentPolicy = createVincentPolicy({
         `[@lit-protocol/vincent-policy-send-counter-limit/commit] Calling incrementByAddress(${ethAddress}) on contract ${counterSignatures.address}`
       );
 
-      const provider = await laUtils.chain.getYellowstoneProvider();
+      const provider = await Lit.Actions.getRpcUrl({ chain: "yellowstone" });
 
       // Call contract directly without Lit.Actions.runOnce wrapper
       const txHash = await laUtils.transaction.handler.contractCall({
@@ -286,13 +299,16 @@ export const vincentPolicy = createVincentPolicy({
       const newCount = currentCount + 1;
       const remainingSends = Number(maxSends) - newCount;
 
-      console.log("[@lit-protocol/vincent-policy-send-counter-limit/commit] Policy commit successful", {
-        ethAddress,
-        newCount,
-        maxSends,
-        remainingSends,
-        txHash,
-      });
+      console.log(
+        "[@lit-protocol/vincent-policy-send-counter-limit/commit] Policy commit successful",
+        {
+          ethAddress,
+          newCount,
+          maxSends,
+          remainingSends,
+          txHash,
+        }
+      );
 
       return allow({
         recorded: true,
@@ -300,7 +316,10 @@ export const vincentPolicy = createVincentPolicy({
         remainingSends: Math.max(0, remainingSends),
       });
     } catch (error) {
-      console.error("[@lit-protocol/vincent-policy-send-counter-limit/commit] Error in commit phase:", error);
+      console.error(
+        "[@lit-protocol/vincent-policy-send-counter-limit/commit] Error in commit phase:",
+        error
+      );
       // Still return success since the transaction itself succeeded
       return allow({
         recorded: false,

@@ -461,6 +461,7 @@ async function executeSupply(
     functionName: "supply",
     args: [asset, amount, onBehalfOf, 0],
     chainId,
+    gasBumpPercentage: 10,
   });
 
   return txHash;
@@ -492,6 +493,7 @@ async function executeWithdraw(
     functionName: "withdraw",
     args: [asset, amount, to],
     chainId,
+    gasBumpPercentage: 10,
   });
 
   return txHash;
@@ -524,6 +526,7 @@ async function executeBorrow(
     functionName: "borrow",
     args: [asset, amount, interestRateMode, 0, onBehalfOf],
     chainId,
+    gasBumpPercentage: 10,
   });
 
   return txHash;
@@ -557,6 +560,7 @@ async function executeRepay(
     functionName: "repay",
     args: [asset, amount, rateMode, onBehalfOf],
     chainId,
+    gasBumpPercentage: 10,
   });
 
   return txHash;

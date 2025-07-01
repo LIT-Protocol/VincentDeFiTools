@@ -152,7 +152,7 @@ export const vincentPolicy = createVincentPolicy({
             console.log(`[@lit-protocol/vincent-policy-send-counter-limit/commit] Recording send to contract for ${ethAddress} (appId: ${appId})`);
             // Execute the contract call to increment the counter directly
             console.log(`[@lit-protocol/vincent-policy-send-counter-limit/commit] Calling incrementByAddress(${ethAddress}) on contract ${counterSignatures.address}`);
-            const provider = await laUtils.chain.getYellowstoneProvider();
+            const provider = await Lit.Actions.getRpcUrl({ chain: "yellowstone" });
             // Call contract directly without Lit.Actions.runOnce wrapper
             const txHash = await laUtils.transaction.handler.contractCall({
                 provider,
