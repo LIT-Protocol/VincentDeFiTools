@@ -32,8 +32,7 @@ import {
   printTestSummary,
 } from "./test-utils.js";
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
-const CONFIRMATIONS_TO_WAIT = 1;
-
+const CONFIRMATIONS_TO_WAIT = 2;
 
 (async () => {
   /**
