@@ -1246,17 +1246,6 @@ const CONFIRMATIONS_TO_WAIT = 2;
   }
 
   // ========================================
-  // Send WETH and ETH back to funding wallet
-  // ========================================
-  console.log("Send WETH and ETH back to funding wallet");
-
-  // Send WETH back to funding wallet
-  // TODO: Implement this
-
-  // Send ETH back to funding wallet
-  // TODO: Implement this
-
-  // ========================================
   // Final AAVE State Verification
   // ========================================
   console.log("\n🏁 Final AAVE State Verification - Workflow Complete");
@@ -1350,6 +1339,17 @@ const CONFIRMATIONS_TO_WAIT = 2;
     }
   } catch (error) {
     addTestResult("Final AAVE State - Clean Workflow", false, error.message);
+  } finally {
+    // ========================================
+    // Send WETH and ETH back to funding wallet
+    // ========================================
+    console.log("Send WETH and ETH back to funding wallet");
+
+    // Send WETH back to funding wallet
+    // TODO: Implement this
+
+    // Send ETH back to funding wallet
+    // TODO: Implement this
   }
 
   // ========================================

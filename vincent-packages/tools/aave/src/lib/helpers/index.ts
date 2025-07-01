@@ -23,75 +23,83 @@ export const SEPOLIA_TEST_TOKENS = {
 export const AAVE_POOL_ABI: any[] = [
   // Supply
   {
-    "inputs": [
-      {"internalType": "address", "name": "asset", "type": "address"},
-      {"internalType": "uint256", "name": "amount", "type": "uint256"},
-      {"internalType": "address", "name": "onBehalfOf", "type": "address"},  
-      {"internalType": "uint16", "name": "referralCode", "type": "uint16"}
+    inputs: [
+      { internalType: "address", name: "asset", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "address", name: "onBehalfOf", type: "address" },
+      { internalType: "uint16", name: "referralCode", type: "uint16" },
     ],
-    "name": "supply",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "supply",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
-  
+
   // Withdraw
   {
-    "inputs": [
-      {"internalType": "address", "name": "asset", "type": "address"},
-      {"internalType": "uint256", "name": "amount", "type": "uint256"},
-      {"internalType": "address", "name": "to", "type": "address"}
+    inputs: [
+      { internalType: "address", name: "asset", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "address", name: "to", type: "address" },
     ],
-    "name": "withdraw",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "withdraw",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
   },
 
   // Borrow
   {
-    "inputs": [
-      {"internalType": "address", "name": "asset", "type": "address"},
-      {"internalType": "uint256", "name": "amount", "type": "uint256"},
-      {"internalType": "uint256", "name": "interestRateMode", "type": "uint256"},
-      {"internalType": "uint16", "name": "referralCode", "type": "uint16"},
-      {"internalType": "address", "name": "onBehalfOf", "type": "address"}
+    inputs: [
+      { internalType: "address", name: "asset", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "uint256", name: "interestRateMode", type: "uint256" },
+      { internalType: "uint16", name: "referralCode", type: "uint16" },
+      { internalType: "address", name: "onBehalfOf", type: "address" },
     ],
-    "name": "borrow",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "borrow",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
 
   // Repay
   {
-    "inputs": [
-      {"internalType": "address", "name": "asset", "type": "address"},
-      {"internalType": "uint256", "name": "amount", "type": "uint256"},
-      {"internalType": "uint256", "name": "interestRateMode", "type": "uint256"},
-      {"internalType": "address", "name": "onBehalfOf", "type": "address"}
+    inputs: [
+      { internalType: "address", name: "asset", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "uint256", name: "interestRateMode", type: "uint256" },
+      { internalType: "address", name: "onBehalfOf", type: "address" },
     ],
-    "name": "repay",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "repay",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
   },
 
   // getUserAccountData
   {
-    "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
-    "name": "getUserAccountData",
-    "outputs": [
-      {"internalType": "uint256", "name": "totalCollateralBase", "type": "uint256"},
-      {"internalType": "uint256", "name": "totalDebtBase", "type": "uint256"},
-      {"internalType": "uint256", "name": "availableBorrowsBase", "type": "uint256"},
-      {"internalType": "uint256", "name": "currentLiquidationThreshold", "type": "uint256"},
-      {"internalType": "uint256", "name": "ltv", "type": "uint256"},
-      {"internalType": "uint256", "name": "healthFactor", "type": "uint256"}
+    inputs: [{ internalType: "address", name: "user", type: "address" }],
+    name: "getUserAccountData",
+    outputs: [
+      { internalType: "uint256", name: "totalCollateralBase", type: "uint256" },
+      { internalType: "uint256", name: "totalDebtBase", type: "uint256" },
+      {
+        internalType: "uint256",
+        name: "availableBorrowsBase",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "currentLiquidationThreshold",
+        type: "uint256",
+      },
+      { internalType: "uint256", name: "ltv", type: "uint256" },
+      { internalType: "uint256", name: "healthFactor", type: "uint256" },
     ],
-    "stateMutability": "view",
-    "type": "function"
-  }
+    stateMutability: "view",
+    type: "function",
+  },
 ];
 
 /**
@@ -99,39 +107,39 @@ export const AAVE_POOL_ABI: any[] = [
  */
 export const ERC20_ABI: any[] = [
   {
-    "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
-    "name": "balanceOf",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
+    inputs: [{ internalType: "address", name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
-      {"internalType": "address", "name": "owner", "type": "address"},
-      {"internalType": "address", "name": "spender", "type": "address"}
+    inputs: [
+      { internalType: "address", name: "owner", type: "address" },
+      { internalType: "address", name: "spender", type: "address" },
     ],
-    "name": "allowance",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
+    name: "allowance",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
-      {"internalType": "address", "name": "spender", "type": "address"},
-      {"internalType": "uint256", "name": "amount", "type": "uint256"}
+    inputs: [
+      { internalType: "address", name: "spender", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
     ],
-    "name": "approve",
-    "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "approve",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "decimals",
-    "outputs": [{"internalType": "uint8", "name": "", "type": "uint8"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
+    inputs: [],
+    name: "decimals",
+    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ];
 
 /**
@@ -179,7 +187,6 @@ export async function validateOperationRequirements(
   convertedAmount: string,
   interestRateMode?: number
 ): Promise<{ valid: boolean; error?: string }> {
-  
   const userBalanceBN = BigInt(userBalance);
   const allowanceBN = BigInt(allowance);
   const borrowCapacityBN = BigInt(borrowCapacity);
@@ -189,11 +196,17 @@ export async function validateOperationRequirements(
     case "supply":
       // Check if user has enough balance
       if (userBalanceBN < convertedAmountBN) {
-        return { valid: false, error: "Insufficient balance for supply operation" };
+        return {
+          valid: false,
+          error: `Insufficient balance for supply operation.  You have ${userBalance} and need ${convertedAmount}`,
+        };
       }
       // Check if user has approved AAVE to spend tokens
       if (allowanceBN < convertedAmountBN) {
-        return { valid: false, error: "Insufficient allowance for supply operation. Please approve AAVE to spend your tokens first." };
+        return {
+          valid: false,
+          error: `Insufficient allowance for supply operation. Please approve AAVE to spend your tokens first. You have ${allowance} and need ${convertedAmount}`,
+        };
       }
       break;
 
@@ -201,25 +214,37 @@ export async function validateOperationRequirements(
       // For withdraw, we need to check if user has enough aTokens (collateral)
       // This would require checking aToken balance, but for now we'll just check if they have any collateral
       if (borrowCapacityBN === 0n && userBalanceBN === 0n) {
-        return { valid: false, error: "No collateral available for withdrawal" };
+        return {
+          valid: false,
+          error: "No collateral available for withdrawal",
+        };
       }
       break;
 
     case "borrow":
       // Check if user has enough borrowing capacity
       if (borrowCapacityBN < convertedAmountBN) {
-        return { valid: false, error: "Insufficient borrowing capacity" };
+        return {
+          valid: false,
+          error: `Insufficient borrowing capacity.  You have ${borrowCapacity} and need ${convertedAmount}`,
+        };
       }
       break;
 
     case "repay":
       // Check if user has enough balance to repay
       if (userBalanceBN < convertedAmountBN) {
-        return { valid: false, error: "Insufficient balance for repay operation" };
+        return {
+          valid: false,
+          error: `Insufficient balance for repay operation.  You have ${userBalance} and need ${convertedAmount}`,
+        };
       }
       // Check if user has approved AAVE to spend tokens for repayment
       if (allowanceBN < convertedAmountBN) {
-        return { valid: false, error: "Insufficient allowance for repay operation. Please approve AAVE to spend your tokens first." };
+        return {
+          valid: false,
+          error: `Insufficient allowance for repay operation. Please approve AAVE to spend your tokens first. You have ${allowance} and need ${convertedAmount}`,
+        };
       }
       break;
 
