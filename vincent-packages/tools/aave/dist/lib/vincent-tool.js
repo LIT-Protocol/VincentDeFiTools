@@ -12,7 +12,7 @@ export const vincentTool = createVincentTool({
     precheckFailSchema,
     executeSuccessSchema,
     executeFailSchema,
-    precheck: async ({ toolParams }, { succeed, fail, delegation }) => {
+    precheck: async ({ toolParams }, { succeed, fail, delegation: { delegatorPkpInfo } }) => {
         try {
             console.log("[@lit-protocol/vincent-tool-aave/precheck]");
             console.log("[@lit-protocol/vincent-tool-aave/precheck] params:", {
@@ -65,13 +65,7 @@ export const vincentTool = createVincentTool({
                 });
             }
             // Get PKP address
-            const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
-            if (!pkpPublicKey) {
-                return fail({
-                    error: "[@lit-protocol/vincent-tool-aave/precheck] PKP public key not available",
-                });
-            }
-            const pkpAddress = ethers.utils.computeAddress(pkpPublicKey);
+            const pkpAddress = delegatorPkpInfo.ethAddress;
             // Get asset decimals and validate asset exists
             let assetDecimals;
             let userBalance = "0";
@@ -115,16 +109,16 @@ export const vincentTool = createVincentTool({
                 const targetAddress = onBehalfOf || pkpAddress;
                 switch (operation) {
                     case AaveOperation.SUPPLY:
-                        estimatedGas = (await aavePool.estimateGas.supply(asset, convertedAmount, targetAddress, 0)).toNumber();
+                        estimatedGas = (await aavePool.estimateGas.supply(asset, convertedAmount, targetAddress, 0, { from: pkpAddress })).toNumber();
                         break;
                     case AaveOperation.WITHDRAW:
-                        estimatedGas = (await aavePool.estimateGas.withdraw(asset, convertedAmount, pkpAddress)).toNumber();
+                        estimatedGas = (await aavePool.estimateGas.withdraw(asset, convertedAmount, pkpAddress, { from: pkpAddress })).toNumber();
                         break;
                     case AaveOperation.BORROW:
-                        estimatedGas = (await aavePool.estimateGas.borrow(asset, convertedAmount, interestRateMode, 0, targetAddress)).toNumber();
+                        estimatedGas = (await aavePool.estimateGas.borrow(asset, convertedAmount, interestRateMode, 0, targetAddress, { from: pkpAddress })).toNumber();
                         break;
                     case AaveOperation.REPAY:
-                        estimatedGas = (await aavePool.estimateGas.repay(asset, convertedAmount, interestRateMode || INTEREST_RATE_MODE.VARIABLE, targetAddress)).toNumber();
+                        estimatedGas = (await aavePool.estimateGas.repay(asset, convertedAmount, interestRateMode || INTEREST_RATE_MODE.VARIABLE, targetAddress, { from: pkpAddress })).toNumber();
                         break;
                 }
             }

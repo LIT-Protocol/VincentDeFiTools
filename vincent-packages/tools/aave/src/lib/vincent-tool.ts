@@ -37,7 +37,10 @@ export const vincentTool = createVincentTool({
   executeSuccessSchema,
   executeFailSchema,
 
-  precheck: async ({ toolParams }, { succeed, fail, delegation }) => {
+  precheck: async (
+    { toolParams },
+    { succeed, fail, delegation: { delegatorPkpInfo } }
+  ) => {
     try {
       console.log("[@lit-protocol/vincent-tool-aave/precheck]");
       console.log("[@lit-protocol/vincent-tool-aave/precheck] params:", {
@@ -110,14 +113,7 @@ export const vincentTool = createVincentTool({
       }
 
       // Get PKP address
-      const pkpPublicKey = delegation.delegatorPkpInfo.publicKey;
-      if (!pkpPublicKey) {
-        return fail({
-          error:
-            "[@lit-protocol/vincent-tool-aave/precheck] PKP public key not available",
-        });
-      }
-      const pkpAddress = ethers.utils.computeAddress(pkpPublicKey);
+      const pkpAddress = delegatorPkpInfo.ethAddress;
 
       // Get asset decimals and validate asset exists
       let assetDecimals: number;
@@ -193,7 +189,8 @@ export const vincentTool = createVincentTool({
                 asset,
                 convertedAmount,
                 targetAddress,
-                0
+                0,
+                { from: pkpAddress }
               )
             ).toNumber();
             break;
@@ -202,7 +199,8 @@ export const vincentTool = createVincentTool({
               await aavePool.estimateGas.withdraw(
                 asset,
                 convertedAmount,
-                pkpAddress
+                pkpAddress,
+                { from: pkpAddress }
               )
             ).toNumber();
             break;
@@ -213,7 +211,8 @@ export const vincentTool = createVincentTool({
                 convertedAmount,
                 interestRateMode,
                 0,
-                targetAddress
+                targetAddress,
+                { from: pkpAddress }
               )
             ).toNumber();
             break;
@@ -223,7 +222,8 @@ export const vincentTool = createVincentTool({
                 asset,
                 convertedAmount,
                 interestRateMode || INTEREST_RATE_MODE.VARIABLE,
-                targetAddress
+                targetAddress,
+                { from: pkpAddress }
               )
             ).toNumber();
             break;
