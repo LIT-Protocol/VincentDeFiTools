@@ -18,6 +18,7 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { ethers } from "ethers";
 import { AAVE_V3_SEPOLIA_ADDRESSES } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
+const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
 
 // Test tracking system
 interface TestResult {
@@ -156,19 +157,19 @@ async function verifyAaveState(
   console.log(
     `   Total Collateral: ${ethers.utils.formatUnits(
       currentAccountData.totalCollateralBase,
-      8
+      AAVE_BASE_DEBT_ASSET_DECIMALS
     )} USD`
   );
   console.log(
     `   Total Debt: ${ethers.utils.formatUnits(
       currentAccountData.totalDebtBase,
-      8
+      AAVE_BASE_DEBT_ASSET_DECIMALS
     )} USD`
   );
   console.log(
     `   Available Borrow: ${ethers.utils.formatUnits(
       currentAccountData.availableBorrowsBase,
-      8
+      AAVE_BASE_DEBT_ASSET_DECIMALS
     )} USD`
   );
   console.log(
@@ -190,12 +191,18 @@ async function verifyAaveState(
     console.log(
       `      Collateral Change: ${
         collateralChange.gte(0) ? "+" : ""
-      }${ethers.utils.formatUnits(collateralChange, 8)} USD`
+      }${ethers.utils.formatUnits(
+        collateralChange,
+        AAVE_BASE_DEBT_ASSET_DECIMALS
+      )} USD`
     );
     console.log(
       `      Debt Change: ${
         debtChange.gte(0) ? "+" : ""
-      }${ethers.utils.formatUnits(debtChange, 8)} USD`
+      }${ethers.utils.formatUnits(
+        debtChange,
+        AAVE_BASE_DEBT_ASSET_DECIMALS
+      )} USD`
     );
 
     // Verify collateral changes with previous state comparison
@@ -204,14 +211,14 @@ async function verifyAaveState(
         throw new Error(
           `Expected collateral increase but got change of ${ethers.utils.formatUnits(
             collateralChange,
-            8
+            AAVE_BASE_DEBT_ASSET_DECIMALS
           )} USD`
         );
       }
       console.log(
         `   ✅ Collateral increased by ${ethers.utils.formatUnits(
           collateralChange,
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         )} USD`
       );
 
@@ -219,13 +226,13 @@ async function verifyAaveState(
       if (expectedChanges.minCollateralChange) {
         const minChange = ethers.utils.parseUnits(
           expectedChanges.minCollateralChange,
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         );
         if (collateralChange.lt(minChange)) {
           throw new Error(
             `Collateral increase ${ethers.utils.formatUnits(
               collateralChange,
-              8
+              AAVE_BASE_DEBT_ASSET_DECIMALS
             )} USD is less than expected minimum ${
               expectedChanges.minCollateralChange
             } USD`
@@ -239,14 +246,14 @@ async function verifyAaveState(
         throw new Error(
           `Expected collateral decrease but got change of ${ethers.utils.formatUnits(
             collateralChange,
-            8
+            AAVE_BASE_DEBT_ASSET_DECIMALS
           )} USD`
         );
       }
       console.log(
         `   ✅ Collateral decreased by ${ethers.utils.formatUnits(
           collateralChange.abs(),
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         )} USD`
       );
 
@@ -254,13 +261,13 @@ async function verifyAaveState(
       if (expectedChanges.minCollateralChange) {
         const minChange = ethers.utils.parseUnits(
           expectedChanges.minCollateralChange,
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         );
         if (collateralChange.abs().lt(minChange)) {
           throw new Error(
             `Collateral decrease ${ethers.utils.formatUnits(
               collateralChange.abs(),
-              8
+              AAVE_BASE_DEBT_ASSET_DECIMALS
             )} USD is less than expected minimum ${
               expectedChanges.minCollateralChange
             } USD`
@@ -275,25 +282,28 @@ async function verifyAaveState(
         throw new Error(
           `Expected debt increase but got change of ${ethers.utils.formatUnits(
             debtChange,
-            8
+            AAVE_BASE_DEBT_ASSET_DECIMALS
           )} USD`
         );
       }
       console.log(
-        `   ✅ Debt increased by ${ethers.utils.formatUnits(debtChange, 8)} USD`
+        `   ✅ Debt increased by ${ethers.utils.formatUnits(
+          debtChange,
+          AAVE_BASE_DEBT_ASSET_DECIMALS
+        )} USD`
       );
 
       // Check minimum debt change if specified
       if (expectedChanges.minDebtChange) {
         const minChange = ethers.utils.parseUnits(
           expectedChanges.minDebtChange,
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         );
         if (debtChange.lt(minChange)) {
           throw new Error(
             `Debt increase ${ethers.utils.formatUnits(
               debtChange,
-              8
+              AAVE_BASE_DEBT_ASSET_DECIMALS
             )} USD is less than expected minimum ${
               expectedChanges.minDebtChange
             } USD`
@@ -307,14 +317,14 @@ async function verifyAaveState(
         throw new Error(
           `Expected debt decrease but got change of ${ethers.utils.formatUnits(
             debtChange,
-            8
+            AAVE_BASE_DEBT_ASSET_DECIMALS
           )} USD`
         );
       }
       console.log(
         `   ✅ Debt decreased by ${ethers.utils.formatUnits(
           debtChange.abs(),
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         )} USD`
       );
 
@@ -322,13 +332,13 @@ async function verifyAaveState(
       if (expectedChanges.minDebtChange) {
         const minChange = ethers.utils.parseUnits(
           expectedChanges.minDebtChange,
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         );
         if (debtChange.abs().lt(minChange)) {
           throw new Error(
             `Debt decrease ${ethers.utils.formatUnits(
               debtChange.abs(),
-              8
+              AAVE_BASE_DEBT_ASSET_DECIMALS
             )} USD is less than expected minimum ${
               expectedChanges.minDebtChange
             } USD`
@@ -355,13 +365,13 @@ async function verifyAaveState(
   if (expectedChanges.minCollateral) {
     const minCollateral = ethers.utils.parseUnits(
       expectedChanges.minCollateral,
-      8
+      AAVE_BASE_DEBT_ASSET_DECIMALS
     );
     if (currentAccountData.totalCollateralBase.lt(minCollateral)) {
       throw new Error(
         `Collateral ${ethers.utils.formatUnits(
           currentAccountData.totalCollateralBase,
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         )} USD is less than expected minimum ${
           expectedChanges.minCollateral
         } USD`
@@ -372,37 +382,43 @@ async function verifyAaveState(
   if (expectedChanges.maxCollateral) {
     const maxCollateral = ethers.utils.parseUnits(
       expectedChanges.maxCollateral,
-      8
+      AAVE_BASE_DEBT_ASSET_DECIMALS
     );
     if (currentAccountData.totalCollateralBase.gt(maxCollateral)) {
       throw new Error(
         `Collateral ${ethers.utils.formatUnits(
           currentAccountData.totalCollateralBase,
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         )} USD exceeds expected maximum ${expectedChanges.maxCollateral} USD`
       );
     }
   }
 
   if (expectedChanges.minDebt) {
-    const minDebt = ethers.utils.parseUnits(expectedChanges.minDebt, 8);
+    const minDebt = ethers.utils.parseUnits(
+      expectedChanges.minDebt,
+      AAVE_BASE_DEBT_ASSET_DECIMALS
+    );
     if (currentAccountData.totalDebtBase.lt(minDebt)) {
       throw new Error(
         `Debt ${ethers.utils.formatUnits(
           currentAccountData.totalDebtBase,
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         )} USD is less than expected minimum ${expectedChanges.minDebt} USD`
       );
     }
   }
 
   if (expectedChanges.maxDebt) {
-    const maxDebt = ethers.utils.parseUnits(expectedChanges.maxDebt, 8);
+    const maxDebt = ethers.utils.parseUnits(
+      expectedChanges.maxDebt,
+      AAVE_BASE_DEBT_ASSET_DECIMALS
+    );
     if (currentAccountData.totalDebtBase.gt(maxDebt)) {
       throw new Error(
         `Debt ${ethers.utils.formatUnits(
           currentAccountData.totalDebtBase,
-          8
+          AAVE_BASE_DEBT_ASSET_DECIMALS
         )} USD exceeds expected maximum ${expectedChanges.maxDebt} USD`
       );
     }
@@ -1409,7 +1425,13 @@ function resetAaveStateTracking() {
   // ========================================
   console.log("(AAVE-STEP-3) Repay USDC debt");
 
-  const USDC_REPAY_AMOUNT = USDC_BORROW_AMOUNT; // Repay full amount
+  // only repay the debt amount.  sometimes we try to borrow 1.0 and get 0.99999.
+  const USDC_REPAY_AMOUNT = ethers.utils
+    .formatUnits(
+      previousAaveState!.totalDebtBase,
+      AAVE_BASE_DEBT_ASSET_DECIMALS
+    )
+    .toString(); // USDC_REPAY_AMOUNT is the total debt amount in USDC
   console.log(`   Repaying ${USDC_REPAY_AMOUNT} USDC`);
 
   // Test 6: AAVE Repay Operation
@@ -1772,8 +1794,8 @@ function resetAaveStateTracking() {
 
     if (!initialAaveState) {
       addTestResult(
-        "Final AAVE State - Clean Workflow", 
-        false, 
+        "Final AAVE State - Clean Workflow",
+        false,
         "Initial AAVE state was not captured, cannot compare final state"
       );
       return;
@@ -1799,7 +1821,9 @@ function resetAaveStateTracking() {
     console.log("📊 Final vs Initial AAVE State Comparison:");
     console.log(`   - Initial Collateral: ${initialCollateral.toFixed(4)} USD`);
     console.log(`   - Final Collateral: ${finalCollateral.toFixed(4)} USD`);
-    console.log(`   - Collateral Difference: ${collateralDifference.toFixed(4)} USD`);
+    console.log(
+      `   - Collateral Difference: ${collateralDifference.toFixed(4)} USD`
+    );
     console.log(`   - Initial Debt: ${initialDebt.toFixed(4)} USD`);
     console.log(`   - Final Debt: ${finalDebt.toFixed(4)} USD`);
     console.log(`   - Debt Difference: ${debtDifference.toFixed(4)} USD`);
@@ -1811,19 +1835,37 @@ function resetAaveStateTracking() {
     const debtWithinTolerance = debtDifference <= TOLERANCE_USD;
 
     if (collateralWithinTolerance && debtWithinTolerance) {
-      console.log(`   ✅ Successfully returned to initial state (within ${TOLERANCE_USD} USD tolerance)`);
-      console.log(`      Collateral returned to within ${collateralDifference.toFixed(4)} USD of initial value`);
-      console.log(`      Debt returned to within ${debtDifference.toFixed(4)} USD of initial value`);
+      console.log(
+        `   ✅ Successfully returned to initial state (within ${TOLERANCE_USD} USD tolerance)`
+      );
+      console.log(
+        `      Collateral returned to within ${collateralDifference.toFixed(
+          4
+        )} USD of initial value`
+      );
+      console.log(
+        `      Debt returned to within ${debtDifference.toFixed(
+          4
+        )} USD of initial value`
+      );
       addTestResult("Final AAVE State - Clean Workflow", true);
     } else {
       const issues: string[] = [];
       if (!collateralWithinTolerance) {
-        issues.push(`collateral differs by ${collateralDifference.toFixed(4)} USD (tolerance: ${TOLERANCE_USD} USD)`);
+        issues.push(
+          `collateral differs by ${collateralDifference.toFixed(
+            4
+          )} USD (tolerance: ${TOLERANCE_USD} USD)`
+        );
       }
       if (!debtWithinTolerance) {
-        issues.push(`debt differs by ${debtDifference.toFixed(4)} USD (tolerance: ${TOLERANCE_USD} USD)`);
+        issues.push(
+          `debt differs by ${debtDifference.toFixed(
+            4
+          )} USD (tolerance: ${TOLERANCE_USD} USD)`
+        );
       }
-      
+
       addTestResult(
         "Final AAVE State - Clean Workflow",
         false,
