@@ -1341,7 +1341,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
     addTestResult("Final AAVE State - Clean Workflow", false, error.message);
   } finally {
     // ========================================
-    // Send WETH and ETH back to funding wallet
+    // Send WETH and ETH back to funding wallet (not implemented yet)
     // ========================================
     console.log("Send WETH and ETH back to funding wallet");
 
@@ -1363,6 +1363,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
       `   Sending ${wethBalance} WETH to funding wallet with data ${txData}`
     );
 
+    // TODO: sign the txn with the PKP and broadcast it.
+
     // Send ETH back to funding wallet
     // 1. get the eth balance of the PKP
     const ethBalance = await sepoliaProvider.getBalance(
@@ -1383,6 +1385,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
         amountToSend
       )} ETH to funding wallet (balance is ${ethBalance})`
     );
+
+    // TODO: sign the txn with the PKP and broadcast it.
   }
 
   // ========================================
