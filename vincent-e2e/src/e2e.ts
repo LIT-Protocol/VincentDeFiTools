@@ -501,6 +501,12 @@ function resetAaveStateTracking() {
     );
   }
 
+  if (!process.env.TEST_FUNDER_PRIVATE_KEY) {
+    throw new Error(
+      "TEST_FUNDER_PRIVATE_KEY is not set - can't test on Sepolia without a funder private key"
+    );
+  }
+
   const sepoliaProvider = new ethers.providers.JsonRpcProvider(
     process.env.ETH_SEPOLIA_RPC_URL
   );
@@ -686,8 +692,34 @@ function resetAaveStateTracking() {
 
   // Fund PKP with WETH from TEST_FUNDER_PRIVATE_KEY wallet
   const TEST_WETH_ADDRESS = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c"; // WETH on Sepolia
+  const TEST_USDC_ADDRESS = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC on Sepolia
   const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
   const REQUIRED_WETH_BALANCE = ethers.utils.parseEther(WETH_FUND_AMOUNT);
+
+  // WETH contract for balance checking
+  const wethAbi = [
+    "function transfer(address to, uint256 amount) returns (bool)",
+    "function balanceOf(address account) view returns (uint256)",
+    "function decimals() view returns (uint8)",
+  ];
+  const wethContract = new ethers.Contract(
+    TEST_WETH_ADDRESS,
+    wethAbi,
+    sepoliaProvider
+  );
+  const wethDecimals = await wethContract.decimals();
+
+  // USDC contract for balance checking
+  const usdcAbi = [
+    "function balanceOf(address account) view returns (uint256)",
+    "function decimals() view returns (uint8)",
+  ];
+  const usdcContract = new ethers.Contract(
+    TEST_USDC_ADDRESS,
+    usdcAbi,
+    sepoliaProvider
+  );
+  const usdcDecimals = await usdcContract.decimals();
 
   // Test 2: WETH Balance Check and Conditional Funding
   try {
@@ -697,20 +729,8 @@ function resetAaveStateTracking() {
 
     // Create funder wallet using private key
     const funderWallet = new ethers.Wallet(
-      process.env.TEST_FUNDER_PRIVATE_KEY ||
-        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      process.env.TEST_FUNDER_PRIVATE_KEY,
       sepoliaProvider
-    );
-
-    // WETH contract ABI for transfer and balance functions
-    const wethAbi = [
-      "function transfer(address to, uint256 amount) returns (bool)",
-      "function balanceOf(address account) view returns (uint256)",
-    ];
-    const wethContract = new ethers.Contract(
-      TEST_WETH_ADDRESS,
-      wethAbi,
-      funderWallet
     );
 
     // Check current PKP WETH balance
@@ -734,10 +754,9 @@ function resetAaveStateTracking() {
       );
 
       // Execute WETH transfer
-      const transferTx = await wethContract.transfer(
-        agentWalletPkp.ethAddress,
-        REQUIRED_WETH_BALANCE
-      );
+      const transferTx = await wethContract
+        .connect(funderWallet)
+        .transfer(agentWalletPkp.ethAddress, REQUIRED_WETH_BALANCE);
       console.log(`   Transfer transaction hash: ${transferTx.hash}`);
 
       // Wait for transaction confirmation
@@ -780,8 +799,7 @@ function resetAaveStateTracking() {
 
     // Create funder wallet using private key
     const funderWallet = new ethers.Wallet(
-      process.env.TEST_FUNDER_PRIVATE_KEY ||
-        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      process.env.TEST_FUNDER_PRIVATE_KEY,
       sepoliaProvider
     );
 
@@ -852,32 +870,8 @@ function resetAaveStateTracking() {
   );
 
   // Define constants for AAVE workflow
-  const TEST_USDC_ADDRESS = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC on Sepolia
   const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
   const USDC_BORROW_AMOUNT = "1.0"; // 1 USDC
-
-  // USDC contract for balance checking
-  const usdcAbi = [
-    "function balanceOf(address account) view returns (uint256)",
-    "function decimals() view returns (uint8)",
-  ];
-  const usdcContract = new ethers.Contract(
-    TEST_USDC_ADDRESS,
-    usdcAbi,
-    sepoliaProvider
-  );
-  const usdcDecimals = await usdcContract.decimals();
-
-  // WETH contract for balance checking
-  const wethAbi = [
-    "function balanceOf(address account) view returns (uint256)",
-  ];
-  const wethContract = new ethers.Contract(
-    TEST_WETH_ADDRESS,
-    wethAbi,
-    sepoliaProvider
-  );
-  const wethDecimals = await wethContract.decimals();
 
   // Store initial balances for comparison throughout the workflow
   let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);
@@ -1468,6 +1462,10 @@ function resetAaveStateTracking() {
 
   // Test 6: AAVE Repay Operation
   try {
+    const preRepayBalance = await usdcContract.balanceOf(
+      agentWalletPkp.ethAddress
+    );
+
     const aaveRepayPrecheckRes = await aaveToolClient.precheck(
       {
         operation: "repay",
@@ -1564,20 +1562,21 @@ function resetAaveStateTracking() {
           const postRepayBalance = await usdcContract.balanceOf(
             agentWalletPkp.ethAddress
           );
-          const decimals = await usdcContract.decimals();
           const postRepayBalanceFormatted = ethers.utils.formatUnits(
             postRepayBalance,
-            decimals
+            usdcDecimals
           );
           console.log(
             `   Post-repay USDC balance: ${postRepayBalanceFormatted} USDC`
           );
 
-          // Expected: balance should return to initial amount (borrowed amount repaid)
-          const expectedBalance = initialUsdcBalance;
+          // Expected: balance should have the repaid amount subtracted
+          const expectedBalance = preRepayBalance.sub(
+            ethers.utils.parseUnits(USDC_REPAY_AMOUNT, usdcDecimals)
+          );
           const expectedBalanceFormatted = ethers.utils.formatUnits(
             expectedBalance,
-            decimals
+            usdcDecimals
           );
 
           console.log(
@@ -1586,7 +1585,7 @@ function resetAaveStateTracking() {
 
           if (postRepayBalance.eq(expectedBalance)) {
             console.log(
-              "✅ USDC balance correctly returned to initial amount after repay"
+              "✅ USDC balance correctly returned the borrowed amount after repay"
             );
             addTestResult("AAVE Repay USDC", true);
           } else {
