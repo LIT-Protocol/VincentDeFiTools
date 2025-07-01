@@ -19,6 +19,7 @@ import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-to
 import { ethers } from "ethers";
 import { AAVE_V3_SEPOLIA_ADDRESSES } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
+const CONFIRMATIONS_TO_WAIT = 2;
 
 // Test tracking system
 interface TestResult {
@@ -965,7 +966,7 @@ function resetAaveStateTracking() {
           // wait for transaction confirmation
           const receipt = await sepoliaProvider.waitForTransaction(
             approveWethExecute.result.approvalTxHash,
-            1,
+            CONFIRMATIONS_TO_WAIT,
             180000
           );
           console.log(
@@ -1055,7 +1056,7 @@ function resetAaveStateTracking() {
           console.log("⏳ Waiting for supply transaction confirmation...");
           const receipt = await sepoliaProvider.waitForTransaction(
             aaveSupplyExecuteRes.result.txHash,
-            1,
+            CONFIRMATIONS_TO_WAIT,
             180000
           ); // 1 confirmation, 3 minute timeout
           console.log(
@@ -1228,7 +1229,7 @@ function resetAaveStateTracking() {
 
           const receipt = await sepoliaProvider.waitForTransaction(
             aaveBorrowExecuteRes.result.txHash,
-            1,
+            CONFIRMATIONS_TO_WAIT,
             180000
           ); // 1 confirmation, 3 minute timeout
           console.log(
@@ -1393,7 +1394,7 @@ function resetAaveStateTracking() {
           // wait for transaction confirmation
           const receipt = await sepoliaProvider.waitForTransaction(
             approveUsdcExecute.result.approvalTxHash,
-            1,
+            CONFIRMATIONS_TO_WAIT,
             180000
           );
           console.log(
@@ -1495,9 +1496,9 @@ function resetAaveStateTracking() {
 
           const receipt = await sepoliaProvider.waitForTransaction(
             aaveRepayExecuteRes.result.txHash,
-            1,
+            CONFIRMATIONS_TO_WAIT,
             180000
-          ); // 1 confirmation, 3 minute timeout
+          ); // 3 minute timeout
           console.log(
             `   ✅ Repay transaction confirmed in block ${receipt.blockNumber}`
           );
@@ -1672,9 +1673,9 @@ function resetAaveStateTracking() {
 
           const receipt = await sepoliaProvider.waitForTransaction(
             aaveWithdrawExecuteRes.result.txHash,
-            1,
+            CONFIRMATIONS_TO_WAIT,
             180000
-          ); // 1 confirmation, 3 minute timeout
+          ); // 3 minute timeout
           console.log(
             `   ✅ Withdraw transaction confirmed in block ${receipt.blockNumber}`
           );
