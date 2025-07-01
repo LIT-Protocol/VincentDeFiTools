@@ -41,6 +41,7 @@ export const vincentTool = createVincentTool({
     { toolParams },
     { succeed, fail, delegation: { delegatorPkpInfo } }
   ) => {
+    return fail({ error: "This should fail but it doesn't" });
     try {
       console.log("[@lit-protocol/vincent-tool-aave/precheck]");
       console.log("[@lit-protocol/vincent-tool-aave/precheck] params:", {
