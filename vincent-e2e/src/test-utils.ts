@@ -391,6 +391,47 @@ export interface TestResult {
   error?: string;
 }
 
+// Test tracking system
+const testResults: TestResult[] = [];
+
+export function addTestResult(name: string, passed: boolean, error?: string) {
+  testResults.push({ name, passed, error });
+  const status = passed ? "✅" : "❌";
+  console.log(`${status} TEST: ${name}${error ? ` - ${error}` : ""}`);
+
+  // Stop execution immediately if a test fails
+  if (!passed) {
+    console.log("\n🛑 Test failed - stopping execution");
+    printTestSummary();
+    process.exit(1);
+  }
+}
+
+export function printTestSummary() {
+  const passed = testResults.filter((t) => t.passed).length;
+  const failed = testResults.filter((t) => !t.passed).length;
+  const total = testResults.length;
+
+  console.log("\n" + "=".repeat(60));
+  console.log("🧪 TEST SUMMARY");
+  console.log("=".repeat(60));
+  console.log(`Total Tests: ${total}`);
+  console.log(`✅ Passed: ${passed}`);
+  console.log(`❌ Failed: ${failed}`);
+  console.log("=".repeat(60));
+
+  if (failed > 0) {
+    console.log("\n❌ FAILED TESTS:");
+    testResults
+      .filter((t) => !t.passed)
+      .forEach((test) => {
+        console.log(`  - ${test.name}: ${test.error || "Unknown error"}`);
+      });
+  }
+
+  return failed === 0;
+}
+
 // Token addresses on Sepolia
 export const TEST_WETH_ADDRESS = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c"; // WETH on Sepolia
 export const TEST_USDC_ADDRESS = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC on Sepolia
@@ -415,7 +456,7 @@ export async function setupWethFunding(
   confirmationsToWait: number = 1
 ) {
   console.log("💰 Setting up WETH funding for AAVE tests");
-  
+
   const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
   const REQUIRED_WETH_BALANCE = ethers.utils.parseEther(WETH_FUND_AMOUNT);
 
@@ -461,7 +502,9 @@ export async function setupWethFunding(
       // Wait for transaction confirmation
       const receipt = await transferTx.wait(confirmationsToWait);
       if (receipt.status === 0) {
-        throw new Error(`WETH transfer transaction reverted: ${transferTx.hash}`);
+        throw new Error(
+          `WETH transfer transaction reverted: ${transferTx.hash}`
+        );
       }
       console.log(
         `   ✅ WETH transfer confirmed in block ${receipt.blockNumber}`
@@ -498,7 +541,7 @@ export async function setupEthFunding(
   console.log("⛽ Setting up ETH gas funding for Sepolia operations");
 
   const ETH_FUND_AMOUNT = "0.01"; // 0.01 ETH
-  const REQUIRED_ETH_BALANCE = ethers.utils.parseEther("0.002"); // 0.002 ETH threshold
+  const REQUIRED_ETH_BALANCE = ethers.utils.parseEther("0.008");
 
   try {
     console.log("🔍 Checking PKP ETH balance for gas fees");
@@ -541,7 +584,9 @@ export async function setupEthFunding(
       // Wait for transaction confirmation
       const receipt = await transferTx.wait(confirmationsToWait);
       if (receipt.status === 0) {
-        throw new Error(`ETH transfer transaction reverted: ${transferTx.hash}`);
+        throw new Error(
+          `ETH transfer transaction reverted: ${transferTx.hash}`
+        );
       }
       console.log(
         `   ✅ ETH transfer confirmed in block ${receipt.blockNumber}`
@@ -566,7 +611,9 @@ export async function setupEthFunding(
   }
 }
 
-export async function setupUsdcContract(sepoliaProvider: ethers.providers.Provider) {
+export async function setupUsdcContract(
+  sepoliaProvider: ethers.providers.Provider
+) {
   const usdcContract = new ethers.Contract(
     TEST_USDC_ADDRESS,
     usdcAbi,

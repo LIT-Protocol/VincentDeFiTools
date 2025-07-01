@@ -18,52 +18,21 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { ethers } from "ethers";
 import { AAVE_V3_SEPOLIA_ADDRESSES } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
-import { verifyAaveState, resetAaveStateTracking, AaveAccountData, setupWethFunding, setupEthFunding, setupUsdcContract, TestResult, TEST_WETH_ADDRESS, TEST_USDC_ADDRESS } from "./test-utils.js";
+import {
+  verifyAaveState,
+  resetAaveStateTracking,
+  AaveAccountData,
+  setupWethFunding,
+  setupEthFunding,
+  setupUsdcContract,
+  TestResult,
+  TEST_WETH_ADDRESS,
+  TEST_USDC_ADDRESS,
+  addTestResult,
+  printTestSummary,
+} from "./test-utils.js";
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
-const CONFIRMATIONS_TO_WAIT = 1;
-
-// Test tracking system
-
-const testResults: TestResult[] = [];
-
-function addTestResult(name: string, passed: boolean, error?: string) {
-  testResults.push({ name, passed, error });
-  const status = passed ? "✅" : "❌";
-  console.log(`${status} TEST: ${name}${error ? ` - ${error}` : ""}`);
-
-  // Stop execution immediately if a test fails
-  if (!passed) {
-    console.log("\n🛑 Test failed - stopping execution");
-    printTestSummary();
-    process.exit(1);
-  }
-}
-
-function printTestSummary() {
-  const passed = testResults.filter((t) => t.passed).length;
-  const failed = testResults.filter((t) => !t.passed).length;
-  const total = testResults.length;
-
-  console.log("\n" + "=".repeat(60));
-  console.log("🧪 TEST SUMMARY");
-  console.log("=".repeat(60));
-  console.log(`Total Tests: ${total}`);
-  console.log(`✅ Passed: ${passed}`);
-  console.log(`❌ Failed: ${failed}`);
-  console.log("=".repeat(60));
-
-  if (failed > 0) {
-    console.log("\n❌ FAILED TESTS:");
-    testResults
-      .filter((t) => !t.passed)
-      .forEach((test) => {
-        console.log(`  - ${test.name}: ${test.error || "Unknown error"}`);
-      });
-  }
-
-  return failed === 0;
-}
-
+const CONFIRMATIONS_TO_WAIT = 2;
 
 (async () => {
   /**
@@ -285,7 +254,9 @@ function printTestSummary() {
     CONFIRMATIONS_TO_WAIT
   );
 
-  const { usdcContract, usdcDecimals } = await setupUsdcContract(sepoliaProvider);
+  const { usdcContract, usdcDecimals } = await setupUsdcContract(
+    sepoliaProvider
+  );
 
   // ========================================
   // AAVE Tool Testing - Complete Workflow
@@ -430,7 +401,9 @@ function printTestSummary() {
             180000
           );
           if (receipt.status === 0) {
-            throw new Error(`WETH approval transaction reverted: ${approveWethExecute.result.approvalTxHash}`);
+            throw new Error(
+              `WETH approval transaction reverted: ${approveWethExecute.result.approvalTxHash}`
+            );
           }
           console.log(
             `   WETH approval confirmed in block ${receipt.blockNumber}`
@@ -523,7 +496,9 @@ function printTestSummary() {
             180000
           ); // 1 confirmation, 3 minute timeout
           if (receipt.status === 0) {
-            throw new Error(`AAVE supply transaction reverted: ${aaveSupplyExecuteRes.result.txHash}`);
+            throw new Error(
+              `AAVE supply transaction reverted: ${aaveSupplyExecuteRes.result.txHash}`
+            );
           }
           console.log(
             `   ✅ Supply transaction confirmed in block ${receipt.blockNumber}`
@@ -699,7 +674,9 @@ function printTestSummary() {
             180000
           ); // 1 confirmation, 3 minute timeout
           if (receipt.status === 0) {
-            throw new Error(`AAVE borrow transaction reverted: ${aaveBorrowExecuteRes.result.txHash}`);
+            throw new Error(
+              `AAVE borrow transaction reverted: ${aaveBorrowExecuteRes.result.txHash}`
+            );
           }
           console.log(
             `   ✅ Borrow transaction confirmed in block ${receipt.blockNumber}`
@@ -867,7 +844,9 @@ function printTestSummary() {
             180000
           );
           if (receipt.status === 0) {
-            throw new Error(`USDC approval transaction reverted: ${approveUsdcExecute.result.approvalTxHash}`);
+            throw new Error(
+              `USDC approval transaction reverted: ${approveUsdcExecute.result.approvalTxHash}`
+            );
           }
           console.log(
             `   USDC approval confirmed in block ${receipt.blockNumber}`
@@ -906,10 +885,7 @@ function printTestSummary() {
     {}
   );
   const USDC_REPAY_AMOUNT = ethers.utils
-    .formatUnits(
-      currentAaveState.totalDebtBase,
-      AAVE_BASE_DEBT_ASSET_DECIMALS
-    )
+    .formatUnits(currentAaveState.totalDebtBase, AAVE_BASE_DEBT_ASSET_DECIMALS)
     .toString(); // USDC_REPAY_AMOUNT is the total debt amount in USDC
   console.log(`   Repaying ${USDC_REPAY_AMOUNT} USDC`);
 
@@ -978,7 +954,9 @@ function printTestSummary() {
             180000
           ); // 3 minute timeout
           if (receipt.status === 0) {
-            throw new Error(`AAVE repay transaction reverted: ${aaveRepayExecuteRes.result.txHash}`);
+            throw new Error(
+              `AAVE repay transaction reverted: ${aaveRepayExecuteRes.result.txHash}`
+            );
           }
           console.log(
             `   ✅ Repay transaction confirmed in block ${receipt.blockNumber}`
@@ -1158,7 +1136,9 @@ function printTestSummary() {
             180000
           ); // 3 minute timeout
           if (receipt.status === 0) {
-            throw new Error(`AAVE withdraw transaction reverted: ${aaveWithdrawExecuteRes.result.txHash}`);
+            throw new Error(
+              `AAVE withdraw transaction reverted: ${aaveWithdrawExecuteRes.result.txHash}`
+            );
           }
           console.log(
             `   ✅ Withdraw transaction confirmed in block ${receipt.blockNumber}`
@@ -1359,6 +1339,54 @@ function printTestSummary() {
     }
   } catch (error) {
     addTestResult("Final AAVE State - Clean Workflow", false, error.message);
+  } finally {
+    // ========================================
+    // Send WETH and ETH back to funding wallet (not implemented yet)
+    // ========================================
+    console.log("Send WETH and ETH back to funding wallet");
+
+    // Send WETH back to funding wallet
+    // 1. get the eth balance of the PKP
+    const wethBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+    console.log(`   PKP WETH balance: ${wethBalance} WETH`);
+
+    const fundingWallet = new ethers.Wallet(
+      process.env.FUNDING_WALLET_PRIVATE_KEY!,
+      sepoliaProvider
+    );
+    // 2. send the eth balance to the funding wallet
+    let txData = await wethContract.populateTransaction.transfer(
+      await fundingWallet.getAddress(),
+      wethBalance
+    );
+    console.log(
+      `   Sending ${wethBalance} WETH to funding wallet with data ${txData}`
+    );
+
+    // TODO: sign the txn with the PKP and broadcast it.
+
+    // Send ETH back to funding wallet
+    // 1. get the eth balance of the PKP
+    const ethBalance = await sepoliaProvider.getBalance(
+      agentWalletPkp.ethAddress
+    );
+
+    // 2. estimate the gas, to subtract from the eth balance
+    const feeData = await sepoliaProvider.getFeeData();
+    console.log(`   Fee data: ${feeData}`);
+
+    // 2. send the eth balance to the funding wallet
+    // costs 21000 gas to send eth
+    const amountToSend = ethBalance.sub(
+      ethers.BigNumber.from(21000).mul(feeData.gasPrice!)
+    );
+    console.log(
+      `   Sending ${ethers.utils.formatEther(
+        amountToSend
+      )} ETH to funding wallet (balance is ${ethBalance})`
+    );
+
+    // TODO: sign the txn with the PKP and broadcast it.
   }
 
   // ========================================
