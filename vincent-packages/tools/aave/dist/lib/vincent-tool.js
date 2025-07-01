@@ -3,6 +3,7 @@ import "@lit-protocol/vincent-tool-sdk/internal";
 import { executeFailSchema, executeSuccessSchema, precheckFailSchema, precheckSuccessSchema, toolParamsSchema, AaveOperation, } from "./schemas";
 import { AAVE_V3_SEPOLIA_ADDRESSES, AAVE_POOL_ABI, ERC20_ABI, INTEREST_RATE_MODE, isValidAddress, parseAmount, validateOperationRequirements, } from "./helpers";
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
+import { ethers } from "ethers";
 export const vincentTool = createVincentTool({
     packageName: "@lit-protocol/vincent-tool-aave",
     toolParamsSchema,
@@ -60,7 +61,7 @@ export const vincentTool = createVincentTool({
             }
             catch (error) {
                 return fail({
-                    error: "[@lit-protocol/vincent-tool-aave/precheck] Unable to obtain blockchain provider",
+                    error: `[@lit-protocol/vincent-tool-aave/precheck] Unable to obtain blockchain provider: ${error instanceof Error ? error.message : error.toString()}`,
                 });
             }
             // Get PKP address

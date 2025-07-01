@@ -24,6 +24,7 @@ import {
 } from "./helpers";
 
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
+import { ethers } from "ethers";
 
 export const vincentTool = createVincentTool({
   packageName: "@lit-protocol/vincent-tool-aave" as const,
@@ -102,8 +103,9 @@ export const vincentTool = createVincentTool({
         provider = new ethers.providers.JsonRpcProvider(rpcUrl);
       } catch (error) {
         return fail({
-          error:
-            "[@lit-protocol/vincent-tool-aave/precheck] Unable to obtain blockchain provider",
+          error: `[@lit-protocol/vincent-tool-aave/precheck] Unable to obtain blockchain provider: ${
+            error instanceof Error ? error.message : error.toString()
+          }`,
         });
       }
 

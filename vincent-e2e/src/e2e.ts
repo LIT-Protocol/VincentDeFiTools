@@ -19,7 +19,7 @@ import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-to
 import { ethers } from "ethers";
 import { AAVE_V3_SEPOLIA_ADDRESSES } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
-const CONFIRMATIONS_TO_WAIT = 2;
+const CONFIRMATIONS_TO_WAIT = 1;
 
 // Test tracking system
 interface TestResult {
@@ -726,7 +726,7 @@ function resetAaveStateTracking() {
       console.log(`   Transfer transaction hash: ${transferTx.hash}`);
 
       // Wait for transaction confirmation
-      const receipt = await transferTx.wait();
+      const receipt = await transferTx.wait(CONFIRMATIONS_TO_WAIT);
       console.log(
         `   ✅ WETH transfer confirmed in block ${receipt.blockNumber}`
       );
@@ -803,7 +803,7 @@ function resetAaveStateTracking() {
       console.log(`   Transfer transaction hash: ${transferTx.hash}`);
 
       // Wait for transaction confirmation
-      const receipt = await transferTx.wait();
+      const receipt = await transferTx.wait(CONFIRMATIONS_TO_WAIT);
       console.log(
         `   ✅ ETH transfer confirmed in block ${receipt.blockNumber}`
       );
