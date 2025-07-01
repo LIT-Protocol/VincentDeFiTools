@@ -67,24 +67,39 @@ function printTestSummary() {
 }
 
 // AAVE Helper Functions for State Verification
-async function getAaveUserAccountData(provider: ethers.providers.Provider, userAddress: string) {
+async function getAaveUserAccountData(
+  provider: ethers.providers.Provider,
+  userAddress: string
+) {
   const aavePoolContract = new ethers.Contract(
     AAVE_V3_SEPOLIA_ADDRESSES.POOL,
     [
       {
-        "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
-        "name": "getUserAccountData",
-        "outputs": [
-          {"internalType": "uint256", "name": "totalCollateralBase", "type": "uint256"},
-          {"internalType": "uint256", "name": "totalDebtBase", "type": "uint256"},
-          {"internalType": "uint256", "name": "availableBorrowsBase", "type": "uint256"},
-          {"internalType": "uint256", "name": "currentLiquidationThreshold", "type": "uint256"},
-          {"internalType": "uint256", "name": "ltv", "type": "uint256"},
-          {"internalType": "uint256", "name": "healthFactor", "type": "uint256"}
+        inputs: [{ internalType: "address", name: "user", type: "address" }],
+        name: "getUserAccountData",
+        outputs: [
+          {
+            internalType: "uint256",
+            name: "totalCollateralBase",
+            type: "uint256",
+          },
+          { internalType: "uint256", name: "totalDebtBase", type: "uint256" },
+          {
+            internalType: "uint256",
+            name: "availableBorrowsBase",
+            type: "uint256",
+          },
+          {
+            internalType: "uint256",
+            name: "currentLiquidationThreshold",
+            type: "uint256",
+          },
+          { internalType: "uint256", name: "ltv", type: "uint256" },
+          { internalType: "uint256", name: "healthFactor", type: "uint256" },
         ],
-        "stateMutability": "view",
-        "type": "function"
-      }
+        stateMutability: "view",
+        type: "function",
+      },
     ],
     provider
   );
@@ -96,43 +111,51 @@ async function getAaveUserAccountData(provider: ethers.providers.Provider, userA
     availableBorrowsBase: accountData.availableBorrowsBase,
     currentLiquidationThreshold: accountData.currentLiquidationThreshold,
     ltv: accountData.ltv,
-    healthFactor: accountData.healthFactor
+    healthFactor: accountData.healthFactor,
   };
 }
 
-async function getATokenBalance(provider: ethers.providers.Provider, aTokenAddress: string, userAddress: string) {
+async function getATokenBalance(
+  provider: ethers.providers.Provider,
+  aTokenAddress: string,
+  userAddress: string
+) {
   const aTokenContract = new ethers.Contract(
     aTokenAddress,
     [
       {
-        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
-        "name": "balanceOf",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
+        inputs: [{ internalType: "address", name: "account", type: "address" }],
+        name: "balanceOf",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
     ],
     provider
   );
-  
+
   return await aTokenContract.balanceOf(userAddress);
 }
 
-async function getUserDebtBalance(provider: ethers.providers.Provider, debtTokenAddress: string, userAddress: string) {
+async function getUserDebtBalance(
+  provider: ethers.providers.Provider,
+  debtTokenAddress: string,
+  userAddress: string
+) {
   const debtTokenContract = new ethers.Contract(
     debtTokenAddress,
     [
       {
-        "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
-        "name": "balanceOf",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
+        inputs: [{ internalType: "address", name: "user", type: "address" }],
+        name: "balanceOf",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
     ],
     provider
   );
-  
+
   return await debtTokenContract.balanceOf(userAddress);
 }
 
@@ -143,9 +166,22 @@ const AAVE_TOKEN_ADDRESSES = {
   USDC_STABLE_DEBT: "0x9C8a00E8D93eD35f7F80a8D7C81EC46C3C49be44", // stableDebtUSDC on Sepolia
 };
 
+// Enhanced AAVE State interface for tracking changes
+interface AaveAccountData {
+  totalCollateralBase: ethers.BigNumber;
+  totalDebtBase: ethers.BigNumber;
+  availableBorrowsBase: ethers.BigNumber;
+  currentLiquidationThreshold: ethers.BigNumber;
+  ltv: ethers.BigNumber;
+  healthFactor: ethers.BigNumber;
+}
+
+// Global state tracking for AAVE operations
+let previousAaveState: AaveAccountData | null = null;
+
 async function verifyAaveState(
-  provider: ethers.providers.Provider, 
-  userAddress: string, 
+  provider: ethers.providers.Provider,
+  userAddress: string,
   operation: string,
   expectedChanges: {
     collateralIncrease?: boolean;
@@ -156,63 +192,296 @@ async function verifyAaveState(
     maxCollateral?: string;
     minDebt?: string;
     maxDebt?: string;
+    minCollateralChange?: string;
+    maxCollateralChange?: string;
+    minDebtChange?: string;
+    maxDebtChange?: string;
   }
 ) {
-  const accountData = await getAaveUserAccountData(provider, userAddress);
-  
+  const currentAccountData = await getAaveUserAccountData(
+    provider,
+    userAddress
+  );
+
   console.log(`🔍 AAVE State Verification (${operation.toUpperCase()})`);
-  console.log(`   Total Collateral: ${ethers.utils.formatUnits(accountData.totalCollateralBase, 8)} USD`);
-  console.log(`   Total Debt: ${ethers.utils.formatUnits(accountData.totalDebtBase, 8)} USD`);
-  console.log(`   Available Borrow: ${ethers.utils.formatUnits(accountData.availableBorrowsBase, 8)} USD`);
-  console.log(`   Health Factor: ${ethers.utils.formatEther(accountData.healthFactor)}`);
+  console.log(
+    `   Total Collateral: ${ethers.utils.formatUnits(
+      currentAccountData.totalCollateralBase,
+      8
+    )} USD`
+  );
+  console.log(
+    `   Total Debt: ${ethers.utils.formatUnits(
+      currentAccountData.totalDebtBase,
+      8
+    )} USD`
+  );
+  console.log(
+    `   Available Borrow: ${ethers.utils.formatUnits(
+      currentAccountData.availableBorrowsBase,
+      8
+    )} USD`
+  );
+  console.log(
+    `   Health Factor: ${ethers.utils.formatEther(
+      currentAccountData.healthFactor
+    )}`
+  );
 
-  // Verify collateral expectations
-  if (expectedChanges.collateralIncrease) {
-    if (accountData.totalCollateralBase.eq(0)) {
-      throw new Error("Expected collateral increase but collateral is zero");
+  // If we have previous state, show the changes
+  if (previousAaveState && operation !== "initial") {
+    const collateralChange = currentAccountData.totalCollateralBase.sub(
+      previousAaveState.totalCollateralBase
+    );
+    const debtChange = currentAccountData.totalDebtBase.sub(
+      previousAaveState.totalDebtBase
+    );
+
+    console.log(`   📊 Changes from previous state:`);
+    console.log(
+      `      Collateral Change: ${
+        collateralChange.gte(0) ? "+" : ""
+      }${ethers.utils.formatUnits(collateralChange, 8)} USD`
+    );
+    console.log(
+      `      Debt Change: ${
+        debtChange.gte(0) ? "+" : ""
+      }${ethers.utils.formatUnits(debtChange, 8)} USD`
+    );
+
+    // Verify collateral changes with previous state comparison
+    if (expectedChanges.collateralIncrease) {
+      if (collateralChange.lte(0)) {
+        throw new Error(
+          `Expected collateral increase but got change of ${ethers.utils.formatUnits(
+            collateralChange,
+            8
+          )} USD`
+        );
+      }
+      console.log(
+        `   ✅ Collateral increased by ${ethers.utils.formatUnits(
+          collateralChange,
+          8
+        )} USD`
+      );
+
+      // Check minimum collateral change if specified
+      if (expectedChanges.minCollateralChange) {
+        const minChange = ethers.utils.parseUnits(
+          expectedChanges.minCollateralChange,
+          8
+        );
+        if (collateralChange.lt(minChange)) {
+          throw new Error(
+            `Collateral increase ${ethers.utils.formatUnits(
+              collateralChange,
+              8
+            )} USD is less than expected minimum ${
+              expectedChanges.minCollateralChange
+            } USD`
+          );
+        }
+      }
+    }
+
+    if (expectedChanges.collateralDecrease) {
+      if (collateralChange.gte(0)) {
+        throw new Error(
+          `Expected collateral decrease but got change of ${ethers.utils.formatUnits(
+            collateralChange,
+            8
+          )} USD`
+        );
+      }
+      console.log(
+        `   ✅ Collateral decreased by ${ethers.utils.formatUnits(
+          collateralChange.abs(),
+          8
+        )} USD`
+      );
+
+      // Check minimum collateral change if specified
+      if (expectedChanges.minCollateralChange) {
+        const minChange = ethers.utils.parseUnits(
+          expectedChanges.minCollateralChange,
+          8
+        );
+        if (collateralChange.abs().lt(minChange)) {
+          throw new Error(
+            `Collateral decrease ${ethers.utils.formatUnits(
+              collateralChange.abs(),
+              8
+            )} USD is less than expected minimum ${
+              expectedChanges.minCollateralChange
+            } USD`
+          );
+        }
+      }
+    }
+
+    // Verify debt changes with previous state comparison
+    if (expectedChanges.debtIncrease) {
+      if (debtChange.lte(0)) {
+        throw new Error(
+          `Expected debt increase but got change of ${ethers.utils.formatUnits(
+            debtChange,
+            8
+          )} USD`
+        );
+      }
+      console.log(
+        `   ✅ Debt increased by ${ethers.utils.formatUnits(debtChange, 8)} USD`
+      );
+
+      // Check minimum debt change if specified
+      if (expectedChanges.minDebtChange) {
+        const minChange = ethers.utils.parseUnits(
+          expectedChanges.minDebtChange,
+          8
+        );
+        if (debtChange.lt(minChange)) {
+          throw new Error(
+            `Debt increase ${ethers.utils.formatUnits(
+              debtChange,
+              8
+            )} USD is less than expected minimum ${
+              expectedChanges.minDebtChange
+            } USD`
+          );
+        }
+      }
+    }
+
+    if (expectedChanges.debtDecrease) {
+      if (debtChange.gte(0)) {
+        throw new Error(
+          `Expected debt decrease but got change of ${ethers.utils.formatUnits(
+            debtChange,
+            8
+          )} USD`
+        );
+      }
+      console.log(
+        `   ✅ Debt decreased by ${ethers.utils.formatUnits(
+          debtChange.abs(),
+          8
+        )} USD`
+      );
+
+      // Check minimum debt change if specified
+      if (expectedChanges.minDebtChange) {
+        const minChange = ethers.utils.parseUnits(
+          expectedChanges.minDebtChange,
+          8
+        );
+        if (debtChange.abs().lt(minChange)) {
+          throw new Error(
+            `Debt decrease ${ethers.utils.formatUnits(
+              debtChange.abs(),
+              8
+            )} USD is less than expected minimum ${
+              expectedChanges.minDebtChange
+            } USD`
+          );
+        }
+      }
+    }
+  } else {
+    // For initial state or when no previous state, do basic validation
+    if (expectedChanges.collateralIncrease) {
+      if (currentAccountData.totalCollateralBase.eq(0)) {
+        throw new Error("Expected collateral increase but collateral is zero");
+      }
+    }
+
+    if (expectedChanges.debtIncrease) {
+      if (currentAccountData.totalDebtBase.eq(0)) {
+        throw new Error("Expected debt increase but debt is zero");
+      }
     }
   }
 
-  if (expectedChanges.collateralDecrease) {
-    // This would need previous state comparison, for now just verify it's reasonable
-    console.log("   ✅ Collateral decrease verified");
-  }
-
-  if (expectedChanges.debtIncrease) {
-    if (accountData.totalDebtBase.eq(0)) {
-      throw new Error("Expected debt increase but debt is zero");
-    }
-  }
-
-  if (expectedChanges.debtDecrease) {
-    // This would need previous state comparison, for now just verify it's reasonable
-    console.log("   ✅ Debt decrease verified");
-  }
-
-  // Verify minimum values if provided
+  // Verify absolute minimum/maximum values if provided
   if (expectedChanges.minCollateral) {
-    const minCollateral = ethers.utils.parseUnits(expectedChanges.minCollateral, 8);
-    if (accountData.totalCollateralBase.lt(minCollateral)) {
-      throw new Error(`Collateral ${ethers.utils.formatUnits(accountData.totalCollateralBase, 8)} is less than expected minimum ${expectedChanges.minCollateral}`);
+    const minCollateral = ethers.utils.parseUnits(
+      expectedChanges.minCollateral,
+      8
+    );
+    if (currentAccountData.totalCollateralBase.lt(minCollateral)) {
+      throw new Error(
+        `Collateral ${ethers.utils.formatUnits(
+          currentAccountData.totalCollateralBase,
+          8
+        )} USD is less than expected minimum ${
+          expectedChanges.minCollateral
+        } USD`
+      );
+    }
+  }
+
+  if (expectedChanges.maxCollateral) {
+    const maxCollateral = ethers.utils.parseUnits(
+      expectedChanges.maxCollateral,
+      8
+    );
+    if (currentAccountData.totalCollateralBase.gt(maxCollateral)) {
+      throw new Error(
+        `Collateral ${ethers.utils.formatUnits(
+          currentAccountData.totalCollateralBase,
+          8
+        )} USD exceeds expected maximum ${expectedChanges.maxCollateral} USD`
+      );
     }
   }
 
   if (expectedChanges.minDebt) {
     const minDebt = ethers.utils.parseUnits(expectedChanges.minDebt, 8);
-    if (accountData.totalDebtBase.lt(minDebt)) {
-      throw new Error(`Debt ${ethers.utils.formatUnits(accountData.totalDebtBase, 8)} is less than expected minimum ${expectedChanges.minDebt}`);
+    if (currentAccountData.totalDebtBase.lt(minDebt)) {
+      throw new Error(
+        `Debt ${ethers.utils.formatUnits(
+          currentAccountData.totalDebtBase,
+          8
+        )} USD is less than expected minimum ${expectedChanges.minDebt} USD`
+      );
+    }
+  }
+
+  if (expectedChanges.maxDebt) {
+    const maxDebt = ethers.utils.parseUnits(expectedChanges.maxDebt, 8);
+    if (currentAccountData.totalDebtBase.gt(maxDebt)) {
+      throw new Error(
+        `Debt ${ethers.utils.formatUnits(
+          currentAccountData.totalDebtBase,
+          8
+        )} USD exceeds expected maximum ${expectedChanges.maxDebt} USD`
+      );
     }
   }
 
   // Health factor should be > 1 for healthy positions
-  if (accountData.totalDebtBase.gt(0)) {
-    const healthFactorNumber = parseFloat(ethers.utils.formatEther(accountData.healthFactor));
+  if (currentAccountData.totalDebtBase.gt(0)) {
+    const healthFactorNumber = parseFloat(
+      ethers.utils.formatEther(currentAccountData.healthFactor)
+    );
     if (healthFactorNumber <= 1.0) {
-      console.warn(`⚠️  Warning: Health factor is ${healthFactorNumber.toFixed(4)}, position may be at risk`);
+      console.warn(
+        `⚠️  Warning: Health factor is ${healthFactorNumber.toFixed(
+          4
+        )}, position may be at risk`
+      );
     }
   }
 
-  return accountData;
+  // Store current state as previous state for next comparison
+  previousAaveState = { ...currentAccountData };
+
+  return currentAccountData;
+}
+
+// Helper function to reset state tracking (useful for test isolation)
+function resetAaveStateTracking() {
+  previousAaveState = null;
 }
 
 (async () => {
@@ -587,18 +856,64 @@ async function verifyAaveState(
   const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
   const USDC_BORROW_AMOUNT = "1.0"; // 1 USDC
 
+  // USDC contract for balance checking
+  const usdcAbi = [
+    "function balanceOf(address account) view returns (uint256)",
+    "function decimals() view returns (uint8)",
+  ];
+  const usdcContract = new ethers.Contract(
+    TEST_USDC_ADDRESS,
+    usdcAbi,
+    sepoliaProvider
+  );
+  const usdcDecimals = await usdcContract.decimals();
+
+  // WETH contract for balance checking
+  const wethAbi = [
+    "function balanceOf(address account) view returns (uint256)",
+  ];
+  const wethContract = new ethers.Contract(
+    TEST_WETH_ADDRESS,
+    wethAbi,
+    sepoliaProvider
+  );
+  const wethDecimals = await wethContract.decimals();
+
   // Store initial balances for comparison throughout the workflow
   let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);
   let initialUsdcBalance: ethers.BigNumber = ethers.BigNumber.from(0);
 
+  // Reset state tracking for clean test isolation
+  resetAaveStateTracking();
+
   // Record initial AAVE state before any operations
   console.log("🔍 Recording initial AAVE state...");
   try {
-    const initialAaveState = await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "initial", {});
+    const initialAaveState = await verifyAaveState(
+      sepoliaProvider,
+      agentWalletPkp.ethAddress,
+      "initial",
+      {}
+    );
     console.log("📊 Initial AAVE State Recorded:");
-    console.log(`   - Collateral: ${ethers.utils.formatUnits(initialAaveState.totalCollateralBase, 8)} USD`);
-    console.log(`   - Debt: ${ethers.utils.formatUnits(initialAaveState.totalDebtBase, 8)} USD`);
-    console.log(`   - Available Borrow: ${ethers.utils.formatUnits(initialAaveState.availableBorrowsBase, 8)} USD`);
+    console.log(
+      `   - Collateral: ${ethers.utils.formatUnits(
+        initialAaveState.totalCollateralBase,
+        8
+      )} USD`
+    );
+    console.log(
+      `   - Debt: ${ethers.utils.formatUnits(
+        initialAaveState.totalDebtBase,
+        8
+      )} USD`
+    );
+    console.log(
+      `   - Available Borrow: ${ethers.utils.formatUnits(
+        initialAaveState.availableBorrowsBase,
+        8
+      )} USD`
+    );
     addTestResult("Initial AAVE State Check", true);
   } catch (error) {
     addTestResult("Initial AAVE State Check", false, error.message);
@@ -608,27 +923,6 @@ async function verifyAaveState(
   try {
     console.log("🔍 Recording initial token balances...");
 
-    // WETH contract for balance checking
-    const wethAbi = [
-      "function balanceOf(address account) view returns (uint256)",
-    ];
-    const wethContract = new ethers.Contract(
-      TEST_WETH_ADDRESS,
-      wethAbi,
-      sepoliaProvider
-    );
-
-    // USDC contract for balance checking
-    const usdcAbi = [
-      "function balanceOf(address account) view returns (uint256)",
-      "function decimals() view returns (uint8)",
-    ];
-    const usdcContract = new ethers.Contract(
-      TEST_USDC_ADDRESS,
-      usdcAbi,
-      sepoliaProvider
-    );
-
     // Get initial balances
     initialWethBalance = await wethContract.balanceOf(
       agentWalletPkp.ethAddress
@@ -636,7 +930,6 @@ async function verifyAaveState(
     initialUsdcBalance = await usdcContract.balanceOf(
       agentWalletPkp.ethAddress
     );
-    const usdcDecimals = await usdcContract.decimals();
 
     const initialWethFormatted = ethers.utils.formatEther(initialWethBalance);
     const initialUsdcFormatted = ethers.utils.formatUnits(
@@ -672,7 +965,7 @@ async function verifyAaveState(
       tokenAddress: TEST_WETH_ADDRESS,
       spenderAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
       tokenAmount: parseFloat(WETH_SUPPLY_AMOUNT),
-      tokenDecimals: 18,
+      tokenDecimals: wethDecimals,
       rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
     };
 
@@ -808,37 +1101,36 @@ async function verifyAaveState(
           );
         } catch (confirmError) {
           console.log(
-            "⚠️  Transaction confirmation failed, proceeding anyway:",
+            "⚠️  Transaction confirmation failed",
             confirmError.message
           );
-          // Add a small delay to let the transaction potentially propagate
-          await new Promise((resolve) => setTimeout(resolve, 5000));
+          throw confirmError;
         }
 
         // Verify AAVE state after supply
         try {
-          await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "supply", {
-            collateralIncrease: true,
-            minCollateral: "1" // Expect at least $1 worth of collateral
-          });
+          await verifyAaveState(
+            sepoliaProvider,
+            agentWalletPkp.ethAddress,
+            "supply",
+            {
+              collateralIncrease: true,
+              minCollateral: "1", // Expect at least $1 worth of collateral
+              minCollateralChange: "1", // Expect at least $1 increase in collateral
+            }
+          );
           addTestResult("AAVE Supply State Verification", true);
         } catch (verifyError) {
-          addTestResult("AAVE Supply State Verification", false, verifyError.message);
+          addTestResult(
+            "AAVE Supply State Verification",
+            false,
+            verifyError.message
+          );
         }
 
         // Verify balance after supply
         try {
           console.log("🔍 Verifying WETH balance after supply...");
-
-          // WETH contract for balance checking
-          const wethAbi = [
-            "function balanceOf(address account) view returns (uint256)",
-          ];
-          const wethContract = new ethers.Contract(
-            TEST_WETH_ADDRESS,
-            wethAbi,
-            sepoliaProvider
-          );
 
           const postSupplyBalance = await wethContract.balanceOf(
             agentWalletPkp.ethAddress
@@ -982,38 +1274,36 @@ async function verifyAaveState(
           );
         } catch (confirmError) {
           console.log(
-            "⚠️  Transaction confirmation failed, proceeding anyway:",
+            "⚠️  Transaction confirmation failed",
             confirmError.message
           );
-          // Add a small delay to let the transaction potentially propagate
-          await new Promise((resolve) => setTimeout(resolve, 5000));
+          throw confirmError;
         }
 
         // Verify AAVE state after borrow
         try {
-          await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "borrow", {
-            debtIncrease: true,
-            minDebt: "0.5" // Expect at least $0.5 worth of debt
-          });
+          await verifyAaveState(
+            sepoliaProvider,
+            agentWalletPkp.ethAddress,
+            "borrow",
+            {
+              debtIncrease: true,
+              minDebt: "0.5", // Expect at least $0.5 worth of debt
+              minDebtChange: "0.8", // Expect at least $0.8 increase in debt (1 USDC)
+            }
+          );
           addTestResult("AAVE Borrow State Verification", true);
         } catch (verifyError) {
-          addTestResult("AAVE Borrow State Verification", false, verifyError.message);
+          addTestResult(
+            "AAVE Borrow State Verification",
+            false,
+            verifyError.message
+          );
         }
 
         // Verify USDC balance after borrow
         try {
           console.log("🔍 Verifying USDC balance after borrow...");
-
-          // USDC contract for balance checking
-          const usdcAbi = [
-            "function balanceOf(address account) view returns (uint256)",
-            "function decimals() view returns (uint8)",
-          ];
-          const usdcContract = new ethers.Contract(
-            TEST_USDC_ADDRESS,
-            usdcAbi,
-            sepoliaProvider
-          );
 
           const postBorrowBalance = await usdcContract.balanceOf(
             agentWalletPkp.ethAddress
@@ -1103,7 +1393,7 @@ async function verifyAaveState(
       tokenAddress: TEST_USDC_ADDRESS,
       spenderAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
       tokenAmount: parseFloat(USDC_BORROW_AMOUNT),
-      tokenDecimals: 6,
+      tokenDecimals: usdcDecimals,
       rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
     };
 
@@ -1241,37 +1531,35 @@ async function verifyAaveState(
           );
         } catch (confirmError) {
           console.log(
-            "⚠️  Transaction confirmation failed, proceeding anyway:",
+            "⚠️  Transaction confirmation failed:",
             confirmError.message
           );
-          // Add a small delay to let the transaction potentially propagate
-          await new Promise((resolve) => setTimeout(resolve, 5000));
+          throw confirmError;
         }
 
         // Verify AAVE state after repay
         try {
-          await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "repay", {
-            debtDecrease: true
-          });
+          await verifyAaveState(
+            sepoliaProvider,
+            agentWalletPkp.ethAddress,
+            "repay",
+            {
+              debtDecrease: true,
+              minDebtChange: "0.8", // Expect at least $0.8 decrease in debt (1 USDC repaid)
+            }
+          );
           addTestResult("AAVE Repay State Verification", true);
         } catch (verifyError) {
-          addTestResult("AAVE Repay State Verification", false, verifyError.message);
+          addTestResult(
+            "AAVE Repay State Verification",
+            false,
+            verifyError.message
+          );
         }
 
         // Verify USDC balance after repay
         try {
           console.log("🔍 Verifying USDC balance after repay...");
-
-          // USDC contract for balance checking
-          const usdcAbi = [
-            "function balanceOf(address account) view returns (uint256)",
-            "function decimals() view returns (uint8)",
-          ];
-          const usdcContract = new ethers.Contract(
-            TEST_USDC_ADDRESS,
-            usdcAbi,
-            sepoliaProvider
-          );
 
           const postRepayBalance = await usdcContract.balanceOf(
             agentWalletPkp.ethAddress
@@ -1419,36 +1707,35 @@ async function verifyAaveState(
           );
         } catch (confirmError) {
           console.log(
-            "⚠️  Transaction confirmation failed, proceeding anyway:",
+            "⚠️  Transaction confirmation failed",
             confirmError.message
           );
-          // Add a small delay to let the transaction potentially propagate
-          await new Promise((resolve) => setTimeout(resolve, 5000));
+          throw confirmError;
         }
 
         // Verify AAVE state after withdraw
         try {
-          await verifyAaveState(sepoliaProvider, agentWalletPkp.ethAddress, "withdraw", {
-            collateralDecrease: true
-          });
+          await verifyAaveState(
+            sepoliaProvider,
+            agentWalletPkp.ethAddress,
+            "withdraw",
+            {
+              collateralDecrease: true,
+              minCollateralChange: "1", // Expect at least $1 decrease in collateral (0.01 WETH withdrawn)
+            }
+          );
           addTestResult("AAVE Withdraw State Verification", true);
         } catch (verifyError) {
-          addTestResult("AAVE Withdraw State Verification", false, verifyError.message);
+          addTestResult(
+            "AAVE Withdraw State Verification",
+            false,
+            verifyError.message
+          );
         }
 
         // Verify WETH balance after withdraw
         try {
           console.log("🔍 Verifying WETH balance after withdraw...");
-
-          // WETH contract for balance checking
-          const wethAbi = [
-            "function balanceOf(address account) view returns (uint256)",
-          ];
-          const wethContract = new ethers.Contract(
-            TEST_WETH_ADDRESS,
-            wethAbi,
-            sepoliaProvider
-          );
 
           const postWithdrawBalance = await wethContract.balanceOf(
             agentWalletPkp.ethAddress
@@ -1518,6 +1805,49 @@ async function verifyAaveState(
     console.log("❌ (AAVE-WITHDRAW) Unexpected error:", errorMsg);
     console.log("   Error stack:", error.stack);
     addTestResult("AAVE Withdraw WETH", false, errorMsg);
+  }
+
+  // ========================================
+  // Final AAVE State Verification
+  // ========================================
+  console.log("\n🏁 Final AAVE State Verification - Workflow Complete");
+  try {
+    const finalAaveState = await verifyAaveState(
+      sepoliaProvider,
+      agentWalletPkp.ethAddress,
+      "final",
+      {
+        maxCollateral: "0.1", // Should be near zero after withdrawing everything
+        maxDebt: "0.1", // Should be near zero after repaying everything
+      }
+    );
+
+    // Verify we're back to a clean state
+    const finalCollateral = parseFloat(
+      ethers.utils.formatUnits(finalAaveState.totalCollateralBase, 8)
+    );
+    const finalDebt = parseFloat(
+      ethers.utils.formatUnits(finalAaveState.totalDebtBase, 8)
+    );
+
+    console.log("📊 Final AAVE State Summary:");
+    console.log(`   - Final Collateral: ${finalCollateral.toFixed(4)} USD`);
+    console.log(`   - Final Debt: ${finalDebt.toFixed(4)} USD`);
+
+    if (finalCollateral < 0.1 && finalDebt < 0.1) {
+      console.log("   ✅ Successfully returned to clean state");
+      addTestResult("Final AAVE State - Clean Workflow", true);
+    } else {
+      addTestResult(
+        "Final AAVE State - Clean Workflow",
+        false,
+        `Position not fully closed: ${finalCollateral.toFixed(
+          4
+        )} USD collateral, ${finalDebt.toFixed(4)} USD debt remaining`
+      );
+    }
+  } catch (error) {
+    addTestResult("Final AAVE State - Clean Workflow", false, error.message);
   }
 
   // ========================================
