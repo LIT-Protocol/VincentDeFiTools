@@ -589,6 +589,9 @@ function printTestSummary() {
             CONFIRMATIONS_TO_WAIT,
             180000
           );
+          if (receipt.status === 0) {
+            throw new Error(`WETH approval transaction reverted: ${approveWethExecute.result.approvalTxHash}`);
+          }
           console.log(
             `   WETH approval confirmed in block ${receipt.blockNumber}`
           );
@@ -679,6 +682,9 @@ function printTestSummary() {
             CONFIRMATIONS_TO_WAIT,
             180000
           ); // 1 confirmation, 3 minute timeout
+          if (receipt.status === 0) {
+            throw new Error(`AAVE supply transaction reverted: ${aaveSupplyExecuteRes.result.txHash}`);
+          }
           console.log(
             `   ✅ Supply transaction confirmed in block ${receipt.blockNumber}`
           );
@@ -852,6 +858,9 @@ function printTestSummary() {
             CONFIRMATIONS_TO_WAIT,
             180000
           ); // 1 confirmation, 3 minute timeout
+          if (receipt.status === 0) {
+            throw new Error(`AAVE borrow transaction reverted: ${aaveBorrowExecuteRes.result.txHash}`);
+          }
           console.log(
             `   ✅ Borrow transaction confirmed in block ${receipt.blockNumber}`
           );
@@ -1017,6 +1026,9 @@ function printTestSummary() {
             CONFIRMATIONS_TO_WAIT,
             180000
           );
+          if (receipt.status === 0) {
+            throw new Error(`USDC approval transaction reverted: ${approveUsdcExecute.result.approvalTxHash}`);
+          }
           console.log(
             `   USDC approval confirmed in block ${receipt.blockNumber}`
           );
@@ -1125,6 +1137,9 @@ function printTestSummary() {
             CONFIRMATIONS_TO_WAIT,
             180000
           ); // 3 minute timeout
+          if (receipt.status === 0) {
+            throw new Error(`AAVE repay transaction reverted: ${aaveRepayExecuteRes.result.txHash}`);
+          }
           console.log(
             `   ✅ Repay transaction confirmed in block ${receipt.blockNumber}`
           );
@@ -1302,6 +1317,9 @@ function printTestSummary() {
             CONFIRMATIONS_TO_WAIT,
             180000
           ); // 3 minute timeout
+          if (receipt.status === 0) {
+            throw new Error(`AAVE withdraw transaction reverted: ${aaveWithdrawExecuteRes.result.txHash}`);
+          }
           console.log(
             `   ✅ Withdraw transaction confirmed in block ${receipt.blockNumber}`
           );
