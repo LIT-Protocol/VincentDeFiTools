@@ -28,51 +28,12 @@ import {
   TestResult,
   TEST_WETH_ADDRESS,
   TEST_USDC_ADDRESS,
+  addTestResult,
+  printTestSummary,
 } from "./test-utils.js";
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
 const CONFIRMATIONS_TO_WAIT = 1;
 
-// Test tracking system
-
-const testResults: TestResult[] = [];
-
-function addTestResult(name: string, passed: boolean, error?: string) {
-  testResults.push({ name, passed, error });
-  const status = passed ? "✅" : "❌";
-  console.log(`${status} TEST: ${name}${error ? ` - ${error}` : ""}`);
-
-  // Stop execution immediately if a test fails
-  if (!passed) {
-    console.log("\n🛑 Test failed - stopping execution");
-    printTestSummary();
-    process.exit(1);
-  }
-}
-
-function printTestSummary() {
-  const passed = testResults.filter((t) => t.passed).length;
-  const failed = testResults.filter((t) => !t.passed).length;
-  const total = testResults.length;
-
-  console.log("\n" + "=".repeat(60));
-  console.log("🧪 TEST SUMMARY");
-  console.log("=".repeat(60));
-  console.log(`Total Tests: ${total}`);
-  console.log(`✅ Passed: ${passed}`);
-  console.log(`❌ Failed: ${failed}`);
-  console.log("=".repeat(60));
-
-  if (failed > 0) {
-    console.log("\n❌ FAILED TESTS:");
-    testResults
-      .filter((t) => !t.passed)
-      .forEach((test) => {
-        console.log(`  - ${test.name}: ${test.error || "Unknown error"}`);
-      });
-  }
-
-  return failed === 0;
-}
 
 (async () => {
   /**
