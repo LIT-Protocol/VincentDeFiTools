@@ -18,7 +18,17 @@ import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aav
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { ethers } from "ethers";
 import { AAVE_V3_SEPOLIA_ADDRESSES } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
-import { verifyAaveState, resetAaveStateTracking, AaveAccountData, setupWethFunding, setupEthFunding, setupUsdcContract, TestResult, TEST_WETH_ADDRESS, TEST_USDC_ADDRESS } from "./test-utils.js";
+import {
+  verifyAaveState,
+  resetAaveStateTracking,
+  AaveAccountData,
+  setupWethFunding,
+  setupEthFunding,
+  setupUsdcContract,
+  TestResult,
+  TEST_WETH_ADDRESS,
+  TEST_USDC_ADDRESS,
+} from "./test-utils.js";
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
 const CONFIRMATIONS_TO_WAIT = 1;
 
@@ -63,7 +73,6 @@ function printTestSummary() {
 
   return failed === 0;
 }
-
 
 (async () => {
   /**
@@ -285,7 +294,9 @@ function printTestSummary() {
     CONFIRMATIONS_TO_WAIT
   );
 
-  const { usdcContract, usdcDecimals } = await setupUsdcContract(sepoliaProvider);
+  const { usdcContract, usdcDecimals } = await setupUsdcContract(
+    sepoliaProvider
+  );
 
   // ========================================
   // AAVE Tool Testing - Complete Workflow
@@ -430,7 +441,9 @@ function printTestSummary() {
             180000
           );
           if (receipt.status === 0) {
-            throw new Error(`WETH approval transaction reverted: ${approveWethExecute.result.approvalTxHash}`);
+            throw new Error(
+              `WETH approval transaction reverted: ${approveWethExecute.result.approvalTxHash}`
+            );
           }
           console.log(
             `   WETH approval confirmed in block ${receipt.blockNumber}`
@@ -523,7 +536,9 @@ function printTestSummary() {
             180000
           ); // 1 confirmation, 3 minute timeout
           if (receipt.status === 0) {
-            throw new Error(`AAVE supply transaction reverted: ${aaveSupplyExecuteRes.result.txHash}`);
+            throw new Error(
+              `AAVE supply transaction reverted: ${aaveSupplyExecuteRes.result.txHash}`
+            );
           }
           console.log(
             `   ✅ Supply transaction confirmed in block ${receipt.blockNumber}`
@@ -699,7 +714,9 @@ function printTestSummary() {
             180000
           ); // 1 confirmation, 3 minute timeout
           if (receipt.status === 0) {
-            throw new Error(`AAVE borrow transaction reverted: ${aaveBorrowExecuteRes.result.txHash}`);
+            throw new Error(
+              `AAVE borrow transaction reverted: ${aaveBorrowExecuteRes.result.txHash}`
+            );
           }
           console.log(
             `   ✅ Borrow transaction confirmed in block ${receipt.blockNumber}`
@@ -867,7 +884,9 @@ function printTestSummary() {
             180000
           );
           if (receipt.status === 0) {
-            throw new Error(`USDC approval transaction reverted: ${approveUsdcExecute.result.approvalTxHash}`);
+            throw new Error(
+              `USDC approval transaction reverted: ${approveUsdcExecute.result.approvalTxHash}`
+            );
           }
           console.log(
             `   USDC approval confirmed in block ${receipt.blockNumber}`
@@ -906,10 +925,7 @@ function printTestSummary() {
     {}
   );
   const USDC_REPAY_AMOUNT = ethers.utils
-    .formatUnits(
-      currentAaveState.totalDebtBase,
-      AAVE_BASE_DEBT_ASSET_DECIMALS
-    )
+    .formatUnits(currentAaveState.totalDebtBase, AAVE_BASE_DEBT_ASSET_DECIMALS)
     .toString(); // USDC_REPAY_AMOUNT is the total debt amount in USDC
   console.log(`   Repaying ${USDC_REPAY_AMOUNT} USDC`);
 
@@ -978,7 +994,9 @@ function printTestSummary() {
             180000
           ); // 3 minute timeout
           if (receipt.status === 0) {
-            throw new Error(`AAVE repay transaction reverted: ${aaveRepayExecuteRes.result.txHash}`);
+            throw new Error(
+              `AAVE repay transaction reverted: ${aaveRepayExecuteRes.result.txHash}`
+            );
           }
           console.log(
             `   ✅ Repay transaction confirmed in block ${receipt.blockNumber}`
@@ -1158,7 +1176,9 @@ function printTestSummary() {
             180000
           ); // 3 minute timeout
           if (receipt.status === 0) {
-            throw new Error(`AAVE withdraw transaction reverted: ${aaveWithdrawExecuteRes.result.txHash}`);
+            throw new Error(
+              `AAVE withdraw transaction reverted: ${aaveWithdrawExecuteRes.result.txHash}`
+            );
           }
           console.log(
             `   ✅ Withdraw transaction confirmed in block ${receipt.blockNumber}`
@@ -1264,6 +1284,17 @@ function printTestSummary() {
     console.log("   Error stack:", error.stack);
     addTestResult("AAVE Withdraw WETH", false, errorMsg);
   }
+
+  // ========================================
+  // Send WETH and ETH back to funding wallet
+  // ========================================
+  console.log("Send WETH and ETH back to funding wallet");
+
+  // Send WETH back to funding wallet
+  // TODO: Implement this
+
+  // Send ETH back to funding wallet
+  // TODO: Implement this
 
   // ========================================
   // Final AAVE State Verification
