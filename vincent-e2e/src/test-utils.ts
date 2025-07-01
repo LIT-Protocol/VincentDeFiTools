@@ -456,7 +456,7 @@ export async function setupWethFunding(
   confirmationsToWait: number = 1
 ) {
   console.log("💰 Setting up WETH funding for AAVE tests");
-  
+
   const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
   const REQUIRED_WETH_BALANCE = ethers.utils.parseEther(WETH_FUND_AMOUNT);
 
@@ -502,7 +502,9 @@ export async function setupWethFunding(
       // Wait for transaction confirmation
       const receipt = await transferTx.wait(confirmationsToWait);
       if (receipt.status === 0) {
-        throw new Error(`WETH transfer transaction reverted: ${transferTx.hash}`);
+        throw new Error(
+          `WETH transfer transaction reverted: ${transferTx.hash}`
+        );
       }
       console.log(
         `   ✅ WETH transfer confirmed in block ${receipt.blockNumber}`
@@ -539,7 +541,7 @@ export async function setupEthFunding(
   console.log("⛽ Setting up ETH gas funding for Sepolia operations");
 
   const ETH_FUND_AMOUNT = "0.01"; // 0.01 ETH
-  const REQUIRED_ETH_BALANCE = ethers.utils.parseEther("0.002"); // 0.002 ETH threshold
+  const REQUIRED_ETH_BALANCE = ethers.utils.parseEther("0.008");
 
   try {
     console.log("🔍 Checking PKP ETH balance for gas fees");
@@ -582,7 +584,9 @@ export async function setupEthFunding(
       // Wait for transaction confirmation
       const receipt = await transferTx.wait(confirmationsToWait);
       if (receipt.status === 0) {
-        throw new Error(`ETH transfer transaction reverted: ${transferTx.hash}`);
+        throw new Error(
+          `ETH transfer transaction reverted: ${transferTx.hash}`
+        );
       }
       console.log(
         `   ✅ ETH transfer confirmed in block ${receipt.blockNumber}`
@@ -607,7 +611,9 @@ export async function setupEthFunding(
   }
 }
 
-export async function setupUsdcContract(sepoliaProvider: ethers.providers.Provider) {
+export async function setupUsdcContract(
+  sepoliaProvider: ethers.providers.Provider
+) {
   const usdcContract = new ethers.Contract(
     TEST_USDC_ADDRESS,
     usdcAbi,

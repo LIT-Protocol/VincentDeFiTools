@@ -1346,10 +1346,43 @@ const CONFIRMATIONS_TO_WAIT = 2;
     console.log("Send WETH and ETH back to funding wallet");
 
     // Send WETH back to funding wallet
-    // TODO: Implement this
+    // 1. get the eth balance of the PKP
+    const wethBalance = await wethContract.balanceOf(agentWalletPkp.ethAddress);
+    console.log(`   PKP WETH balance: ${wethBalance} WETH`);
+
+    const fundingWallet = new ethers.Wallet(
+      process.env.FUNDING_WALLET_PRIVATE_KEY!,
+      sepoliaProvider
+    );
+    // 2. send the eth balance to the funding wallet
+    let txData = await wethContract.populateTransaction.transfer(
+      await fundingWallet.getAddress(),
+      wethBalance
+    );
+    console.log(
+      `   Sending ${wethBalance} WETH to funding wallet with data ${txData}`
+    );
 
     // Send ETH back to funding wallet
-    // TODO: Implement this
+    // 1. get the eth balance of the PKP
+    const ethBalance = await sepoliaProvider.getBalance(
+      agentWalletPkp.ethAddress
+    );
+
+    // 2. estimate the gas, to subtract from the eth balance
+    const feeData = await sepoliaProvider.getFeeData();
+    console.log(`   Fee data: ${feeData}`);
+
+    // 2. send the eth balance to the funding wallet
+    // costs 21000 gas to send eth
+    const amountToSend = ethBalance.sub(
+      ethers.BigNumber.from(21000).mul(feeData.gasPrice!)
+    );
+    console.log(
+      `   Sending ${ethers.utils.formatEther(
+        amountToSend
+      )} ETH to funding wallet (balance is ${ethBalance})`
+    );
   }
 
   // ========================================
