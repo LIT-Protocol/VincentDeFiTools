@@ -31,6 +31,42 @@ import {
   addTestResult,
   printTestSummary,
 } from "./test-utils.js";
+
+// ========================================
+// NETWORK CONFIGURATION - CHANGE THIS TO TEST ON OTHER NETWORKS
+// ========================================
+const NETWORK_CONFIG = {
+  // Network to test on
+  network: "sepolia", // Options: "sepolia", "base"
+  
+  // Chain ID for the network
+  chainId: 11155111, // Sepolia: 11155111, Base: 8453
+  
+  // RPC URL environment variable
+  rpcUrlEnv: "ETH_SEPOLIA_RPC_URL", // Sepolia: "ETH_SEPOLIA_RPC_URL", Base: "BASE_RPC_URL"
+  
+  // AAVE Pool contract address
+  aavePoolAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL, // Will need to be updated for Base
+  
+  // Token addresses for the network
+  wethAddress: TEST_WETH_ADDRESS, // Will need to be updated for Base  
+  usdcAddress: TEST_USDC_ADDRESS, // Will need to be updated for Base
+} as const;
+
+// ========================================
+// BASE NETWORK EXAMPLE CONFIGURATION
+// ========================================
+// To test on Base, update NETWORK_CONFIG above with these values:
+// {
+//   network: "base",
+//   chainId: 8453,
+//   rpcUrlEnv: "BASE_RPC_URL",
+//   aavePoolAddress: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5", // AAVE V3 Pool on Base
+//   wethAddress: "0x4200000000000000000000000000000000000006", // WETH on Base
+//   usdcAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
+// }
+// And ensure you have BASE_RPC_URL set in your .env file
+
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
 const CONFIRMATIONS_TO_WAIT = 2;
 
@@ -45,20 +81,20 @@ const CONFIRMATIONS_TO_WAIT = 2;
     deploymentStatus: "dev",
   });
 
-  if (!process.env.ETH_SEPOLIA_RPC_URL) {
+  if (!process.env[NETWORK_CONFIG.rpcUrlEnv]) {
     throw new Error(
-      "ETH_SEPOLIA_RPC_URL is not set - can't test on Sepolia without an RPC URL"
+      `${NETWORK_CONFIG.rpcUrlEnv} is not set - can't test on ${NETWORK_CONFIG.network} without an RPC URL`
     );
   }
 
   if (!process.env.TEST_FUNDER_PRIVATE_KEY) {
     throw new Error(
-      "TEST_FUNDER_PRIVATE_KEY is not set - can't test on Sepolia without a funder private key"
+      `TEST_FUNDER_PRIVATE_KEY is not set - can't test on ${NETWORK_CONFIG.network} without a funder private key`
     );
   }
 
-  const sepoliaProvider = new ethers.providers.JsonRpcProvider(
-    process.env.ETH_SEPOLIA_RPC_URL
+  const networkProvider = new ethers.providers.JsonRpcProvider(
+    process.env[NETWORK_CONFIG.rpcUrlEnv]
   );
 
   /**
@@ -239,7 +275,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // WETH and ETH Funding Setup
   // ========================================
   const { wethContract, wethDecimals } = await setupWethFunding(
-    sepoliaProvider,
+    networkProvider,
     agentWalletPkp.ethAddress,
     process.env.TEST_FUNDER_PRIVATE_KEY,
     addTestResult,
@@ -247,7 +283,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
   );
 
   await setupEthFunding(
-    sepoliaProvider,
+    networkProvider,
     agentWalletPkp.ethAddress,
     process.env.TEST_FUNDER_PRIVATE_KEY,
     addTestResult,
@@ -255,7 +291,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
   );
 
   const { usdcContract, usdcDecimals } = await setupUsdcContract(
-    sepoliaProvider
+    networkProvider
   );
 
   // ========================================
@@ -284,7 +320,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
   console.log("🔍 Recording initial AAVE state...");
   try {
     initialAaveState = await verifyAaveState(
-      sepoliaProvider,
+      networkProvider,
       agentWalletPkp.ethAddress,
       "initial",
       {}
@@ -355,12 +391,12 @@ const CONFIRMATIONS_TO_WAIT = 2;
 
   try {
     const approveWethParams = {
-      chainId: 11155111, // Sepolia
-      tokenAddress: TEST_WETH_ADDRESS,
-      spenderAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+      chainId: NETWORK_CONFIG.chainId,
+      tokenAddress: NETWORK_CONFIG.wethAddress,
+      spenderAddress: NETWORK_CONFIG.aavePoolAddress,
       tokenAmount: parseFloat(WETH_SUPPLY_AMOUNT),
       tokenDecimals: wethDecimals,
-      rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
+      rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
     };
 
     const approveWethPrecheck = await approveToolClient.precheck(
@@ -395,7 +431,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
             "🔍 Waiting for WETH approval transaction confirmation..."
           );
           // wait for transaction confirmation
-          const receipt = await sepoliaProvider.waitForTransaction(
+          const receipt = await networkProvider.waitForTransaction(
             approveWethExecute.result.approvalTxHash,
             CONFIRMATIONS_TO_WAIT,
             180000
@@ -438,17 +474,17 @@ const CONFIRMATIONS_TO_WAIT = 2;
   console.log("(AAVE-STEP-1) Supply WETH as collateral");
 
   console.log(`   Supplying ${WETH_SUPPLY_AMOUNT} WETH as collateral`);
-  console.log(`   WETH Address: ${TEST_WETH_ADDRESS}`);
+  console.log(`   WETH Address: ${NETWORK_CONFIG.wethAddress}`);
 
   // Test 4: AAVE Supply Operation
   try {
     const aaveSupplyPrecheckRes = await aaveToolClient.precheck(
       {
         operation: "supply",
-        asset: TEST_WETH_ADDRESS,
+        asset: NETWORK_CONFIG.wethAddress,
         amount: WETH_SUPPLY_AMOUNT,
-        rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
-        chain: "sepolia",
+        rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
+        chain: NETWORK_CONFIG.network,
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -469,9 +505,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
       const aaveSupplyExecuteRes = await aaveToolClient.execute(
         {
           operation: "supply",
-          asset: TEST_WETH_ADDRESS,
+          asset: NETWORK_CONFIG.wethAddress,
           amount: WETH_SUPPLY_AMOUNT,
-          chain: "sepolia",
+          chain: NETWORK_CONFIG.network,
         },
         {
           delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -490,7 +526,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         // Wait for transaction confirmation
         try {
           console.log("⏳ Waiting for supply transaction confirmation...");
-          const receipt = await sepoliaProvider.waitForTransaction(
+          const receipt = await networkProvider.waitForTransaction(
             aaveSupplyExecuteRes.result.txHash,
             CONFIRMATIONS_TO_WAIT,
             180000
@@ -514,7 +550,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         // Verify AAVE state after supply
         try {
           await verifyAaveState(
-            sepoliaProvider,
+            networkProvider,
             agentWalletPkp.ethAddress,
             "supply",
             {
@@ -611,18 +647,18 @@ const CONFIRMATIONS_TO_WAIT = 2;
   console.log("(AAVE-STEP-2) Borrow USDC against WETH collateral");
 
   console.log(`   Borrowing ${USDC_BORROW_AMOUNT} USDC`);
-  console.log(`   USDC Address: ${TEST_USDC_ADDRESS}`);
+  console.log(`   USDC Address: ${NETWORK_CONFIG.usdcAddress}`);
 
   // Test 5: AAVE Borrow Operation
   try {
     const aaveBorrowPrecheckRes = await aaveToolClient.precheck(
       {
         operation: "borrow",
-        asset: TEST_USDC_ADDRESS,
+        asset: NETWORK_CONFIG.usdcAddress,
         amount: USDC_BORROW_AMOUNT,
         interestRateMode: 2, // Variable rate
-        rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
-        chain: "sepolia",
+        rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
+        chain: NETWORK_CONFIG.network,
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -643,10 +679,10 @@ const CONFIRMATIONS_TO_WAIT = 2;
       const aaveBorrowExecuteRes = await aaveToolClient.execute(
         {
           operation: "borrow",
-          asset: TEST_USDC_ADDRESS,
+          asset: NETWORK_CONFIG.usdcAddress,
           amount: USDC_BORROW_AMOUNT,
           interestRateMode: 2, // Variable rate
-          chain: "sepolia",
+          chain: NETWORK_CONFIG.network,
         },
         {
           delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -668,7 +704,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         try {
           console.log("⏳ Waiting for borrow transaction confirmation...");
 
-          const receipt = await sepoliaProvider.waitForTransaction(
+          const receipt = await networkProvider.waitForTransaction(
             aaveBorrowExecuteRes.result.txHash,
             CONFIRMATIONS_TO_WAIT,
             180000
@@ -692,7 +728,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         // Verify AAVE state after borrow
         try {
           await verifyAaveState(
-            sepoliaProvider,
+            networkProvider,
             agentWalletPkp.ethAddress,
             "borrow",
             {
@@ -798,12 +834,12 @@ const CONFIRMATIONS_TO_WAIT = 2;
 
   try {
     const approveUsdcParams = {
-      chainId: 11155111, // Sepolia
-      tokenAddress: TEST_USDC_ADDRESS,
-      spenderAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+      chainId: NETWORK_CONFIG.chainId,
+      tokenAddress: NETWORK_CONFIG.usdcAddress,
+      spenderAddress: NETWORK_CONFIG.aavePoolAddress,
       tokenAmount: parseFloat(USDC_BORROW_AMOUNT),
       tokenDecimals: usdcDecimals,
-      rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
+      rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
     };
 
     const approveUsdcPrecheck = await approveToolClient.precheck(
@@ -838,7 +874,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
             "🔍 Waiting for USDC approval transaction confirmation..."
           );
           // wait for transaction confirmation
-          const receipt = await sepoliaProvider.waitForTransaction(
+          const receipt = await networkProvider.waitForTransaction(
             approveUsdcExecute.result.approvalTxHash,
             CONFIRMATIONS_TO_WAIT,
             180000
@@ -879,7 +915,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
 
   // only repay the debt amount.  sometimes we try to borrow 1.0 and get 0.99999.
   const currentAaveState = await verifyAaveState(
-    sepoliaProvider,
+    networkProvider,
     agentWalletPkp.ethAddress,
     "repay_check",
     {}
@@ -898,11 +934,11 @@ const CONFIRMATIONS_TO_WAIT = 2;
     const aaveRepayPrecheckRes = await aaveToolClient.precheck(
       {
         operation: "repay",
-        asset: TEST_USDC_ADDRESS,
+        asset: NETWORK_CONFIG.usdcAddress,
         amount: USDC_REPAY_AMOUNT,
         interestRateMode: 2, // Variable rate
-        chain: "sepolia",
-        rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
+        chain: NETWORK_CONFIG.network,
+        rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -923,10 +959,10 @@ const CONFIRMATIONS_TO_WAIT = 2;
       const aaveRepayExecuteRes = await aaveToolClient.execute(
         {
           operation: "repay",
-          asset: TEST_USDC_ADDRESS,
+          asset: NETWORK_CONFIG.usdcAddress,
           amount: USDC_REPAY_AMOUNT,
           interestRateMode: 2, // Variable rate
-          chain: "sepolia",
+          chain: NETWORK_CONFIG.network,
         },
         {
           delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -948,7 +984,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         try {
           console.log("⏳ Waiting for repay transaction confirmation...");
 
-          const receipt = await sepoliaProvider.waitForTransaction(
+          const receipt = await networkProvider.waitForTransaction(
             aaveRepayExecuteRes.result.txHash,
             CONFIRMATIONS_TO_WAIT,
             180000
@@ -972,7 +1008,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         // Verify AAVE state after repay
         try {
           await verifyAaveState(
-            sepoliaProvider,
+            networkProvider,
             agentWalletPkp.ethAddress,
             "repay",
             {
@@ -1082,10 +1118,10 @@ const CONFIRMATIONS_TO_WAIT = 2;
     const aaveWithdrawPrecheckRes = await aaveToolClient.precheck(
       {
         operation: "withdraw",
-        asset: TEST_WETH_ADDRESS,
+        asset: NETWORK_CONFIG.wethAddress,
         amount: WETH_WITHDRAW_AMOUNT,
-        rpcUrl: process.env.ETH_SEPOLIA_RPC_URL,
-        chain: "sepolia",
+        rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
+        chain: NETWORK_CONFIG.network,
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -1106,9 +1142,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
       const aaveWithdrawExecuteRes = await aaveToolClient.execute(
         {
           operation: "withdraw",
-          asset: TEST_WETH_ADDRESS,
+          asset: NETWORK_CONFIG.wethAddress,
           amount: WETH_WITHDRAW_AMOUNT,
-          chain: "sepolia",
+          chain: NETWORK_CONFIG.network,
         },
         {
           delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -1130,7 +1166,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         try {
           console.log("⏳ Waiting for withdraw transaction confirmation...");
 
-          const receipt = await sepoliaProvider.waitForTransaction(
+          const receipt = await networkProvider.waitForTransaction(
             aaveWithdrawExecuteRes.result.txHash,
             CONFIRMATIONS_TO_WAIT,
             180000
@@ -1154,7 +1190,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         // Verify AAVE state after withdraw
         try {
           await verifyAaveState(
-            sepoliaProvider,
+            networkProvider,
             agentWalletPkp.ethAddress,
             "withdraw",
             {
@@ -1251,7 +1287,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
   console.log("\n🏁 Final AAVE State Verification - Workflow Complete");
   try {
     const finalAaveState = await verifyAaveState(
-      sepoliaProvider,
+      networkProvider,
       agentWalletPkp.ethAddress,
       "final",
       {}
@@ -1352,7 +1388,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
 
     const fundingWallet = new ethers.Wallet(
       process.env.FUNDING_WALLET_PRIVATE_KEY!,
-      sepoliaProvider
+      networkProvider
     );
     // 2. send the eth balance to the funding wallet
     let txData = await wethContract.populateTransaction.transfer(
@@ -1367,12 +1403,12 @@ const CONFIRMATIONS_TO_WAIT = 2;
 
     // Send ETH back to funding wallet
     // 1. get the eth balance of the PKP
-    const ethBalance = await sepoliaProvider.getBalance(
+    const ethBalance = await networkProvider.getBalance(
       agentWalletPkp.ethAddress
     );
 
     // 2. estimate the gas, to subtract from the eth balance
-    const feeData = await sepoliaProvider.getFeeData();
+    const feeData = await networkProvider.getFeeData();
     console.log(`   Fee data: ${feeData}`);
 
     // 2. send the eth balance to the funding wallet
