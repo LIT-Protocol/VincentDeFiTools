@@ -10,14 +10,13 @@ import {
   precheckFailSchema,
   precheckSuccessSchema,
   toolParamsSchema,
-  AaveOperation,
+  MorphoOperation,
 } from "./schemas";
 
 import {
-  getAaveAddresses,
-  AAVE_POOL_ABI,
+  MORPHO_SEPOLIA_ADDRESSES,
+  MORPHO_ABI,
   ERC20_ABI,
-  INTEREST_RATE_MODE,
   isValidAddress,
   parseAmount,
   validateOperationRequirements,
@@ -27,7 +26,7 @@ import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
 import { ethers } from "ethers";
 
 export const vincentTool = createVincentTool({
-  packageName: "@lit-protocol/vincent-tool-aave" as const,
+  packageName: "@lit-protocol/vincent-tool-morpho" as const,
   toolParamsSchema,
   supportedPolicies: supportedPoliciesForTool([]),
 
@@ -42,19 +41,18 @@ export const vincentTool = createVincentTool({
     { succeed, fail, delegation: { delegatorPkpInfo } }
   ) => {
     try {
-      console.log("[@lit-protocol/vincent-tool-aave/precheck]");
-      console.log("[@lit-protocol/vincent-tool-aave/precheck] params:", {
+      console.log("[@lit-protocol/vincent-tool-morpho/precheck]");
+      console.log("[@lit-protocol/vincent-tool-morpho/precheck] params:", {
         toolParams,
       });
 
-      const { operation, asset, amount, interestRateMode, onBehalfOf, rpcUrl, chain } =
-        toolParams;
+      const { operation, asset, amount, onBehalfOf, rpcUrl } = toolParams;
 
       // Validate operation
-      if (!Object.values(AaveOperation).includes(operation)) {
+      if (!Object.values(MorphoOperation).includes(operation)) {
         return fail({
           error:
-            "[@lit-protocol/vincent-tool-aave/precheck] Invalid operation. Must be supply, withdraw, borrow, or repay",
+            "[@lit-protocol/vincent-tool-morpho/precheck] Invalid operation. Must be supply, withdraw, borrow, or repay",
         });
       }
 
@@ -62,7 +60,7 @@ export const vincentTool = createVincentTool({
       if (!isValidAddress(asset)) {
         return fail({
           error:
-            "[@lit-protocol/vincent-tool-aave/precheck] Invalid asset address format",
+            "[@lit-protocol/vincent-tool-morpho/precheck] Invalid asset address format",
         });
       }
 
@@ -70,33 +68,19 @@ export const vincentTool = createVincentTool({
       if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
         return fail({
           error:
-            "[@lit-protocol/vincent-tool-aave/precheck] Invalid amount format or amount must be greater than 0",
+            "[@lit-protocol/vincent-tool-morpho/precheck] Invalid amount format or amount must be greater than 0",
         });
-      }
-
-      // Validate interest rate mode for borrow operations
-      if (operation === AaveOperation.BORROW) {
-        if (
-          !interestRateMode ||
-          (interestRateMode !== INTEREST_RATE_MODE.STABLE &&
-            interestRateMode !== INTEREST_RATE_MODE.VARIABLE)
-        ) {
-          return fail({
-            error:
-              "[@lit-protocol/vincent-tool-aave/precheck] Interest rate mode is required for borrow operations (1 = Stable, 2 = Variable)",
-          });
-        }
       }
 
       // Enhanced validation - connect to blockchain and validate everything the execute function would need
       console.log(
-        "[@lit-protocol/vincent-tool-aave/precheck] Starting enhanced validation..."
+        "[@lit-protocol/vincent-tool-morpho/precheck] Starting enhanced validation..."
       );
 
       if (!rpcUrl) {
         return fail({
           error:
-            "[@lit-protocol/vincent-tool-aave/precheck] RPC URL is required for precheck",
+            "[@lit-protocol/vincent-tool-morpho/precheck] RPC URL is required for precheck",
         });
       }
 
@@ -106,19 +90,9 @@ export const vincentTool = createVincentTool({
         provider = new ethers.providers.JsonRpcProvider(rpcUrl);
       } catch (error) {
         return fail({
-          error: `[@lit-protocol/vincent-tool-aave/precheck] Unable to obtain blockchain provider: ${
+          error: `[@lit-protocol/vincent-tool-morpho/precheck] Unable to obtain blockchain provider: ${
             error instanceof Error ? error.message : error.toString()
           }`,
-        });
-      }
-
-      // Get chain-specific AAVE addresses
-      let aaveAddresses;
-      try {
-        aaveAddresses = getAaveAddresses(chain || "sepolia");
-      } catch (error) {
-        return fail({
-          error: `[@lit-protocol/vincent-tool-aave/precheck] ${error.message}`,
         });
       }
 
@@ -136,33 +110,33 @@ export const vincentTool = createVincentTool({
         allowance = (
           await assetContract.allowance(
             pkpAddress,
-            aaveAddresses.POOL
+            MORPHO_SEPOLIA_ADDRESSES.MORPHO
           )
         ).toString();
       } catch (error) {
         return fail({
           error:
-            "[@lit-protocol/vincent-tool-aave/precheck] Invalid asset address or asset not found on network",
+            "[@lit-protocol/vincent-tool-morpho/precheck] Invalid asset address or asset not found on network",
         });
       }
 
       // Convert amount using proper decimals
       const convertedAmount = parseAmount(amount, assetDecimals);
 
-      // Get AAVE user account data
+      // Get Morpho user position data
       let borrowCapacity: string = "0";
       try {
-        const aavePool = new ethers.Contract(
-          aaveAddresses.POOL,
-          AAVE_POOL_ABI,
+        const morphoContract = new ethers.Contract(
+          MORPHO_SEPOLIA_ADDRESSES.MORPHO,
+          MORPHO_ABI,
           provider
         );
-        const accountData = await aavePool.getUserAccountData(pkpAddress);
-        borrowCapacity = accountData.availableBorrowsBase.toString();
+        const positionData = await morphoContract.getUserPositionData(pkpAddress);
+        borrowCapacity = positionData.availableBorrows.toString();
       } catch (error) {
         return fail({
           error:
-            "[@lit-protocol/vincent-tool-aave/precheck] Failed to fetch AAVE account data",
+            "[@lit-protocol/vincent-tool-morpho/precheck] Failed to fetch Morpho position data",
         });
       }
 
@@ -172,67 +146,67 @@ export const vincentTool = createVincentTool({
         userBalance,
         allowance,
         borrowCapacity,
-        convertedAmount,
-        interestRateMode
+        convertedAmount
       );
 
       if (!operationChecks.valid) {
         return fail({
-          error: `[@lit-protocol/vincent-tool-aave/precheck] ${operationChecks.error}`,
+          error: `[@lit-protocol/vincent-tool-morpho/precheck] ${operationChecks.error}`,
         });
       }
 
       // Estimate gas for the operation
       let estimatedGas: number = 0;
       try {
-        const aavePool = new ethers.Contract(
-          aaveAddresses.POOL,
-          AAVE_POOL_ABI,
+        const morphoContract = new ethers.Contract(
+          MORPHO_SEPOLIA_ADDRESSES.MORPHO,
+          MORPHO_ABI,
           provider
         );
         const targetAddress = onBehalfOf || pkpAddress;
+        const emptyData = "0x";
 
         switch (operation) {
-          case AaveOperation.SUPPLY:
+          case MorphoOperation.SUPPLY:
             estimatedGas = (
-              await aavePool.estimateGas.supply(
+              await morphoContract.estimateGas.supply(
                 asset,
                 convertedAmount,
                 targetAddress,
-                0,
+                emptyData,
                 { from: pkpAddress }
               )
             ).toNumber();
             break;
-          case AaveOperation.WITHDRAW:
+          case MorphoOperation.WITHDRAW:
             estimatedGas = (
-              await aavePool.estimateGas.withdraw(
+              await morphoContract.estimateGas.withdraw(
                 asset,
                 convertedAmount,
                 pkpAddress,
+                emptyData,
                 { from: pkpAddress }
               )
             ).toNumber();
             break;
-          case AaveOperation.BORROW:
+          case MorphoOperation.BORROW:
             estimatedGas = (
-              await aavePool.estimateGas.borrow(
+              await morphoContract.estimateGas.borrow(
                 asset,
                 convertedAmount,
-                interestRateMode,
-                0,
                 targetAddress,
+                emptyData,
                 { from: pkpAddress }
               )
             ).toNumber();
             break;
-          case AaveOperation.REPAY:
+          case MorphoOperation.REPAY:
             estimatedGas = (
-              await aavePool.estimateGas.repay(
+              await morphoContract.estimateGas.repay(
                 asset,
                 convertedAmount,
-                interestRateMode || INTEREST_RATE_MODE.VARIABLE,
                 targetAddress,
+                emptyData,
                 { from: pkpAddress }
               )
             ).toNumber();
@@ -240,11 +214,11 @@ export const vincentTool = createVincentTool({
         }
       } catch (error) {
         console.warn(
-          "[@lit-protocol/vincent-tool-aave/precheck] Gas estimation failed:",
+          "[@lit-protocol/vincent-tool-morpho/precheck] Gas estimation failed:",
           error
         );
         return fail({
-          error: `[@lit-protocol/vincent-tool-aave/precheck] Gas estimation failed: ${
+          error: `[@lit-protocol/vincent-tool-morpho/precheck] Gas estimation failed: ${
             error instanceof Error ? error.message : error.toString()
           }`,
         });
@@ -262,15 +236,15 @@ export const vincentTool = createVincentTool({
       };
 
       console.log(
-        "[@lit-protocol/vincent-tool-aave/precheck] Enhanced validation successful:",
+        "[@lit-protocol/vincent-tool-morpho/precheck] Enhanced validation successful:",
         successResult
       );
 
       return succeed(successResult);
     } catch (error) {
-      console.error("[@lit-protocol/vincent-tool-aave/precheck] Error:", error);
+      console.error("[@lit-protocol/vincent-tool-morpho/precheck] Error:", error);
       return fail({
-        error: `[@lit-protocol/vincent-tool-aave/precheck] Validation failed: ${
+        error: `[@lit-protocol/vincent-tool-morpho/precheck] Validation failed: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       });
@@ -279,60 +253,37 @@ export const vincentTool = createVincentTool({
 
   execute: async ({ toolParams }, { succeed, fail, delegation }) => {
     try {
-      const {
-        operation,
-        asset,
-        amount,
-        interestRateMode,
-        onBehalfOf,
-        chain,
-        rpcUrl,
-      } = toolParams;
+      const { operation, asset, amount, onBehalfOf, chain, rpcUrl } = toolParams;
 
       console.log(
-        "[@lit-protocol/vincent-tool-aave/execute] Executing AAVE Tool",
+        "[@lit-protocol/vincent-tool-morpho/execute] Executing Morpho Tool",
         {
           operation,
           asset,
           amount,
-          interestRateMode,
-          chain,
         }
       );
 
       if (rpcUrl) {
         return fail({
           error:
-            "[@lit-protocol/vincent-tool-aave/execute] RPC URL is not permitted for execute.  Use the `chain` parameter, and the Lit Nodes will provide the RPC URL for you with the Lit.Actions.getRpcUrl() function",
+            "[@lit-protocol/vincent-tool-morpho/execute] RPC URL is not permitted for execute. Use the `chain` parameter, and the Lit Nodes will provide the RPC URL for you with the Lit.Actions.getRpcUrl() function",
         });
       }
 
-      // Get chain-specific AAVE addresses
-      let aaveAddresses;
-      try {
-        aaveAddresses = getAaveAddresses(chain || "sepolia");
-      } catch (error) {
-        return fail({
-          error: `[@lit-protocol/vincent-tool-aave/execute] ${error.message}`,
-        });
-      }
-
-      // Get provider - for AAVE operations, we need to work with Sepolia testnet
-      // The Vincent framework typically uses Yellowstone, but AAVE is deployed on Sepolia
+      // Get provider
       let provider;
       try {
-        // For now, try to get the default provider, but this will need configuration
-        // In a real deployment, this would be configured via Vincent SDK settings
         provider = new ethers.providers.JsonRpcProvider(
           await Lit.Actions.getRpcUrl({ chain })
         );
       } catch (error) {
         console.error(
-          "[@lit-protocol/vincent-tool-aave/execute] Provider error:",
+          "[@lit-protocol/vincent-tool-morpho/execute] Provider error:",
           error
         );
         throw new Error(
-          "Unable to obtain blockchain provider for AAVE operations"
+          "Unable to obtain blockchain provider for Morpho operations"
         );
       }
 
@@ -342,12 +293,12 @@ export const vincentTool = createVincentTool({
       const assetContract = new ethers.Contract(asset, ERC20_ABI, provider);
       const assetDecimals = await assetContract.decimals();
       console.log(
-        "[@lit-protocol/vincent-tool-aave/execute] Asset decimals:",
+        "[@lit-protocol/vincent-tool-morpho/execute] Asset decimals:",
         assetDecimals
       );
       const convertedAmount = parseAmount(amount, assetDecimals);
       console.log(
-        "[@lit-protocol/vincent-tool-aave/execute] Converted amount:",
+        "[@lit-protocol/vincent-tool-morpho/execute] Converted amount:",
         convertedAmount
       );
 
@@ -360,7 +311,7 @@ export const vincentTool = createVincentTool({
       // Get PKP address using ethers utils
       const pkpAddress = ethers.utils.computeAddress(pkpPublicKey);
       console.log(
-        "[@lit-protocol/vincent-tool-aave/execute] PKP Address:",
+        "[@lit-protocol/vincent-tool-morpho/execute] PKP Address:",
         pkpAddress
       );
 
@@ -368,58 +319,47 @@ export const vincentTool = createVincentTool({
       let txHash: string;
 
       switch (operation) {
-        case AaveOperation.SUPPLY:
+        case MorphoOperation.SUPPLY:
           txHash = await executeSupply(
             provider,
             pkpPublicKey,
             asset,
             convertedAmount,
             onBehalfOf || pkpAddress,
-            chainId,
-            aaveAddresses
+            chainId
           );
           break;
 
-        case AaveOperation.WITHDRAW:
+        case MorphoOperation.WITHDRAW:
           txHash = await executeWithdraw(
             provider,
             pkpPublicKey,
             asset,
             convertedAmount,
             pkpAddress,
-            chainId,
-            aaveAddresses
+            chainId
           );
           break;
 
-        case AaveOperation.BORROW:
-          if (!interestRateMode) {
-            throw new Error(
-              "Interest rate mode is required for borrow operations"
-            );
-          }
+        case MorphoOperation.BORROW:
           txHash = await executeBorrow(
             provider,
             pkpPublicKey,
             asset,
             convertedAmount,
-            interestRateMode,
             onBehalfOf || pkpAddress,
-            chainId,
-            aaveAddresses
+            chainId
           );
           break;
 
-        case AaveOperation.REPAY:
+        case MorphoOperation.REPAY:
           txHash = await executeRepay(
             provider,
             pkpPublicKey,
             asset,
             convertedAmount,
-            interestRateMode || INTEREST_RATE_MODE.VARIABLE,
             onBehalfOf || pkpAddress,
-            chainId,
-            aaveAddresses
+            chainId
           );
           break;
 
@@ -428,7 +368,7 @@ export const vincentTool = createVincentTool({
       }
 
       console.log(
-        "[@lit-protocol/vincent-tool-aave/execute] AAVE operation successful",
+        "[@lit-protocol/vincent-tool-morpho/execute] Morpho operation successful",
         {
           txHash,
           operation,
@@ -443,11 +383,10 @@ export const vincentTool = createVincentTool({
         asset,
         amount,
         timestamp: Date.now(),
-        interestRateMode: interestRateMode,
       });
     } catch (error) {
       console.error(
-        "[@lit-protocol/vincent-tool-aave/execute] AAVE operation failed",
+        "[@lit-protocol/vincent-tool-morpho/execute] Morpho operation failed",
         error
       );
 
@@ -460,7 +399,7 @@ export const vincentTool = createVincentTool({
 });
 
 /**
- * Execute AAVE Supply operation
+ * Execute Morpho Supply operation
  */
 async function executeSupply(
   provider: any,
@@ -468,24 +407,23 @@ async function executeSupply(
   asset: string,
   amount: string,
   onBehalfOf: string,
-  chainId: number,
-  aaveAddresses: any
+  chainId: number
 ): Promise<string> {
   console.log(
-    "[@lit-protocol/vincent-tool-aave/executeSupply] Starting supply operation"
+    "[@lit-protocol/vincent-tool-morpho/executeSupply] Starting supply operation"
   );
 
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
+  const emptyData = "0x";
 
-  // Now supply to AAVE
   const txHash = await laUtils.transaction.handler.contractCall({
     provider,
     pkpPublicKey,
     callerAddress,
-    abi: AAVE_POOL_ABI,
-    contractAddress: aaveAddresses.POOL,
+    abi: MORPHO_ABI,
+    contractAddress: MORPHO_SEPOLIA_ADDRESSES.MORPHO,
     functionName: "supply",
-    args: [asset, amount, onBehalfOf, 0],
+    args: [asset, amount, onBehalfOf, emptyData],
     chainId,
     gasBumpPercentage: 10,
   });
@@ -494,7 +432,7 @@ async function executeSupply(
 }
 
 /**
- * Execute AAVE Withdraw operation
+ * Execute Morpho Withdraw operation
  */
 async function executeWithdraw(
   provider: any,
@@ -502,23 +440,23 @@ async function executeWithdraw(
   asset: string,
   amount: string,
   to: string,
-  chainId: number,
-  aaveAddresses: any
+  chainId: number
 ): Promise<string> {
   console.log(
-    "[@lit-protocol/vincent-tool-aave/executeWithdraw] Starting withdraw operation"
+    "[@lit-protocol/vincent-tool-morpho/executeWithdraw] Starting withdraw operation"
   );
 
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
+  const emptyData = "0x";
 
   const txHash = await laUtils.transaction.handler.contractCall({
     provider,
     pkpPublicKey,
     callerAddress,
-    abi: AAVE_POOL_ABI,
-    contractAddress: aaveAddresses.POOL,
+    abi: MORPHO_ABI,
+    contractAddress: MORPHO_SEPOLIA_ADDRESSES.MORPHO,
     functionName: "withdraw",
-    args: [asset, amount, to],
+    args: [asset, amount, to, emptyData],
     chainId,
     gasBumpPercentage: 10,
   });
@@ -527,32 +465,31 @@ async function executeWithdraw(
 }
 
 /**
- * Execute AAVE Borrow operation
+ * Execute Morpho Borrow operation
  */
 async function executeBorrow(
   provider: any,
   pkpPublicKey: string,
   asset: string,
   amount: string,
-  interestRateMode: number,
   onBehalfOf: string,
-  chainId: number,
-  aaveAddresses: any
+  chainId: number
 ): Promise<string> {
   console.log(
-    "[@lit-protocol/vincent-tool-aave/executeBorrow] Starting borrow operation"
+    "[@lit-protocol/vincent-tool-morpho/executeBorrow] Starting borrow operation"
   );
 
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
+  const emptyData = "0x";
 
   const txHash = await laUtils.transaction.handler.contractCall({
     provider,
     pkpPublicKey,
     callerAddress,
-    abi: AAVE_POOL_ABI,
-    contractAddress: aaveAddresses.POOL,
+    abi: MORPHO_ABI,
+    contractAddress: MORPHO_SEPOLIA_ADDRESSES.MORPHO,
     functionName: "borrow",
-    args: [asset, amount, interestRateMode, 0, onBehalfOf],
+    args: [asset, amount, onBehalfOf, emptyData],
     chainId,
     gasBumpPercentage: 10,
   });
@@ -561,33 +498,31 @@ async function executeBorrow(
 }
 
 /**
- * Execute AAVE Repay operation
+ * Execute Morpho Repay operation
  */
 async function executeRepay(
   provider: any,
   pkpPublicKey: string,
   asset: string,
   amount: string,
-  rateMode: number,
   onBehalfOf: string,
-  chainId: number,
-  aaveAddresses: any
+  chainId: number
 ): Promise<string> {
   console.log(
-    "[@lit-protocol/vincent-tool-aave/executeRepay] Starting repay operation"
+    "[@lit-protocol/vincent-tool-morpho/executeRepay] Starting repay operation"
   );
 
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
+  const emptyData = "0x";
 
-  // Now repay the debt
   const txHash = await laUtils.transaction.handler.contractCall({
     provider,
     pkpPublicKey,
     callerAddress,
-    abi: AAVE_POOL_ABI,
-    contractAddress: aaveAddresses.POOL,
+    abi: MORPHO_ABI,
+    contractAddress: MORPHO_SEPOLIA_ADDRESSES.MORPHO,
     functionName: "repay",
-    args: [asset, amount, rateMode, onBehalfOf],
+    args: [asset, amount, onBehalfOf, emptyData],
     chainId,
     gasBumpPercentage: 10,
   });

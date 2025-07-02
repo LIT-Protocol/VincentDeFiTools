@@ -1,20 +1,42 @@
 /**
- * AAVE v3 Protocol Constants for Ethereum Sepolia Testnet
+ * AAVE v3 Protocol Constants indexed by chain name
  */
-export const AAVE_V3_SEPOLIA_ADDRESSES = {
-    POOL: "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
-    POOL_ADDRESSES_PROVIDER: "0x0496275d34753A48320CA58103d5220d394FF77F",
+export const AAVE_V3_ADDRESSES = {
+    sepolia: {
+        POOL: "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
+        POOL_ADDRESSES_PROVIDER: "0x0496275d34753A48320CA58103d5220d394FF77F",
+    },
+    base: {
+        POOL: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+        POOL_ADDRESSES_PROVIDER: "0x2cc668854B4dB6f23563c088d4A0bE2ad7C3D6f0",
+    },
 };
 /**
- * Common test token addresses on Ethereum Sepolia for AAVE v3
+ * Test token addresses indexed by chain name
  */
-export const SEPOLIA_TEST_TOKENS = {
-    USDC: "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
-    WETH: "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c",
-    USDT: "0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0",
-    AAVE: "0x88541670E55cC00bEEFD87eB59EDd1b7C511AC9a",
-    WBTC: "0x29f2D40B0605204364af54EC677bD022dA425d03",
+export const TEST_TOKENS = {
+    sepolia: {
+        USDC: "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
+        WETH: "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c",
+        USDT: "0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0",
+        AAVE: "0x88541670E55cC00bEEFD87eB59EDd1b7C511AC9a",
+        WBTC: "0x29f2D40B0605204364af54EC677bD022dA425d03",
+    },
+    base: {
+        USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        WETH: "0x4200000000000000000000000000000000000006",
+        USDT: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
+        AAVE: "0xEB4c2781e4ebA804CE9a9803C67d0893436bB27D",
+        WBTC: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c",
+    },
 };
+export const CHAIN_IDS = {
+    sepolia: 11155111,
+    base: 8453,
+};
+// Backward compatibility exports
+export const AAVE_V3_SEPOLIA_ADDRESSES = AAVE_V3_ADDRESSES.sepolia;
+export const SEPOLIA_TEST_TOKENS = TEST_TOKENS.sepolia;
 /**
  * AAVE v3 Pool Contract ABI - Essential methods only
  */
@@ -143,6 +165,26 @@ export const INTEREST_RATE_MODE = {
     VARIABLE: 2,
 };
 /**
+ * Get AAVE addresses for a specific chain
+ */
+export function getAaveAddresses(chain) {
+    const chainKey = chain.toLowerCase();
+    if (!(chainKey in AAVE_V3_ADDRESSES)) {
+        throw new Error(`Unsupported chain: ${chain}. Supported chains: ${Object.keys(AAVE_V3_ADDRESSES).join(", ")}`);
+    }
+    return AAVE_V3_ADDRESSES[chainKey];
+}
+/**
+ * Get test token addresses for a specific chain
+ */
+export function getTestTokens(chain) {
+    const chainKey = chain.toLowerCase();
+    if (!(chainKey in TEST_TOKENS)) {
+        throw new Error(`Unsupported chain: ${chain}. Supported chains: ${Object.keys(TEST_TOKENS).join(", ")}`);
+    }
+    return TEST_TOKENS[chainKey];
+}
+/**
  * Utility function to validate Ethereum address
  */
 export function isValidAddress(address) {
@@ -167,7 +209,7 @@ export function formatAmount(amount, decimals = 18) {
 /**
  * Validate operation-specific requirements
  */
-export async function validateOperationRequirements(operation, userBalance, allowance, borrowCapacity, convertedAmount, interestRateMode) {
+export async function validateOperationRequirements(operation, userBalance, allowance, borrowCapacity, convertedAmount, _interestRateMode) {
     const userBalanceBN = BigInt(userBalance);
     const allowanceBN = BigInt(allowance);
     const borrowCapacityBN = BigInt(borrowCapacity);
