@@ -254,13 +254,16 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // ========================================
   // WETH and ETH Funding Setup
   // ========================================
+  const WETH_DEPOSIT_AMOUNT = "0.001"; // 0.001 WETH to deposit
+
   const { wethContract, wethDecimals } = await setupWethFunding(
     networkProvider,
     agentWalletPkp.ethAddress,
     process.env.TEST_FUNDER_PRIVATE_KEY,
     addTestResult,
     CONFIRMATIONS_TO_WAIT,
-    NETWORK_CONFIG.network
+    NETWORK_CONFIG.network,
+    WETH_DEPOSIT_AMOUNT
   );
 
   await setupEthFunding(
@@ -277,9 +280,6 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // ========================================
   console.log("🧪 Testing Morpho Tool - Vault Workflow");
   console.log("📋 Workflow: Deposit WETH → Withdraw WETH");
-
-  // Define constants for Morpho workflow
-  const WETH_DEPOSIT_AMOUNT = "0.001"; // 0.001 WETH to deposit
 
   // Store initial balances for comparison throughout the workflow
   let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);

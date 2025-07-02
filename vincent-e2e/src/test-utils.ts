@@ -462,11 +462,12 @@ export async function setupWethFunding(
   funderPrivateKey: string,
   addTestResult: (name: string, passed: boolean, error?: string) => void,
   confirmationsToWait: number = 1,
-  chain: string = "sepolia"
+  chain: string = "sepolia",
+  fundAmount: string
 ) {
   console.log(`💰 Setting up WETH funding for AAVE tests on ${chain}`);
 
-  const WETH_FUND_AMOUNT = "0.001"; // 0.001 WETH
+  const WETH_FUND_AMOUNT = fundAmount;
   const REQUIRED_WETH_BALANCE = ethers.utils.parseEther(WETH_FUND_AMOUNT);
 
   const testTokens = getTestTokens(chain);

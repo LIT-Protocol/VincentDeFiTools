@@ -288,13 +288,15 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // ========================================
   // WETH and ETH Funding Setup
   // ========================================
+  const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
   const { wethContract, wethDecimals } = await setupWethFunding(
     networkProvider,
     agentWalletPkp.ethAddress,
     process.env.TEST_FUNDER_PRIVATE_KEY,
     addTestResult,
     CONFIRMATIONS_TO_WAIT,
-    NETWORK_CONFIG.network
+    NETWORK_CONFIG.network,
+    WETH_SUPPLY_AMOUNT
   );
 
   await setupEthFunding(
@@ -319,8 +321,6 @@ const CONFIRMATIONS_TO_WAIT = 2;
     "📋 Workflow: Supply WETH → Borrow USDC → Repay USDC → Withdraw WETH"
   );
 
-  // Define constants for AAVE workflow
-  const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
   const USDC_BORROW_AMOUNT = "1.0"; // 1 USDC
 
   // Store initial balances for comparison throughout the workflow
@@ -1424,7 +1424,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
     console.log(`   PKP WETH balance: ${wethBalance} WETH`);
 
     const fundingWallet = new ethers.Wallet(
-      process.env.FUNDING_WALLET_PRIVATE_KEY!,
+      process.env.TEST_FUNDER_PRIVATE_KEY!,
       networkProvider
     );
     // 2. send the eth balance to the funding wallet
