@@ -14,7 +14,7 @@ import {
 } from "./schemas";
 
 import {
-  AAVE_V3_SEPOLIA_ADDRESSES,
+  getAaveAddresses,
   AAVE_POOL_ABI,
   ERC20_ABI,
   INTEREST_RATE_MODE,
@@ -47,7 +47,7 @@ export const vincentTool = createVincentTool({
         toolParams,
       });
 
-      const { operation, asset, amount, interestRateMode, onBehalfOf, rpcUrl } =
+      const { operation, asset, amount, interestRateMode, onBehalfOf, rpcUrl, chain } =
         toolParams;
 
       // Validate operation
@@ -112,6 +112,16 @@ export const vincentTool = createVincentTool({
         });
       }
 
+      // Get chain-specific AAVE addresses
+      let aaveAddresses;
+      try {
+        aaveAddresses = getAaveAddresses(chain || "sepolia");
+      } catch (error) {
+        return fail({
+          error: `[@lit-protocol/vincent-tool-aave/precheck] ${error.message}`,
+        });
+      }
+
       // Get PKP address
       const pkpAddress = delegatorPkpInfo.ethAddress;
 
@@ -126,7 +136,7 @@ export const vincentTool = createVincentTool({
         allowance = (
           await assetContract.allowance(
             pkpAddress,
-            AAVE_V3_SEPOLIA_ADDRESSES.POOL
+            aaveAddresses.POOL
           )
         ).toString();
       } catch (error) {
@@ -143,7 +153,7 @@ export const vincentTool = createVincentTool({
       let borrowCapacity: string = "0";
       try {
         const aavePool = new ethers.Contract(
-          AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+          aaveAddresses.POOL,
           AAVE_POOL_ABI,
           provider
         );
@@ -176,7 +186,7 @@ export const vincentTool = createVincentTool({
       let estimatedGas: number = 0;
       try {
         const aavePool = new ethers.Contract(
-          AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+          aaveAddresses.POOL,
           AAVE_POOL_ABI,
           provider
         );
@@ -286,6 +296,7 @@ export const vincentTool = createVincentTool({
           asset,
           amount,
           interestRateMode,
+          chain,
         }
       );
 
@@ -293,6 +304,16 @@ export const vincentTool = createVincentTool({
         return fail({
           error:
             "[@lit-protocol/vincent-tool-aave/execute] RPC URL is not permitted for execute.  Use the `chain` parameter, and the Lit Nodes will provide the RPC URL for you with the Lit.Actions.getRpcUrl() function",
+        });
+      }
+
+      // Get chain-specific AAVE addresses
+      let aaveAddresses;
+      try {
+        aaveAddresses = getAaveAddresses(chain || "sepolia");
+      } catch (error) {
+        return fail({
+          error: `[@lit-protocol/vincent-tool-aave/execute] ${error.message}`,
         });
       }
 
@@ -354,7 +375,8 @@ export const vincentTool = createVincentTool({
             asset,
             convertedAmount,
             onBehalfOf || pkpAddress,
-            chainId
+            chainId,
+            aaveAddresses
           );
           break;
 
@@ -365,7 +387,8 @@ export const vincentTool = createVincentTool({
             asset,
             convertedAmount,
             pkpAddress,
-            chainId
+            chainId,
+            aaveAddresses
           );
           break;
 
@@ -382,7 +405,8 @@ export const vincentTool = createVincentTool({
             convertedAmount,
             interestRateMode,
             onBehalfOf || pkpAddress,
-            chainId
+            chainId,
+            aaveAddresses
           );
           break;
 
@@ -394,7 +418,8 @@ export const vincentTool = createVincentTool({
             convertedAmount,
             interestRateMode || INTEREST_RATE_MODE.VARIABLE,
             onBehalfOf || pkpAddress,
-            chainId
+            chainId,
+            aaveAddresses
           );
           break;
 
@@ -443,7 +468,8 @@ async function executeSupply(
   asset: string,
   amount: string,
   onBehalfOf: string,
-  chainId: number
+  chainId: number,
+  aaveAddresses: any
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeSupply] Starting supply operation"
@@ -457,7 +483,7 @@ async function executeSupply(
     pkpPublicKey,
     callerAddress,
     abi: AAVE_POOL_ABI,
-    contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+    contractAddress: aaveAddresses.POOL,
     functionName: "supply",
     args: [asset, amount, onBehalfOf, 0],
     chainId,
@@ -476,7 +502,8 @@ async function executeWithdraw(
   asset: string,
   amount: string,
   to: string,
-  chainId: number
+  chainId: number,
+  aaveAddresses: any
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeWithdraw] Starting withdraw operation"
@@ -489,7 +516,7 @@ async function executeWithdraw(
     pkpPublicKey,
     callerAddress,
     abi: AAVE_POOL_ABI,
-    contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+    contractAddress: aaveAddresses.POOL,
     functionName: "withdraw",
     args: [asset, amount, to],
     chainId,
@@ -509,7 +536,8 @@ async function executeBorrow(
   amount: string,
   interestRateMode: number,
   onBehalfOf: string,
-  chainId: number
+  chainId: number,
+  aaveAddresses: any
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeBorrow] Starting borrow operation"
@@ -522,7 +550,7 @@ async function executeBorrow(
     pkpPublicKey,
     callerAddress,
     abi: AAVE_POOL_ABI,
-    contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+    contractAddress: aaveAddresses.POOL,
     functionName: "borrow",
     args: [asset, amount, interestRateMode, 0, onBehalfOf],
     chainId,
@@ -542,7 +570,8 @@ async function executeRepay(
   amount: string,
   rateMode: number,
   onBehalfOf: string,
-  chainId: number
+  chainId: number,
+  aaveAddresses: any
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeRepay] Starting repay operation"
@@ -556,7 +585,7 @@ async function executeRepay(
     pkpPublicKey,
     callerAddress,
     abi: AAVE_POOL_ABI,
-    contractAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+    contractAddress: aaveAddresses.POOL,
     functionName: "repay",
     args: [asset, amount, rateMode, onBehalfOf],
     chainId,

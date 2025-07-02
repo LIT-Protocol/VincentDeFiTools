@@ -17,7 +17,7 @@ import { vincentPolicyMetadata as sendLimitPolicyMetadata } from "../../vincent-
 import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aave/dist/index.js";
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { ethers } from "ethers";
-import { AAVE_V3_SEPOLIA_ADDRESSES } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
+import { getAaveAddresses, getTestTokens } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
 import {
   verifyAaveState,
   resetAaveStateTracking,
@@ -35,37 +35,38 @@ import {
 // ========================================
 // NETWORK CONFIGURATION - CHANGE THIS TO TEST ON OTHER NETWORKS
 // ========================================
+const NETWORK_NAME = "sepolia"; // Options: "sepolia", "base"
+
 const NETWORK_CONFIG = {
   // Network to test on
-  network: "sepolia", // Options: "sepolia", "base"
+  network: NETWORK_NAME,
   
   // Chain ID for the network
-  chainId: 11155111, // Sepolia: 11155111, Base: 8453
+  chainId: NETWORK_NAME === "sepolia" ? 11155111 : 8453,
   
   // RPC URL environment variable
-  rpcUrlEnv: "ETH_SEPOLIA_RPC_URL", // Sepolia: "ETH_SEPOLIA_RPC_URL", Base: "BASE_RPC_URL"
+  rpcUrlEnv: NETWORK_NAME === "sepolia" ? "ETH_SEPOLIA_RPC_URL" : "BASE_RPC_URL",
   
-  // AAVE Pool contract address
-  aavePoolAddress: AAVE_V3_SEPOLIA_ADDRESSES.POOL, // Will need to be updated for Base
+  // Get addresses dynamically based on chain
+  get aaveAddresses() { return getAaveAddresses(NETWORK_NAME); },
+  get testTokens() { return getTestTokens(NETWORK_NAME); },
   
-  // Token addresses for the network
-  wethAddress: TEST_WETH_ADDRESS, // Will need to be updated for Base  
-  usdcAddress: TEST_USDC_ADDRESS, // Will need to be updated for Base
+  // Convenience getters for commonly used addresses
+  get aavePoolAddress() { return this.aaveAddresses.POOL; },
+  get wethAddress() { return this.testTokens.WETH; },
+  get usdcAddress() { return this.testTokens.USDC; },
 } as const;
 
 // ========================================
 // BASE NETWORK EXAMPLE CONFIGURATION
 // ========================================
-// To test on Base, update NETWORK_CONFIG above with these values:
-// {
-//   network: "base",
-//   chainId: 8453,
-//   rpcUrlEnv: "BASE_RPC_URL",
-//   aavePoolAddress: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5", // AAVE V3 Pool on Base
-//   wethAddress: "0x4200000000000000000000000000000000000006", // WETH on Base
-//   usdcAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
-// }
-// And ensure you have BASE_RPC_URL set in your .env file
+// To test on Base, simply change NETWORK_NAME above to "base":
+// const NETWORK_NAME = "base";
+// 
+// The configuration will automatically use the correct addresses and settings.
+// Just ensure you have BASE_RPC_URL set in your .env file.
+//
+// Supported networks: "sepolia", "base"
 
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
 const CONFIRMATIONS_TO_WAIT = 2;
@@ -81,7 +82,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
     deploymentStatus: "dev",
   });
 
-  if (!process.env[NETWORK_CONFIG.rpcUrlEnv]) {
+  const rpcUrl = process.env[NETWORK_CONFIG.rpcUrlEnv];
+  if (!rpcUrl) {
     throw new Error(
       `${NETWORK_CONFIG.rpcUrlEnv} is not set - can't test on ${NETWORK_CONFIG.network} without an RPC URL`
     );
@@ -93,9 +95,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
     );
   }
 
-  const networkProvider = new ethers.providers.JsonRpcProvider(
-    process.env[NETWORK_CONFIG.rpcUrlEnv]
-  );
+  const networkProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
 
   /**
    * ====================================
@@ -279,7 +279,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
     agentWalletPkp.ethAddress,
     process.env.TEST_FUNDER_PRIVATE_KEY,
     addTestResult,
-    CONFIRMATIONS_TO_WAIT
+    CONFIRMATIONS_TO_WAIT,
+    NETWORK_CONFIG.network
   );
 
   await setupEthFunding(
@@ -287,11 +288,13 @@ const CONFIRMATIONS_TO_WAIT = 2;
     agentWalletPkp.ethAddress,
     process.env.TEST_FUNDER_PRIVATE_KEY,
     addTestResult,
-    CONFIRMATIONS_TO_WAIT
+    CONFIRMATIONS_TO_WAIT,
+    NETWORK_CONFIG.network
   );
 
   const { usdcContract, usdcDecimals } = await setupUsdcContract(
-    networkProvider
+    networkProvider,
+    NETWORK_CONFIG.network
   );
 
   // ========================================
@@ -323,7 +326,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
       networkProvider,
       agentWalletPkp.ethAddress,
       "initial",
-      {}
+      {},
+      NETWORK_CONFIG.network
     );
     console.log("📊 Initial AAVE State Recorded:");
     console.log(
@@ -396,7 +400,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
       spenderAddress: NETWORK_CONFIG.aavePoolAddress,
       tokenAmount: parseFloat(WETH_SUPPLY_AMOUNT),
       tokenDecimals: wethDecimals,
-      rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
+      rpcUrl: rpcUrl,
     };
 
     const approveWethPrecheck = await approveToolClient.precheck(
@@ -483,7 +487,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         operation: "supply",
         asset: NETWORK_CONFIG.wethAddress,
         amount: WETH_SUPPLY_AMOUNT,
-        rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
+        rpcUrl: rpcUrl,
         chain: NETWORK_CONFIG.network,
       },
       {
@@ -557,7 +561,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
               collateralIncrease: true,
               minCollateral: "1", // Expect at least $1 worth of collateral
               minCollateralChange: "1", // Expect at least $1 increase in collateral
-            }
+            },
+            NETWORK_CONFIG.network
           );
           addTestResult("AAVE Supply State Verification", true);
         } catch (verifyError) {
@@ -657,7 +662,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         asset: NETWORK_CONFIG.usdcAddress,
         amount: USDC_BORROW_AMOUNT,
         interestRateMode: 2, // Variable rate
-        rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
+        rpcUrl: rpcUrl,
         chain: NETWORK_CONFIG.network,
       },
       {
@@ -735,7 +740,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
               debtIncrease: true,
               minDebt: "0.5", // Expect at least $0.5 worth of debt
               minDebtChange: "0.8", // Expect at least $0.8 increase in debt (1 USDC)
-            }
+            },
+            NETWORK_CONFIG.network
           );
           addTestResult("AAVE Borrow State Verification", true);
         } catch (verifyError) {
@@ -839,7 +845,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
       spenderAddress: NETWORK_CONFIG.aavePoolAddress,
       tokenAmount: parseFloat(USDC_BORROW_AMOUNT),
       tokenDecimals: usdcDecimals,
-      rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
+      rpcUrl: rpcUrl,
     };
 
     const approveUsdcPrecheck = await approveToolClient.precheck(
@@ -918,7 +924,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
     networkProvider,
     agentWalletPkp.ethAddress,
     "repay_check",
-    {}
+    {},
+    NETWORK_CONFIG.network
   );
   const USDC_REPAY_AMOUNT = ethers.utils
     .formatUnits(currentAaveState.totalDebtBase, AAVE_BASE_DEBT_ASSET_DECIMALS)
@@ -938,7 +945,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         amount: USDC_REPAY_AMOUNT,
         interestRateMode: 2, // Variable rate
         chain: NETWORK_CONFIG.network,
-        rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
+        rpcUrl: rpcUrl,
       },
       {
         delegatorPkpEthAddress: agentWalletPkp.ethAddress,
@@ -1014,7 +1021,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
             {
               debtDecrease: true,
               minDebtChange: "0.8", // Expect at least $0.8 decrease in debt (1 USDC repaid)
-            }
+            },
+            NETWORK_CONFIG.network
           );
           addTestResult("AAVE Repay State Verification", true);
         } catch (verifyError) {
@@ -1120,7 +1128,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         operation: "withdraw",
         asset: NETWORK_CONFIG.wethAddress,
         amount: WETH_WITHDRAW_AMOUNT,
-        rpcUrl: process.env[NETWORK_CONFIG.rpcUrlEnv],
+        rpcUrl: rpcUrl,
         chain: NETWORK_CONFIG.network,
       },
       {
@@ -1196,7 +1204,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
             {
               collateralDecrease: true,
               minCollateralChange: "1", // Expect at least $1 decrease in collateral (0.01 WETH withdrawn)
-            }
+            },
+            NETWORK_CONFIG.network
           );
           addTestResult("AAVE Withdraw State Verification", true);
         } catch (verifyError) {
@@ -1290,7 +1299,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
       networkProvider,
       agentWalletPkp.ethAddress,
       "final",
-      {}
+      {},
+      NETWORK_CONFIG.network
     );
 
     if (!initialAaveState) {

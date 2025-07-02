@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { AAVE_V3_SEPOLIA_ADDRESSES } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
+import { getAaveAddresses, getTestTokens } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
 
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
 
@@ -18,10 +18,12 @@ let previousAaveState: AaveAccountData | null = null;
 
 export async function getAaveUserAccountData(
   provider: ethers.providers.Provider,
-  userAddress: string
+  userAddress: string,
+  chain: string = "sepolia"
 ) {
+  const aaveAddresses = getAaveAddresses(chain);
   const aavePoolContract = new ethers.Contract(
-    AAVE_V3_SEPOLIA_ADDRESSES.POOL,
+    aaveAddresses.POOL,
     [
       {
         inputs: [{ internalType: "address", name: "user", type: "address" }],
@@ -81,11 +83,13 @@ export async function verifyAaveState(
     maxCollateralChange?: string;
     minDebtChange?: string;
     maxDebtChange?: string;
-  }
+  },
+  chain: string = "sepolia"
 ) {
   const currentAccountData = await getAaveUserAccountData(
     provider,
-    userAddress
+    userAddress,
+    chain
   );
 
   console.log(`🔍 AAVE State Verification (${operation.toUpperCase()})`);
@@ -432,9 +436,10 @@ export function printTestSummary() {
   return failed === 0;
 }
 
-// Token addresses on Sepolia
-export const TEST_WETH_ADDRESS = "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c"; // WETH on Sepolia
-export const TEST_USDC_ADDRESS = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // USDC on Sepolia
+// Token addresses - these are now available via getTestTokens(chain)
+// Keeping these for backward compatibility with existing imports
+export const TEST_WETH_ADDRESS = getTestTokens("sepolia").WETH; // WETH on Sepolia
+export const TEST_USDC_ADDRESS = getTestTokens("sepolia").USDC; // USDC on Sepolia
 
 // Contract ABIs
 const wethAbi = [
@@ -449,31 +454,34 @@ const usdcAbi = [
 ];
 
 export async function setupWethFunding(
-  sepoliaProvider: ethers.providers.Provider,
+  networkProvider: ethers.providers.Provider,
   pkpEthAddress: string,
   funderPrivateKey: string,
   addTestResult: (name: string, passed: boolean, error?: string) => void,
-  confirmationsToWait: number = 1
+  confirmationsToWait: number = 1,
+  chain: string = "sepolia"
 ) {
-  console.log("💰 Setting up WETH funding for AAVE tests");
+  console.log(`💰 Setting up WETH funding for AAVE tests on ${chain}`);
 
   const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
   const REQUIRED_WETH_BALANCE = ethers.utils.parseEther(WETH_FUND_AMOUNT);
 
+  const testTokens = getTestTokens(chain);
+  
   // WETH contract for balance checking
   const wethContract = new ethers.Contract(
-    TEST_WETH_ADDRESS,
+    testTokens.WETH,
     wethAbi,
-    sepoliaProvider
+    networkProvider
   );
 
   try {
     console.log("🔍 Checking PKP WETH balance");
     console.log(`   PKP Address: ${pkpEthAddress}`);
-    console.log(`   WETH Contract: ${TEST_WETH_ADDRESS}`);
+    console.log(`   WETH Contract: ${testTokens.WETH}`);
 
     // Create funder wallet using private key
-    const funderWallet = new ethers.Wallet(funderPrivateKey, sepoliaProvider);
+    const funderWallet = new ethers.Wallet(funderPrivateKey, networkProvider);
 
     // Check current PKP WETH balance
     const currentBalance = await wethContract.balanceOf(pkpEthAddress);
@@ -532,13 +540,14 @@ export async function setupWethFunding(
 }
 
 export async function setupEthFunding(
-  sepoliaProvider: ethers.providers.Provider,
+  networkProvider: ethers.providers.Provider,
   pkpEthAddress: string,
   funderPrivateKey: string,
   addTestResult: (name: string, passed: boolean, error?: string) => void,
-  confirmationsToWait: number = 1
+  confirmationsToWait: number = 1,
+  chain: string = "sepolia"
 ) {
-  console.log("⛽ Setting up ETH gas funding for Sepolia operations");
+  console.log(`⛽ Setting up ETH gas funding for ${chain} operations`);
 
   const ETH_FUND_AMOUNT = "0.01"; // 0.01 ETH
   const REQUIRED_ETH_BALANCE = ethers.utils.parseEther("0.008");
@@ -548,10 +557,10 @@ export async function setupEthFunding(
     console.log(`   PKP Address: ${pkpEthAddress}`);
 
     // Create funder wallet using private key
-    const funderWallet = new ethers.Wallet(funderPrivateKey, sepoliaProvider);
+    const funderWallet = new ethers.Wallet(funderPrivateKey, networkProvider);
 
     // Check current PKP ETH balance
-    const currentEthBalance = await sepoliaProvider.getBalance(pkpEthAddress);
+    const currentEthBalance = await networkProvider.getBalance(pkpEthAddress);
     const currentEthBalanceFormatted =
       ethers.utils.formatEther(currentEthBalance);
     console.log(
@@ -593,7 +602,7 @@ export async function setupEthFunding(
       );
 
       // Verify new balance
-      const newEthBalance = await sepoliaProvider.getBalance(pkpEthAddress);
+      const newEthBalance = await networkProvider.getBalance(pkpEthAddress);
       console.log(
         `   New PKP ETH balance: ${ethers.utils.formatEther(newEthBalance)} ETH`
       );
@@ -612,12 +621,14 @@ export async function setupEthFunding(
 }
 
 export async function setupUsdcContract(
-  sepoliaProvider: ethers.providers.Provider
+  networkProvider: ethers.providers.Provider,
+  chain: string = "sepolia"
 ) {
+  const testTokens = getTestTokens(chain);
   const usdcContract = new ethers.Contract(
-    TEST_USDC_ADDRESS,
+    testTokens.USDC,
     usdcAbi,
-    sepoliaProvider
+    networkProvider
   );
   const usdcDecimals = await usdcContract.decimals();
   return { usdcContract, usdcDecimals };
