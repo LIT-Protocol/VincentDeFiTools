@@ -27,8 +27,12 @@ export const TEST_TOKENS = {
         WETH: "0x4200000000000000000000000000000000000006",
         USDT: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
         AAVE: "0xEB4c2781e4ebA804CE9a9803C67d0893436bB27D",
-        WBTC: "0x4200000000000000000000000000000000000006", // Note: Using WETH as WBTC proxy for Base
+        WBTC: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c",
     },
+};
+export const CHAIN_IDS = {
+    sepolia: 11155111,
+    base: 8453,
 };
 // Backward compatibility exports
 export const AAVE_V3_SEPOLIA_ADDRESSES = AAVE_V3_ADDRESSES.sepolia;
@@ -166,7 +170,7 @@ export const INTEREST_RATE_MODE = {
 export function getAaveAddresses(chain) {
     const chainKey = chain.toLowerCase();
     if (!(chainKey in AAVE_V3_ADDRESSES)) {
-        throw new Error(`Unsupported chain: ${chain}. Supported chains: ${Object.keys(AAVE_V3_ADDRESSES).join(', ')}`);
+        throw new Error(`Unsupported chain: ${chain}. Supported chains: ${Object.keys(AAVE_V3_ADDRESSES).join(", ")}`);
     }
     return AAVE_V3_ADDRESSES[chainKey];
 }
@@ -176,7 +180,7 @@ export function getAaveAddresses(chain) {
 export function getTestTokens(chain) {
     const chainKey = chain.toLowerCase();
     if (!(chainKey in TEST_TOKENS)) {
-        throw new Error(`Unsupported chain: ${chain}. Supported chains: ${Object.keys(TEST_TOKENS).join(', ')}`);
+        throw new Error(`Unsupported chain: ${chain}. Supported chains: ${Object.keys(TEST_TOKENS).join(", ")}`);
     }
     return TEST_TOKENS[chainKey];
 }

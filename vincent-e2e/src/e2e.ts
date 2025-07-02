@@ -494,7 +494,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
   console.log(`   Supplying ${WETH_SUPPLY_AMOUNT} WETH as collateral`);
   console.log(`   WETH Address: ${NETWORK_CONFIG.wethAddress}`);
 
-  // Test 4: AAVE Supply Operation
+  // AAVE Supply Operation
   try {
     const aaveSupplyPrecheckRes = await aaveToolClient.precheck(
       {
@@ -514,7 +514,10 @@ const CONFIRMATIONS_TO_WAIT = 2;
       JSON.stringify(aaveSupplyPrecheckRes, null, 2)
     );
 
-    if (aaveSupplyPrecheckRes.success) {
+    if (
+      aaveSupplyPrecheckRes.success &&
+      !("error" in aaveSupplyPrecheckRes.result) // a hack until the zod type inference is fixed
+    ) {
       console.log("✅ (AAVE-PRECHECK-SUPPLY) WETH supply precheck passed");
 
       // Execute the supply operation
@@ -668,7 +671,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
   console.log(`   Borrowing ${USDC_BORROW_AMOUNT} USDC`);
   console.log(`   USDC Address: ${NETWORK_CONFIG.usdcAddress}`);
 
-  // Test 5: AAVE Borrow Operation
+  // AAVE Borrow Operation
   try {
     const aaveBorrowPrecheckRes = await aaveToolClient.precheck(
       {
@@ -689,7 +692,10 @@ const CONFIRMATIONS_TO_WAIT = 2;
       JSON.stringify(aaveBorrowPrecheckRes, null, 2)
     );
 
-    if (aaveBorrowPrecheckRes.success) {
+    if (
+      aaveBorrowPrecheckRes.success &&
+      !("error" in aaveBorrowPrecheckRes.result) // a hack until the zod type inference is fixed
+    ) {
       console.log("✅ (AAVE-PRECHECK-BORROW) USDC borrow precheck passed");
 
       // Execute the borrow operation
@@ -971,7 +977,10 @@ const CONFIRMATIONS_TO_WAIT = 2;
       JSON.stringify(aaveRepayPrecheckRes, null, 2)
     );
 
-    if (aaveRepayPrecheckRes.success) {
+    if (
+      aaveRepayPrecheckRes.success &&
+      !("error" in aaveRepayPrecheckRes.result) // a hack until the zod type inference is fixed
+    ) {
       console.log("✅ (AAVE-PRECHECK-REPAY) USDC repay precheck passed");
 
       // Execute the repay operation
@@ -1155,7 +1164,10 @@ const CONFIRMATIONS_TO_WAIT = 2;
       JSON.stringify(aaveWithdrawPrecheckRes, null, 2)
     );
 
-    if (aaveWithdrawPrecheckRes.success) {
+    if (
+      aaveWithdrawPrecheckRes.success &&
+      !("error" in aaveWithdrawPrecheckRes.result) // a hack until the zod type inference is fixed
+    ) {
       console.log("✅ (AAVE-PRECHECK-WITHDRAW) WETH withdraw precheck passed");
 
       // Execute the withdraw operation
