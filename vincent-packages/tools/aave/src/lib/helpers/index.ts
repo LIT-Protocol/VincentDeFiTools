@@ -32,6 +32,11 @@ export const TEST_TOKENS = {
   },
 } as const;
 
+export const CHAIN_IDS = {
+  sepolia: 11155111,
+  base: 8453,
+} as const;
+
 // Backward compatibility exports
 export const AAVE_V3_SEPOLIA_ADDRESSES = AAVE_V3_ADDRESSES.sepolia;
 export const SEPOLIA_TEST_TOKENS = TEST_TOKENS.sepolia;

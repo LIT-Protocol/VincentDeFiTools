@@ -17,7 +17,11 @@ import { vincentPolicyMetadata as sendLimitPolicyMetadata } from "../../vincent-
 import { bundledVincentTool as aaveTool } from "../../vincent-packages/tools/aave/dist/index.js";
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { ethers } from "ethers";
-import { getAaveAddresses, getTestTokens } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
+import {
+  getAaveAddresses,
+  getTestTokens,
+  CHAIN_IDS,
+} from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
 import {
   verifyAaveState,
   resetAaveStateTracking,
@@ -35,26 +39,36 @@ import {
 // ========================================
 // NETWORK CONFIGURATION - CHANGE THIS TO TEST ON OTHER NETWORKS
 // ========================================
-const NETWORK_NAME = "sepolia"; // Options: "sepolia", "base"
+const NETWORK_NAME = "base"; // Options: "sepolia", "base"
 
 const NETWORK_CONFIG = {
   // Network to test on
   network: NETWORK_NAME,
-  
+
   // Chain ID for the network
-  chainId: NETWORK_NAME === "sepolia" ? 11155111 : 8453,
-  
+  chainId: CHAIN_IDS[NETWORK_NAME],
+
   // RPC URL environment variable
-  rpcUrlEnv: NETWORK_NAME === "sepolia" ? "ETH_SEPOLIA_RPC_URL" : "BASE_RPC_URL",
-  
+  rpcUrlEnv: `${NETWORK_NAME.toUpperCase()}_RPC_URL`,
+
   // Get addresses dynamically based on chain
-  get aaveAddresses() { return getAaveAddresses(NETWORK_NAME); },
-  get testTokens() { return getTestTokens(NETWORK_NAME); },
-  
+  get aaveAddresses() {
+    return getAaveAddresses(NETWORK_NAME);
+  },
+  get testTokens() {
+    return getTestTokens(NETWORK_NAME);
+  },
+
   // Convenience getters for commonly used addresses
-  get aavePoolAddress() { return this.aaveAddresses.POOL; },
-  get wethAddress() { return this.testTokens.WETH; },
-  get usdcAddress() { return this.testTokens.USDC; },
+  get aavePoolAddress() {
+    return this.aaveAddresses.POOL;
+  },
+  get wethAddress() {
+    return this.testTokens.WETH;
+  },
+  get usdcAddress() {
+    return this.testTokens.USDC;
+  },
 } as const;
 
 // ========================================
@@ -62,7 +76,7 @@ const NETWORK_CONFIG = {
 // ========================================
 // To test on Base, simply change NETWORK_NAME above to "base":
 // const NETWORK_NAME = "base";
-// 
+//
 // The configuration will automatically use the correct addresses and settings.
 // Just ensure you have BASE_RPC_URL set in your .env file.
 //
