@@ -310,6 +310,28 @@ const CONFIRMATIONS_TO_WAIT = 2;
     addTestResult("Initial Balance Check", false, error.message);
   }
 
+  // Setup vault contract for balance checks
+  const vaultContract = new ethers.Contract(
+    NETWORK_CONFIG.wethVaultAddress,
+    [
+      {
+        inputs: [{ internalType: "address", name: "account", type: "address" }],
+        name: "balanceOf",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
+      {
+        inputs: [{ internalType: "uint256", name: "shares", type: "uint256" }],
+        name: "convertToAssets",
+        outputs: [{ internalType: "uint256", name: "assets", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
+    ],
+    networkProvider
+  );
+
   // ========================================
   // ERC20 Approval for WETH (required for Morpho Vault Deposit)
   // ========================================
@@ -476,40 +498,63 @@ const CONFIRMATIONS_TO_WAIT = 2;
           throw confirmError;
         }
 
-        // Verify balance after deposit
+        // Comprehensive balance verification after deposit
         try {
-          console.log("🔍 Verifying WETH balance after deposit...");
+          console.log("🔍 Verifying balances after deposit...");
 
-          const postDepositBalance = await wethContract.balanceOf(
+          // Check WETH balance (should be reduced by deposit amount)
+          const postDepositWethBalance = await wethContract.balanceOf(
             agentWalletPkp.ethAddress
           );
-          const postDepositBalanceFormatted =
-            ethers.utils.formatEther(postDepositBalance);
+          const postDepositWethBalanceFormatted =
+            ethers.utils.formatEther(postDepositWethBalance);
           console.log(
-            `   Post-deposit WETH balance: ${postDepositBalanceFormatted} WETH`
+            `   Post-deposit WETH balance: ${postDepositWethBalanceFormatted} WETH`
           );
 
-          // Expected: balance should be reduced by the deposited amount
+          // Check vault shares balance (should now have shares)
+          const postDepositShares = await vaultContract.balanceOf(
+            agentWalletPkp.ethAddress
+          );
+          const postDepositSharesFormatted = ethers.utils.formatEther(postDepositShares);
+          console.log(
+            `   Post-deposit vault shares: ${postDepositSharesFormatted} shares`
+          );
+
+          // Expected WETH: balance should be reduced by the deposited amount
           const depositedAmount = ethers.utils.parseEther(WETH_DEPOSIT_AMOUNT);
-          const expectedBalance = initialWethBalance.sub(depositedAmount);
-          const expectedBalanceFormatted =
-            ethers.utils.formatEther(expectedBalance);
+          const expectedWethBalance = initialWethBalance.sub(depositedAmount);
+          const expectedWethBalanceFormatted =
+            ethers.utils.formatEther(expectedWethBalance);
 
           console.log(
-            `   Expected WETH balance: ${expectedBalanceFormatted} WETH`
+            `   Expected WETH balance: ${expectedWethBalanceFormatted} WETH`
           );
 
-          if (postDepositBalance.eq(expectedBalance)) {
+          // Validation 1: WETH balance should be reduced
+          const wethBalanceCorrect = postDepositWethBalance.eq(expectedWethBalance);
+          
+          // Validation 2: Should have received vault shares (greater than 0)
+          const hasVaultShares = postDepositShares.gt(0);
+
+          if (wethBalanceCorrect && hasVaultShares) {
             console.log("✅ WETH balance correctly reduced after deposit");
+            console.log("✅ Vault shares received successfully");
             addTestResult("Morpho Deposit WETH", true);
           } else {
-            const errorMsg = `Balance mismatch after deposit. Expected: ${expectedBalanceFormatted} WETH, Got: ${postDepositBalanceFormatted} WETH`;
+            let errorMsg = "";
+            if (!wethBalanceCorrect) {
+              errorMsg += `WETH balance mismatch. Expected: ${expectedWethBalanceFormatted} WETH, Got: ${postDepositWethBalanceFormatted} WETH. `;
+            }
+            if (!hasVaultShares) {
+              errorMsg += `No vault shares received. Expected > 0, Got: ${postDepositSharesFormatted} shares.`;
+            }
             console.log(`❌ ${errorMsg}`);
-            addTestResult("Morpho Deposit WETH", false, errorMsg);
+            addTestResult("Morpho Deposit WETH", false, errorMsg.trim());
           }
         } catch (balanceError) {
           console.log(
-            "❌ Could not verify balance after deposit:",
+            "❌ Could not verify balances after deposit:",
             balanceError.message
           );
           addTestResult(
@@ -554,27 +599,35 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // ========================================
   console.log("(MORPHO-STEP-2) Redeem vault shares for WETH + rewards");
 
-  // Get vault contract to check user shares
-  const vaultContract = new ethers.Contract(
-    NETWORK_CONFIG.wethVaultAddress,
-    [
-      {
-        inputs: [{ internalType: "address", name: "account", type: "address" }],
-        name: "balanceOf",
-        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-        stateMutability: "view",
-        type: "function",
-      },
-    ],
-    networkProvider
-  );
-
-  // Get the user's vault shares
-  const userVaultShares = await vaultContract.balanceOf(agentWalletPkp.ethAddress);
-  const userVaultSharesFormatted = ethers.utils.formatEther(userVaultShares);
+  // Get vault position for redeem operation
+  let userVaultShares: ethers.BigNumber;
+  let userVaultSharesFormatted: string;
   
-  console.log(`   User vault shares: ${userVaultSharesFormatted} shares`);
-  console.log(`   Redeeming all vault shares for WETH + rewards`);
+  try {
+    console.log("🔍 Checking vault position before redeem...");
+    
+    userVaultShares = await vaultContract.balanceOf(agentWalletPkp.ethAddress);
+    userVaultSharesFormatted = ethers.utils.formatEther(userVaultShares);
+    
+    // Estimate assets that will be received for shares
+    const estimatedAssets = await vaultContract.convertToAssets(userVaultShares);
+    const estimatedAssetsFormatted = ethers.utils.formatEther(estimatedAssets);
+    
+    console.log(`   User vault shares: ${userVaultSharesFormatted} shares`);
+    console.log(`   Estimated WETH to receive: ${estimatedAssetsFormatted} WETH`);
+    console.log(`   Redeeming all vault shares for WETH + rewards`);
+    
+    // Verify user has shares to redeem
+    if (userVaultShares.eq(0)) {
+      throw new Error("No vault shares found to redeem");
+    }
+    
+    addTestResult("Morpho Pre-Redeem Check", true);
+  } catch (error) {
+    console.log("❌ Could not check vault position:", error.message);
+    addTestResult("Morpho Pre-Redeem Check", false, error.message);
+    return; // Exit if we can't get shares info
+  }
 
   // Morpho Redeem Operation
   try {
@@ -655,37 +708,75 @@ const CONFIRMATIONS_TO_WAIT = 2;
           throw confirmError;
         }
 
-        // Verify WETH balance after redeem
+        // Comprehensive balance verification after redeem
         try {
-          console.log("🔍 Verifying WETH balance after redeem...");
+          console.log("🔍 Verifying balances after redeem...");
 
-          const postRedeemBalance = await wethContract.balanceOf(
+          // Check WETH balance (should be back to initial + rewards)
+          const postRedeemWethBalance = await wethContract.balanceOf(
             agentWalletPkp.ethAddress
           );
-          const postRedeemBalanceFormatted =
-            ethers.utils.formatEther(postRedeemBalance);
+          const postRedeemWethBalanceFormatted =
+            ethers.utils.formatEther(postRedeemWethBalance);
           console.log(
-            `   Post-redeem WETH balance: ${postRedeemBalanceFormatted} WETH`
+            `   Post-redeem WETH balance: ${postRedeemWethBalanceFormatted} WETH`
           );
 
-          // Expected: balance should be at least initial amount (may be more due to rewards)
-          console.log(`   Initial WETH balance: ${ethers.utils.formatEther(initialWethBalance)} WETH`);
+          // Check vault shares balance (should be 0 or very close to 0)
+          const postRedeemShares = await vaultContract.balanceOf(
+            agentWalletPkp.ethAddress
+          );
+          const postRedeemSharesFormatted = ethers.utils.formatEther(postRedeemShares);
+          console.log(
+            `   Post-redeem vault shares: ${postRedeemSharesFormatted} shares`
+          );
+
+          // Reference balances for validation
+          const initialWethFormatted = ethers.utils.formatEther(initialWethBalance);
+          console.log(`   Initial WETH balance: ${initialWethFormatted} WETH`);
           
-          if (postRedeemBalance.gte(initialWethBalance)) {
-            const rewardsEarned = postRedeemBalance.sub(initialWethBalance);
-            const rewardsFormatted = ethers.utils.formatEther(rewardsEarned);
-            console.log(
-              `✅ WETH balance returned to at least initial amount. Rewards earned: ${rewardsFormatted} WETH`
-            );
+          // Calculate deposited amount for comparison
+          const depositedAmount = ethers.utils.parseEther(WETH_DEPOSIT_AMOUNT);
+          const depositedAmountFormatted = ethers.utils.formatEther(depositedAmount);
+          console.log(`   Amount deposited: ${depositedAmountFormatted} WETH`);
+
+          // Validation 1: WETH balance should be at least initial amount (may be more due to rewards)
+          const wethBalanceIncreased = postRedeemWethBalance.gte(initialWethBalance);
+          
+          // Validation 2: WETH balance should be higher than what we deposited (rewards earned)
+          const earnedRewards = postRedeemWethBalance.gt(depositedAmount);
+          
+          // Validation 3: Vault shares should be 0 or very close to 0 (allowing for rounding dust)
+          const maxDustShares = ethers.utils.parseUnits("0.000001", 18); // 1 microshare tolerance
+          const vaultSharesEmpty = postRedeemShares.lte(maxDustShares);
+
+          // Calculate rewards earned
+          const rewardsEarned = postRedeemWethBalance.sub(initialWethBalance);
+          const rewardsFormatted = ethers.utils.formatEther(rewardsEarned);
+
+          if (wethBalanceIncreased && earnedRewards && vaultSharesEmpty) {
+            console.log("✅ WETH balance returned to at least initial amount");
+            console.log(`✅ Rewards earned: ${rewardsFormatted} WETH`);
+            console.log("✅ Vault shares successfully redeemed (balance ~0)");
+            console.log(`✅ Total return higher than deposit (${postRedeemWethBalanceFormatted} WETH > ${depositedAmountFormatted} WETH)`);
             addTestResult("Morpho Redeem WETH", true);
           } else {
-            const errorMsg = `Balance less than initial after redeem. Expected: >= ${ethers.utils.formatEther(initialWethBalance)} WETH, Got: ${postRedeemBalanceFormatted} WETH`;
+            let errorMsg = "";
+            if (!wethBalanceIncreased) {
+              errorMsg += `WETH balance not restored. Expected: >= ${initialWethFormatted} WETH, Got: ${postRedeemWethBalanceFormatted} WETH. `;
+            }
+            if (!earnedRewards) {
+              errorMsg += `No rewards earned. Expected: > ${depositedAmountFormatted} WETH, Got: ${postRedeemWethBalanceFormatted} WETH. `;
+            }
+            if (!vaultSharesEmpty) {
+              errorMsg += `Vault shares not fully redeemed. Expected: ~0 shares, Got: ${postRedeemSharesFormatted} shares.`;
+            }
             console.log(`❌ ${errorMsg}`);
-            addTestResult("Morpho Redeem WETH", false, errorMsg);
+            addTestResult("Morpho Redeem WETH", false, errorMsg.trim());
           }
         } catch (balanceError) {
           console.log(
-            "❌ Could not verify balance after redeem:",
+            "❌ Could not verify balances after redeem:",
             balanceError.message
           );
           addTestResult(
