@@ -22,7 +22,7 @@ export const vincentTool = createVincentTool({
             // Validate operation
             if (!Object.values(MorphoOperation).includes(operation)) {
                 return fail({
-                    error: "[@lit-protocol/vincent-tool-morpho/precheck] Invalid operation. Must be deposit or withdraw",
+                    error: "[@lit-protocol/vincent-tool-morpho/precheck] Invalid operation. Must be deposit, withdraw, or redeem",
                 });
             }
             // Validate vault address
@@ -96,6 +96,9 @@ export const vincentTool = createVincentTool({
                         break;
                     case MorphoOperation.WITHDRAW:
                         estimatedGas = (await vaultContract.estimateGas.withdraw(convertedAmount, pkpAddress, pkpAddress, { from: pkpAddress })).toNumber();
+                        break;
+                    case MorphoOperation.REDEEM:
+                        estimatedGas = (await vaultContract.estimateGas.redeem(convertedAmount, pkpAddress, pkpAddress, { from: pkpAddress })).toNumber();
                         break;
                 }
             }
@@ -174,6 +177,9 @@ export const vincentTool = createVincentTool({
                 case MorphoOperation.WITHDRAW:
                     txHash = await executeWithdraw(provider, pkpPublicKey, vaultAddress, convertedAmount, pkpAddress, chainId);
                     break;
+                case MorphoOperation.REDEEM:
+                    txHash = await executeRedeem(provider, pkpPublicKey, vaultAddress, convertedAmount, pkpAddress, chainId);
+                    break;
                 default:
                     throw new Error(`Unsupported operation: ${operation}`);
             }
@@ -232,6 +238,25 @@ async function executeWithdraw(provider, pkpPublicKey, vaultAddress, amount, own
         contractAddress: vaultAddress,
         functionName: "withdraw",
         args: [amount, owner, owner],
+        chainId,
+        gasBumpPercentage: 10,
+    });
+    return txHash;
+}
+/**
+ * Execute Morpho Vault Redeem operation
+ */
+async function executeRedeem(provider, pkpPublicKey, vaultAddress, shares, owner, chainId) {
+    console.log("[@lit-protocol/vincent-tool-morpho/executeRedeem] Starting redeem operation");
+    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
+    const txHash = await laUtils.transaction.handler.contractCall({
+        provider,
+        pkpPublicKey,
+        callerAddress,
+        abi: ERC4626_VAULT_ABI,
+        contractAddress: vaultAddress,
+        functionName: "redeem",
+        args: [shares, owner, owner],
         chainId,
         gasBumpPercentage: 10,
     });

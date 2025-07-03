@@ -6,6 +6,7 @@ export var MorphoOperation;
 (function (MorphoOperation) {
     MorphoOperation["DEPOSIT"] = "deposit";
     MorphoOperation["WITHDRAW"] = "withdraw";
+    MorphoOperation["REDEEM"] = "redeem";
 })(MorphoOperation || (MorphoOperation = {}));
 /**
  * Tool parameters schema - defines the input parameters for the Morpho tool

@@ -59,6 +59,18 @@ export const ERC4626_VAULT_ABI = [
         stateMutability: "nonpayable",
         type: "function",
     },
+    // Redeem
+    {
+        inputs: [
+            { internalType: "uint256", name: "shares", type: "uint256" },
+            { internalType: "address", name: "receiver", type: "address" },
+            { internalType: "address", name: "owner", type: "address" },
+        ],
+        name: "redeem",
+        outputs: [{ internalType: "uint256", name: "assets", type: "uint256" }],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
     // Asset (underlying token address)
     {
         inputs: [],
@@ -215,6 +227,22 @@ export async function validateOperationRequirements(operation, userBalance, allo
                 };
             }
             // Note: We'll need to convert the amount to shares in the actual implementation
+            break;
+        case "redeem":
+            // For redeem, we need to check if user has enough vault shares
+            if (vaultSharesBN === 0n) {
+                return {
+                    valid: false,
+                    error: "No vault shares available for redeem",
+                };
+            }
+            // For redeem, the amount is in shares, so check directly
+            if (vaultSharesBN < convertedAmountBN) {
+                return {
+                    valid: false,
+                    error: `Insufficient vault shares for redeem operation. You have ${vaultShares} shares and need ${convertedAmount} shares`,
+                };
+            }
             break;
         default:
             return { valid: false, error: `Unsupported operation: ${operation}` };

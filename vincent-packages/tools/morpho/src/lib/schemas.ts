@@ -6,6 +6,7 @@ import { z } from "zod";
 export enum MorphoOperation {
   DEPOSIT = "deposit",
   WITHDRAW = "withdraw",
+  REDEEM = "redeem",
 }
 
 /**

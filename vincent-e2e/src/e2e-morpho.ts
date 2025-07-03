@@ -279,7 +279,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // Morpho Tool Testing - Complete Workflow
   // ========================================
   console.log("🧪 Testing Morpho Tool - Vault Workflow");
-  console.log("📋 Workflow: Deposit WETH → Withdraw WETH");
+  console.log("📋 Workflow: Deposit WETH → Redeem vault shares for WETH + rewards");
 
   // Store initial balances for comparison throughout the workflow
   let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);
@@ -531,7 +531,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
       }
     } else {
       const errorMsg = `Deposit precheck failed: ${
-        morphoDepositPrecheckRes.error || "Unknown precheck error"
+        "error" in morphoDepositPrecheckRes ? morphoDepositPrecheckRes.error : "Unknown precheck error"
       }`;
       console.log("❌ (MORPHO-PRECHECK-DEPOSIT)", errorMsg);
       console.log(
@@ -550,20 +550,39 @@ const CONFIRMATIONS_TO_WAIT = 2;
   }
 
   // ========================================
-  // STEP 2: Withdraw WETH from Morpho Vault
+  // STEP 2: Redeem vault shares for WETH + rewards
   // ========================================
-  console.log("(MORPHO-STEP-2) Withdraw WETH from vault");
+  console.log("(MORPHO-STEP-2) Redeem vault shares for WETH + rewards");
 
-  const WETH_WITHDRAW_AMOUNT = WETH_DEPOSIT_AMOUNT; // Withdraw the deposited amount
-  console.log(`   Withdrawing ${WETH_WITHDRAW_AMOUNT} WETH`);
-
-  // Morpho Withdraw Operation
-  try {
-    const morphoWithdrawPrecheckRes = await morphoToolClient.precheck(
+  // Get vault contract to check user shares
+  const vaultContract = new ethers.Contract(
+    NETWORK_CONFIG.wethVaultAddress,
+    [
       {
-        operation: "withdraw",
+        inputs: [{ internalType: "address", name: "account", type: "address" }],
+        name: "balanceOf",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function",
+      },
+    ],
+    networkProvider
+  );
+
+  // Get the user's vault shares
+  const userVaultShares = await vaultContract.balanceOf(agentWalletPkp.ethAddress);
+  const userVaultSharesFormatted = ethers.utils.formatEther(userVaultShares);
+  
+  console.log(`   User vault shares: ${userVaultSharesFormatted} shares`);
+  console.log(`   Redeeming all vault shares for WETH + rewards`);
+
+  // Morpho Redeem Operation
+  try {
+    const morphoRedeemPrecheckRes = await morphoToolClient.precheck(
+      {
+        operation: "redeem",
         vaultAddress: NETWORK_CONFIG.wethVaultAddress,
-        amount: WETH_WITHDRAW_AMOUNT,
+        amount: userVaultSharesFormatted, // Pass shares amount for redeem
         rpcUrl: rpcUrl,
         chain: NETWORK_CONFIG.network,
       },
@@ -573,26 +592,26 @@ const CONFIRMATIONS_TO_WAIT = 2;
     );
 
     console.log(
-      "(MORPHO-PRECHECK-WITHDRAW): ",
-      JSON.stringify(morphoWithdrawPrecheckRes, null, 2)
+      "(MORPHO-PRECHECK-REDEEM): ",
+      JSON.stringify(morphoRedeemPrecheckRes, null, 2)
     );
 
     if (
-      morphoWithdrawPrecheckRes.success &&
-      !("error" in morphoWithdrawPrecheckRes.result)
+      morphoRedeemPrecheckRes.success &&
+      !("error" in morphoRedeemPrecheckRes.result)
     ) {
       console.log(
-        "✅ (MORPHO-PRECHECK-WITHDRAW) WETH withdraw precheck passed"
+        "✅ (MORPHO-PRECHECK-REDEEM) Share redeem precheck passed"
       );
 
-      // Execute the withdraw operation
-      console.log("🚀 (MORPHO-WITHDRAW) Executing WETH withdraw operation...");
+      // Execute the redeem operation
+      console.log("🚀 (MORPHO-REDEEM) Executing share redeem operation...");
 
-      const morphoWithdrawExecuteRes = await morphoToolClient.execute(
+      const morphoRedeemExecuteRes = await morphoToolClient.execute(
         {
-          operation: "withdraw",
+          operation: "redeem",
           vaultAddress: NETWORK_CONFIG.wethVaultAddress,
-          amount: WETH_WITHDRAW_AMOUNT,
+          amount: userVaultSharesFormatted,
           chain: NETWORK_CONFIG.network,
         },
         {
@@ -601,32 +620,32 @@ const CONFIRMATIONS_TO_WAIT = 2;
       );
 
       console.log(
-        "(MORPHO-EXECUTE-WITHDRAW): ",
-        JSON.stringify(morphoWithdrawExecuteRes, null, 2)
+        "(MORPHO-EXECUTE-REDEEM): ",
+        JSON.stringify(morphoRedeemExecuteRes, null, 2)
       );
 
-      if (morphoWithdrawExecuteRes.success) {
-        console.log("✅ (MORPHO-STEP-2) WETH withdraw completed successfully!");
+      if (morphoRedeemExecuteRes.success) {
+        console.log("✅ (MORPHO-STEP-2) Share redeem completed successfully!");
         console.log(
-          `   Transaction Hash: ${morphoWithdrawExecuteRes.result.txHash}`
+          `   Transaction Hash: ${morphoRedeemExecuteRes.result.txHash}`
         );
 
         // Wait for transaction confirmation
         try {
-          console.log("⏳ Waiting for withdraw transaction confirmation...");
+          console.log("⏳ Waiting for redeem transaction confirmation...");
 
           const receipt = await networkProvider.waitForTransaction(
-            morphoWithdrawExecuteRes.result.txHash,
+            morphoRedeemExecuteRes.result.txHash,
             CONFIRMATIONS_TO_WAIT,
             180000
           );
           if (receipt.status === 0) {
             throw new Error(
-              `Morpho withdraw transaction reverted: ${morphoWithdrawExecuteRes.result.txHash}`
+              `Morpho redeem transaction reverted: ${morphoRedeemExecuteRes.result.txHash}`
             );
           }
           console.log(
-            `   ✅ Withdraw transaction confirmed in block ${receipt.blockNumber}`
+            `   ✅ Redeem transaction confirmed in block ${receipt.blockNumber}`
           );
         } catch (confirmError) {
           console.log(
@@ -636,78 +655,74 @@ const CONFIRMATIONS_TO_WAIT = 2;
           throw confirmError;
         }
 
-        // Verify WETH balance after withdraw
+        // Verify WETH balance after redeem
         try {
-          console.log("🔍 Verifying WETH balance after withdraw...");
+          console.log("🔍 Verifying WETH balance after redeem...");
 
-          const postWithdrawBalance = await wethContract.balanceOf(
+          const postRedeemBalance = await wethContract.balanceOf(
             agentWalletPkp.ethAddress
           );
-          const postWithdrawBalanceFormatted =
-            ethers.utils.formatEther(postWithdrawBalance);
+          const postRedeemBalanceFormatted =
+            ethers.utils.formatEther(postRedeemBalance);
           console.log(
-            `   Post-withdraw WETH balance: ${postWithdrawBalanceFormatted} WETH`
+            `   Post-redeem WETH balance: ${postRedeemBalanceFormatted} WETH`
           );
 
-          // Expected: balance should return to initial amount (deposit withdrawn)
-          const expectedBalance = initialWethBalance;
-          const expectedBalanceFormatted =
-            ethers.utils.formatEther(expectedBalance);
-
-          console.log(
-            `   Expected WETH balance: ${expectedBalanceFormatted} WETH`
-          );
-
-          if (postWithdrawBalance.eq(expectedBalance)) {
+          // Expected: balance should be at least initial amount (may be more due to rewards)
+          console.log(`   Initial WETH balance: ${ethers.utils.formatEther(initialWethBalance)} WETH`);
+          
+          if (postRedeemBalance.gte(initialWethBalance)) {
+            const rewardsEarned = postRedeemBalance.sub(initialWethBalance);
+            const rewardsFormatted = ethers.utils.formatEther(rewardsEarned);
             console.log(
-              "✅ WETH balance correctly returned to initial amount after withdraw"
+              `✅ WETH balance returned to at least initial amount. Rewards earned: ${rewardsFormatted} WETH`
             );
-            addTestResult("Morpho Withdraw WETH", true);
+            addTestResult("Morpho Redeem WETH", true);
           } else {
-            const errorMsg = `Balance mismatch after withdraw. Expected: ${expectedBalanceFormatted} WETH, Got: ${postWithdrawBalanceFormatted} WETH`;
+            const errorMsg = `Balance less than initial after redeem. Expected: >= ${ethers.utils.formatEther(initialWethBalance)} WETH, Got: ${postRedeemBalanceFormatted} WETH`;
             console.log(`❌ ${errorMsg}`);
-            addTestResult("Morpho Withdraw WETH", false, errorMsg);
+            addTestResult("Morpho Redeem WETH", false, errorMsg);
           }
         } catch (balanceError) {
           console.log(
-            "❌ Could not verify balance after withdraw:",
+            "❌ Could not verify balance after redeem:",
             balanceError.message
           );
           addTestResult(
-            "Morpho Withdraw WETH",
+            "Morpho Redeem WETH",
             false,
             `Balance verification failed: ${balanceError.message}`
           );
         }
       } else {
-        const errorMsg = `Withdraw execution failed: ${
-          morphoWithdrawExecuteRes.error || "Unknown execution error"
+        const errorMsg = `Redeem execution failed: ${
+          morphoRedeemExecuteRes.error || "Unknown execution error"
         }`;
-        console.log("❌ (MORPHO-STEP-2) WETH withdraw failed:", errorMsg);
+        console.log("❌ (MORPHO-STEP-2) Share redeem failed:", errorMsg);
         console.log(
           "   Full execution response:",
-          JSON.stringify(morphoWithdrawExecuteRes, null, 2)
+          JSON.stringify(morphoRedeemExecuteRes, null, 2)
         );
-        addTestResult("Morpho Withdraw WETH", false, errorMsg);
+        addTestResult("Morpho Redeem WETH", false, errorMsg);
       }
     } else {
-      const errorMsg = `Withdraw precheck failed: ${
-        morphoWithdrawPrecheckRes.error || "Unknown precheck error"
+      const errorMsg = `Redeem precheck failed: ${
+        "error" in morphoRedeemPrecheckRes ? morphoRedeemPrecheckRes.error : "Unknown precheck error"
       }`;
-      console.log("❌ (MORPHO-PRECHECK-WITHDRAW)", errorMsg);
+      console.log("❌ (MORPHO-PRECHECK-REDEEM)", errorMsg);
       console.log(
         "   Full precheck response:",
-        JSON.stringify(morphoWithdrawPrecheckRes, null, 2)
+        JSON.stringify(morphoRedeemPrecheckRes, null, 2)
       );
-      addTestResult("Morpho Withdraw WETH", false, errorMsg);
+      addTestResult("Morpho Redeem WETH", false, errorMsg);
     }
   } catch (error) {
-    const errorMsg = `Morpho Withdraw operation threw exception: ${
+    const errorMsg = `Morpho Redeem operation threw exception: ${
       error.message || error
     }`;
-    console.log("❌ (MORPHO-WITHDRAW) Unexpected error:", errorMsg);
+    console.log("❌ (MORPHO-REDEEM) Unexpected error:", errorMsg);
     console.log("   Error stack:", error.stack);
-    addTestResult("Morpho Withdraw WETH", false, errorMsg);
+    addTestResult("Morpho Redeem WETH", false, errorMsg);
   }
 
   // ========================================
