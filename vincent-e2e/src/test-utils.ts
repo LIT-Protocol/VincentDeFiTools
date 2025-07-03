@@ -1,5 +1,8 @@
 import { ethers } from "ethers";
-import { getAaveAddresses, getTestTokens } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
+import {
+  getAaveAddresses,
+  getTestTokens,
+} from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
 
 const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
 
@@ -459,15 +462,16 @@ export async function setupWethFunding(
   funderPrivateKey: string,
   addTestResult: (name: string, passed: boolean, error?: string) => void,
   confirmationsToWait: number = 1,
-  chain: string = "sepolia"
+  chain: string = "sepolia",
+  fundAmount: string
 ) {
   console.log(`💰 Setting up WETH funding for AAVE tests on ${chain}`);
 
-  const WETH_FUND_AMOUNT = "0.01"; // 0.01 WETH
+  const WETH_FUND_AMOUNT = fundAmount;
   const REQUIRED_WETH_BALANCE = ethers.utils.parseEther(WETH_FUND_AMOUNT);
 
   const testTokens = getTestTokens(chain);
-  
+
   // WETH contract for balance checking
   const wethContract = new ethers.Contract(
     testTokens.WETH,

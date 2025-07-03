@@ -288,13 +288,15 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // ========================================
   // WETH and ETH Funding Setup
   // ========================================
+  const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
   const { wethContract, wethDecimals } = await setupWethFunding(
     networkProvider,
     agentWalletPkp.ethAddress,
     process.env.TEST_FUNDER_PRIVATE_KEY,
     addTestResult,
     CONFIRMATIONS_TO_WAIT,
-    NETWORK_CONFIG.network
+    NETWORK_CONFIG.network,
+    WETH_SUPPLY_AMOUNT
   );
 
   await setupEthFunding(
@@ -319,8 +321,6 @@ const CONFIRMATIONS_TO_WAIT = 2;
     "📋 Workflow: Supply WETH → Borrow USDC → Repay USDC → Withdraw WETH"
   );
 
-  // Define constants for AAVE workflow
-  const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
   const USDC_BORROW_AMOUNT = "1.0"; // 1 USDC
 
   // Store initial balances for comparison throughout the workflow
@@ -867,17 +867,12 @@ const CONFIRMATIONS_TO_WAIT = 2;
     NETWORK_CONFIG.network
   );
 
-  const USDC_REPAY_AMOUNT = ethers.utils
-    .formatUnits(currentAaveState.totalDebtBase, AAVE_BASE_DEBT_ASSET_DECIMALS)
-    .toString(); // USDC_REPAY_AMOUNT is the total debt amount in USDC
-  console.log(`   Repaying ${USDC_REPAY_AMOUNT} USDC`);
-
   try {
     const approveUsdcParams = {
       chainId: NETWORK_CONFIG.chainId,
       tokenAddress: NETWORK_CONFIG.usdcAddress,
       spenderAddress: NETWORK_CONFIG.aavePoolAddress,
-      tokenAmount: parseFloat(USDC_REPAY_AMOUNT),
+      tokenAmount: parseFloat(USDC_BORROW_AMOUNT),
       tokenDecimals: usdcDecimals,
       rpcUrl: rpcUrl,
     };
@@ -963,7 +958,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
       {
         operation: "repay",
         asset: NETWORK_CONFIG.usdcAddress,
-        amount: USDC_REPAY_AMOUNT,
+        amount: USDC_BORROW_AMOUNT,
         interestRateMode: 2, // Variable rate
         chain: NETWORK_CONFIG.network,
         rpcUrl: rpcUrl,
@@ -991,7 +986,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         {
           operation: "repay",
           asset: NETWORK_CONFIG.usdcAddress,
-          amount: USDC_REPAY_AMOUNT,
+          amount: USDC_BORROW_AMOUNT,
           interestRateMode: 2, // Variable rate
           chain: NETWORK_CONFIG.network,
         },
@@ -1074,7 +1069,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
 
           // Expected: balance should have the repaid amount subtracted
           const expectedBalance = preRepayBalance.sub(
-            ethers.utils.parseUnits(USDC_REPAY_AMOUNT, usdcDecimals)
+            ethers.utils.parseUnits(USDC_BORROW_AMOUNT, usdcDecimals)
           );
           const expectedBalanceFormatted = ethers.utils.formatUnits(
             expectedBalance,
@@ -1424,7 +1419,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
     console.log(`   PKP WETH balance: ${wethBalance} WETH`);
 
     const fundingWallet = new ethers.Wallet(
-      process.env.FUNDING_WALLET_PRIVATE_KEY!,
+      process.env.TEST_FUNDER_PRIVATE_KEY!,
       networkProvider
     );
     // 2. send the eth balance to the funding wallet
