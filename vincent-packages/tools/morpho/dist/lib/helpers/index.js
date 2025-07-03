@@ -111,6 +111,13 @@ export const ERC4626_VAULT_ABI = [
         stateMutability: "view",
         type: "function",
     },
+    {
+        inputs: [],
+        name: "decimals",
+        outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+        stateMutability: "view",
+        type: "function",
+    },
 ];
 /**
  * ERC20 Token ABI - Essential methods only

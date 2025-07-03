@@ -105,22 +105,35 @@ export const vincentTool = createVincentTool({
       let userBalance: string = "0";
       let allowance: string = "0";
       let vaultShares: string = "0";
-      
+
       try {
-        const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, provider);
+        const vaultContract = new ethers.Contract(
+          vaultAddress,
+          ERC4626_VAULT_ABI,
+          provider
+        );
         vaultAssetAddress = await vaultContract.asset();
         vaultShares = (await vaultContract.balanceOf(pkpAddress)).toString();
-        
-        const assetContract = new ethers.Contract(vaultAssetAddress, ERC20_ABI, provider);
-        assetDecimals = await assetContract.decimals();
+
+        const assetContract = new ethers.Contract(
+          vaultAssetAddress,
+          ERC20_ABI,
+          provider
+        );
         userBalance = (await assetContract.balanceOf(pkpAddress)).toString();
         allowance = (
           await assetContract.allowance(pkpAddress, vaultAddress)
         ).toString();
+
+        if (operation === MorphoOperation.REDEEM) {
+          // we're redeeming shares, so need to use the decimals from the shares contract, not the assets contract
+          assetDecimals = await vaultContract.decimals();
+        } else {
+          assetDecimals = await assetContract.decimals();
+        }
       } catch (error) {
         return fail({
-          error:
-            "[@lit-protocol/vincent-tool-morpho/precheck] Invalid vault address or vault not found on network",
+          error: `[@lit-protocol/vincent-tool-morpho/precheck] Invalid vault address or vault not found on network: ${error}`,
         });
       }
 
@@ -145,7 +158,11 @@ export const vincentTool = createVincentTool({
       // Estimate gas for the operation
       let estimatedGas: number = 0;
       try {
-        const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, provider);
+        const vaultContract = new ethers.Contract(
+          vaultAddress,
+          ERC4626_VAULT_ABI,
+          provider
+        );
         const targetAddress = onBehalfOf || pkpAddress;
 
         switch (operation) {
@@ -209,7 +226,10 @@ export const vincentTool = createVincentTool({
 
       return succeed(successResult);
     } catch (error) {
-      console.error("[@lit-protocol/vincent-tool-morpho/precheck] Error:", error);
+      console.error(
+        "[@lit-protocol/vincent-tool-morpho/precheck] Error:",
+        error
+      );
       return fail({
         error: `[@lit-protocol/vincent-tool-morpho/precheck] Validation failed: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -220,14 +240,8 @@ export const vincentTool = createVincentTool({
 
   execute: async ({ toolParams }, { succeed, fail, delegation }) => {
     try {
-      const {
-        operation,
-        vaultAddress,
-        amount,
-        onBehalfOf,
-        chain,
-        rpcUrl,
-      } = toolParams;
+      const { operation, vaultAddress, amount, onBehalfOf, chain, rpcUrl } =
+        toolParams;
 
       console.log(
         "[@lit-protocol/vincent-tool-morpho/execute] Executing Morpho Tool",
@@ -265,11 +279,19 @@ export const vincentTool = createVincentTool({
       const { chainId } = await provider.getNetwork();
 
       // Get vault asset address and decimals
-      const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, provider);
+      const vaultContract = new ethers.Contract(
+        vaultAddress,
+        ERC4626_VAULT_ABI,
+        provider
+      );
       const vaultAssetAddress = await vaultContract.asset();
-      const assetContract = new ethers.Contract(vaultAssetAddress, ERC20_ABI, provider);
+      const assetContract = new ethers.Contract(
+        vaultAssetAddress,
+        ERC20_ABI,
+        provider
+      );
       const assetDecimals = await assetContract.decimals();
-      
+
       console.log(
         "[@lit-protocol/vincent-tool-morpho/execute] Asset decimals:",
         assetDecimals

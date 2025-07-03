@@ -82,8 +82,8 @@ const NETWORK_CONFIG = {
 const CONFIRMATIONS_TO_WAIT = 2;
 
 // Test amounts
-const WETH_DEPOSIT_AMOUNT = "0.01"; // 0.01 WETH to deposit on AAVE
-const USDC_BORROW_AMOUNT = "10"; // 10 USDC to borrow from AAVE and deposit to Morpho
+const WETH_DEPOSIT_AMOUNT = "0.001"; // 0.01 WETH to deposit on AAVE
+const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to Morpho
 
 (async () => {
   /**
@@ -882,10 +882,8 @@ const USDC_BORROW_AMOUNT = "10"; // 10 USDC to borrow from AAVE and deposit to M
         const postDepositShares = await usdcVaultContract.balanceOf(
           agentWalletPkp.ethAddress
         );
-        const postDepositSharesFormatted = ethers.utils.formatUnits(
-          postDepositShares,
-          6
-        ); // USDC has 6 decimals
+        const postDepositSharesFormatted =
+          ethers.utils.formatEther(postDepositShares);
         console.log(
           `   Vault shares received: ${postDepositSharesFormatted} shares`
         );

@@ -67,13 +67,19 @@ export const vincentTool = createVincentTool({
                 vaultAssetAddress = await vaultContract.asset();
                 vaultShares = (await vaultContract.balanceOf(pkpAddress)).toString();
                 const assetContract = new ethers.Contract(vaultAssetAddress, ERC20_ABI, provider);
-                assetDecimals = await assetContract.decimals();
                 userBalance = (await assetContract.balanceOf(pkpAddress)).toString();
                 allowance = (await assetContract.allowance(pkpAddress, vaultAddress)).toString();
+                if (operation === MorphoOperation.REDEEM) {
+                    // we're redeeming shares, so need to use the decimals from the shares contract, not the assets contract
+                    assetDecimals = await vaultContract.decimals();
+                }
+                else {
+                    assetDecimals = await assetContract.decimals();
+                }
             }
             catch (error) {
                 return fail({
-                    error: "[@lit-protocol/vincent-tool-morpho/precheck] Invalid vault address or vault not found on network",
+                    error: `[@lit-protocol/vincent-tool-morpho/precheck] Invalid vault address or vault not found on network: ${error}`,
                 });
             }
             // Convert amount using proper decimals
@@ -130,7 +136,7 @@ export const vincentTool = createVincentTool({
     },
     execute: async ({ toolParams }, { succeed, fail, delegation }) => {
         try {
-            const { operation, vaultAddress, amount, onBehalfOf, chain, rpcUrl, } = toolParams;
+            const { operation, vaultAddress, amount, onBehalfOf, chain, rpcUrl } = toolParams;
             console.log("[@lit-protocol/vincent-tool-morpho/execute] Executing Morpho Tool", {
                 operation,
                 vaultAddress,
