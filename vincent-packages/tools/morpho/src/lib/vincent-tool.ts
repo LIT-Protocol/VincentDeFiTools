@@ -290,7 +290,13 @@ export const vincentTool = createVincentTool({
         ERC20_ABI,
         provider
       );
-      const assetDecimals = await assetContract.decimals();
+      let assetDecimals: number;
+      if (operation === MorphoOperation.REDEEM) {
+        // we're redeeming shares, so need to use the decimals from the shares contract, not the assets contract
+        assetDecimals = await vaultContract.decimals();
+      } else {
+        assetDecimals = await assetContract.decimals();
+      }
 
       console.log(
         "[@lit-protocol/vincent-tool-morpho/execute] Asset decimals:",

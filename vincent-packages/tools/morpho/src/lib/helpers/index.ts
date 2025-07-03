@@ -1,3 +1,5 @@
+import { ethers } from "ethers";
+
 /**
  * Morpho Vault Addresses indexed by chain name
  */

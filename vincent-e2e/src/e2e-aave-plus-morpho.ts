@@ -1068,6 +1068,87 @@ const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to
   }
 
   // ========================================
+  // ERC20 Approval for USDC (required for AAVE Repay)
+  // ========================================
+  console.log("🛂 Approving USDC for AAVE repay via ERC20 Approval Tool");
+
+  try {
+    const approveUsdcParams = {
+      chainId: NETWORK_CONFIG.chainId,
+      tokenAddress: NETWORK_CONFIG.usdcAddress,
+      spenderAddress: NETWORK_CONFIG.aavePoolAddress,
+      tokenAmount: parseFloat(USDC_BORROW_AMOUNT),
+      tokenDecimals: usdcDecimals,
+      rpcUrl: rpcUrl,
+    };
+
+    const approveUsdcPrecheck = await approveToolClient.precheck(
+      approveUsdcParams,
+      {
+        delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+      }
+    );
+
+    console.log(
+      "(APPROVE-PRECHECK-USDC): ",
+      JSON.stringify(approveUsdcPrecheck, null, 2)
+    );
+
+    if (approveUsdcPrecheck.success) {
+      const approveUsdcExecute = await approveToolClient.execute(
+        approveUsdcParams,
+        {
+          delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+        }
+      );
+
+      console.log(
+        "(APPROVE-EXECUTE-USDC): ",
+        JSON.stringify(approveUsdcExecute, null, 2)
+      );
+
+      if (approveUsdcExecute.success) {
+        console.log("✅ USDC approval executed successfully");
+        if (approveUsdcExecute.result.approvalTxHash) {
+          console.log(
+            "🔍 Waiting for USDC approval transaction confirmation..."
+          );
+          // wait for transaction confirmation
+          const receipt = await networkProvider.waitForTransaction(
+            approveUsdcExecute.result.approvalTxHash,
+            CONFIRMATIONS_TO_WAIT,
+            180000
+          );
+          if (receipt.status === 0) {
+            throw new Error(
+              `USDC approval transaction reverted: ${approveUsdcExecute.result.approvalTxHash}`
+            );
+          }
+          console.log(
+            `   USDC approval confirmed in block ${receipt.blockNumber}`
+          );
+        }
+        addTestResult("ERC20 Approve USDC", true);
+      } else {
+        const errMsg = approveUsdcExecute.error || "Unknown execution error";
+        console.log("❌ USDC approval execution failed:", errMsg);
+        addTestResult("ERC20 Approve USDC", false, errMsg);
+      }
+    } else {
+      const errMsg = approveUsdcPrecheck.error || "Unknown precheck error";
+      console.log("❌ USDC approval precheck failed:", errMsg);
+      addTestResult("ERC20 Approve USDC", false, errMsg);
+    }
+  } catch (error) {
+    console.log("❌ USDC approval unexpected error:", error.message || error);
+    addTestResult(
+      "ERC20 Approve USDC",
+      false,
+      error.message || error.toString()
+    );
+  }
+
+  // ========================================
   // STEP 7: Repay USDC to AAVE
   // ========================================
   console.log("💳 (STEP 7) Repay USDC to AAVE Pool");

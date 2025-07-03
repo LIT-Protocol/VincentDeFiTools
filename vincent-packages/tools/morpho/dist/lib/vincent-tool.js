@@ -162,7 +162,14 @@ export const vincentTool = createVincentTool({
             const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, provider);
             const vaultAssetAddress = await vaultContract.asset();
             const assetContract = new ethers.Contract(vaultAssetAddress, ERC20_ABI, provider);
-            const assetDecimals = await assetContract.decimals();
+            let assetDecimals;
+            if (operation === MorphoOperation.REDEEM) {
+                // we're redeeming shares, so need to use the decimals from the shares contract, not the assets contract
+                assetDecimals = await vaultContract.decimals();
+            }
+            else {
+                assetDecimals = await assetContract.decimals();
+            }
             console.log("[@lit-protocol/vincent-tool-morpho/execute] Asset decimals:", assetDecimals);
             const convertedAmount = parseAmount(amount, assetDecimals);
             console.log("[@lit-protocol/vincent-tool-morpho/execute] Converted amount:", convertedAmount);

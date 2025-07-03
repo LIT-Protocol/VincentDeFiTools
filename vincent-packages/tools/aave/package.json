@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@lit-protocol/vincent-scaffold-sdk": "^1.1.4",
-    "@lit-protocol/vincent-tool-sdk": "^1.0.1"
+    "@lit-protocol/vincent-tool-sdk": "^1.0.1",
+    "ethers": "^5.8.0"
   },
   "exports": {
     ".": {

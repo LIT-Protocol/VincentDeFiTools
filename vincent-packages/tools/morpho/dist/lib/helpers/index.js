@@ -1,3 +1,4 @@
+import { ethers } from "ethers";
 /**
  * Morpho Vault Addresses indexed by chain name
  */
@@ -188,17 +189,13 @@ export function isValidAddress(address) {
  * Utility function to parse amount with decimals
  */
 export function parseAmount(amount, decimals = 18) {
-    const factor = Math.pow(10, decimals);
-    const parsed = parseFloat(amount) * factor;
-    return Math.floor(parsed).toString();
+    return ethers.utils.parseUnits(amount, decimals).toString();
 }
 /**
  * Utility function to format amount from wei
  */
 export function formatAmount(amount, decimals = 18) {
-    const factor = Math.pow(10, decimals);
-    const formatted = parseFloat(amount) / factor;
-    return formatted.toString();
+    return ethers.utils.formatUnits(amount, decimals);
 }
 /**
  * Validate operation-specific requirements for Morpho vaults

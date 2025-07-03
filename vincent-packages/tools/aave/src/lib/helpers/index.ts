@@ -1,3 +1,5 @@
+import { ethers } from "ethers";
+
 /**
  * AAVE v3 Protocol Constants indexed by chain name
  */
