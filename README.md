@@ -7,12 +7,14 @@ A collection of Vincent Scaffold SDK tools for interacting with leading DeFi pro
 This project demonstrates how to build comprehensive blockchain tools using the Vincent Scaffold SDK that execute on Lit Protocol's decentralized network. The DeFi tools enable users to:
 
 ### AAVE Protocol Integration
+
 - **Supply** assets as collateral to earn interest
 - **Borrow** assets against collateral
 - **Repay** borrowed debt
 - **Withdraw** supplied collateral
 
-### Morpho Protocol Integration  
+### Morpho Protocol Integration
+
 - **Deposit** assets into yield-generating vaults
 - **Redeem** vault shares for underlying assets
 
@@ -39,7 +41,7 @@ npm install
 npm run vincent:build
 
 # Run end-to-end tests
-npm run vincent:e2e              # AAVE tool tests
+npm run vincent:e2e:aave              # AAVE tool tests
 npm run vincent:e2e:morpho       # Morpho tool tests
 npm run vincent:e2e:aave-plus-morpho  # Combined workflow tests
 ```
@@ -109,8 +111,9 @@ vincent-scripts/                # Build and utility scripts
 **📖 [Morpho Tool Documentation](./vincent-packages/tools/morpho/README.md)** - Complete vault protocol integration
 
 Each tool includes:
+
 - Complete API reference
-- Step-by-step usage examples  
+- Step-by-step usage examples
 - DeFi workflow demonstrations
 - Network configuration
 - Error handling guide
@@ -119,25 +122,30 @@ Each tool includes:
 ### Combined Workflows
 
 The E2E tests demonstrate powerful cross-protocol workflows:
+
 - **AAVE + Morpho**: Borrow from AAVE → deposit to Morpho → redeem from Morpho → repay AAVE
 
 ## Supported Networks
 
 ### AAVE Protocol
+
 - **Ethereum Sepolia Testnet** (Chain ID: 11155111)
 - Aave v3 Pool: `0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951`
 
-### Morpho Protocol  
+### Morpho Protocol
+
 - **Base Mainnet** (Chain ID: 8453)
 - Example USDC Vault: `0xc0c5689e6f4D256E861F65465b691aeEcC0dEb12`
 
 ### Tokens
 
 **Sepolia (AAVE)**
+
 - WETH: `0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c`
 - USDC: `0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8`
 
 **Base (Morpho)**
+
 - WETH: `0x4200000000000000000000000000000000000006`
 - USDC: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
 
@@ -160,7 +168,7 @@ npm run vincent:reset
 
 # Run E2E tests
 npm run vincent:e2e                    # AAVE protocol tests
-npm run vincent:e2e:morpho             # Morpho protocol tests  
+npm run vincent:e2e:morpho             # Morpho protocol tests
 npm run vincent:e2e:aave-plus-morpho   # Combined DeFi workflow tests
 ```
 
@@ -180,5 +188,6 @@ The [Vincent Scaffold SDK](https://github.com/lit-protocol/vincent-scaffold-sdk)
 ---
 
 **Need Help?** Check the detailed documentation:
-- [AAVE Tool Documentation](./vincent-packages/tools/aave/README.md) 
+
+- [AAVE Tool Documentation](./vincent-packages/tools/aave/README.md)
 - [Morpho Tool Documentation](./vincent-packages/tools/morpho/README.md)
