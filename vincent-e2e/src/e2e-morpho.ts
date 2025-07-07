@@ -113,9 +113,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
       console.log(
         `     ${asset.symbol}: ${
           asset.count
-        } vaults, $${asset.totalTvl.toLocaleString()} TVL, ${asset.maxApy.toFixed(
-          2
-        )}% max APY`
+        } vaults, $${asset.totalTvl.toLocaleString()} TVL, ${
+          100 * asset.maxNetApy.toFixed(4)
+        }% max APY`
       );
     });
 
@@ -188,6 +188,425 @@ const CONFIRMATIONS_TO_WAIT = 2;
     throw new Error(
       `Cannot proceed without a valid WETH vault address: ${error.message}`
     );
+  }
+
+  /**
+   * ====================================
+   * MinNetApy Filtering Tests
+   * ====================================
+   */
+  console.log("🔍 Testing minNetApy filtering feature...");
+
+  try {
+    // Test 1: Filter USDC vaults on Base with 0.05 (5%) minimum net APY
+    console.log("📊 Test 1: USDC vaults on Base with 5% minimum net APY");
+    const usdcVaults = await getVaults({
+      assetSymbol: "USDC",
+      chainId: NETWORK_CONFIG.chainId,
+      minNetApy: 0.05, // 5% minimum
+      sortBy: "netApy",
+      sortOrder: "desc",
+      limit: 20,
+      excludeIdle: true,
+    });
+
+    // Validate results
+    console.log(`   Found ${usdcVaults.length} USDC vaults with >5% net APY`);
+
+    if (usdcVaults.length > 0) {
+      // Check that all vaults meet the criteria
+      let allValidAsset = true;
+      let allValidChain = true;
+      let allValidApy = true;
+      let correctlySorted = true;
+
+      for (let i = 0; i < usdcVaults.length; i++) {
+        const vault = usdcVaults[i];
+
+        // Check asset symbol
+        if (vault.asset.symbol !== "USDC") {
+          allValidAsset = false;
+          console.error(
+            `   ❌ Vault ${vault.address} has wrong asset: ${vault.asset.symbol}`
+          );
+        }
+
+        // Check chain ID
+        if (vault.chain.id !== NETWORK_CONFIG.chainId) {
+          allValidChain = false;
+          console.error(
+            `   ❌ Vault ${vault.address} on wrong chain: ${vault.chain.id}`
+          );
+        }
+
+        // Check net APY is above 5%
+        if (vault.metrics.netApy < 0.05) {
+          allValidApy = false;
+          console.error(
+            `   ❌ Vault ${vault.address} has low APY: ${(
+              vault.metrics.netApy * 100
+            ).toFixed(2)}%`
+          );
+        }
+
+        // Check sorting (each vault should have APY >= next vault)
+        if (i > 0 && vault.metrics.netApy > usdcVaults[i - 1].metrics.netApy) {
+          correctlySorted = false;
+          console.error(
+            `   ❌ Sorting error: vault ${i} (${(
+              vault.metrics.netApy * 100
+            ).toFixed(2)}%) > vault ${i - 1} (${(
+              usdcVaults[i - 1].metrics.netApy * 100
+            ).toFixed(2)}%)`
+          );
+        }
+      }
+
+      // Display top results
+      console.log("   📈 Top USDC vaults:");
+      usdcVaults.slice(0, 5).forEach((vault, index) => {
+        console.log(
+          `      ${index + 1}. ${vault.name} - ${(
+            vault.metrics.netApy * 100
+          ).toFixed(2)}% net APY`
+        );
+        console.log(
+          `         TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`
+        );
+      });
+
+      // Report validation results
+      if (allValidAsset && allValidChain && allValidApy && correctlySorted) {
+        console.log("   ✅ All vaults meet the filtering criteria");
+        addTestResult("MinNetApy USDC Filtering", true);
+      } else {
+        console.error("   ❌ Some vaults don't meet the filtering criteria");
+        addTestResult("MinNetApy USDC Filtering", false);
+      }
+    } else {
+      console.log("   ⚠️  No USDC vaults found with >5% net APY on this chain");
+      addTestResult(
+        "MinNetApy USDC Filtering",
+        true,
+        "No vaults found (acceptable)"
+      );
+    }
+
+    // Test 2: Compare with different minNetApy values
+    console.log("📊 Test 2: Comparing different minNetApy thresholds");
+    const lowApyVaults = await getVaults({
+      assetSymbol: "USDC",
+      chainId: NETWORK_CONFIG.chainId,
+      minNetApy: 0.01, // 1% minimum
+      sortBy: "netApy",
+      sortOrder: "desc",
+      limit: 50,
+      excludeIdle: true,
+    });
+
+    const highApyVaults = await getVaults({
+      assetSymbol: "USDC",
+      chainId: NETWORK_CONFIG.chainId,
+      minNetApy: 0.1, // 10% minimum
+      sortBy: "netApy",
+      sortOrder: "desc",
+      limit: 50,
+      excludeIdle: true,
+    });
+
+    console.log(`   1% minimum: ${lowApyVaults.length} vaults`);
+    console.log(`   5% minimum: ${usdcVaults.length} vaults`);
+    console.log(`   10% minimum: ${highApyVaults.length} vaults`);
+
+    // Validate threshold logic (higher threshold = fewer or equal results)
+    const thresholdLogicValid =
+      highApyVaults.length <= usdcVaults.length &&
+      usdcVaults.length <= lowApyVaults.length;
+
+    if (thresholdLogicValid) {
+      console.log(
+        "   ✅ Threshold logic works correctly (higher threshold = fewer results)"
+      );
+      addTestResult("MinNetApy Threshold Logic", true);
+    } else {
+      console.error("   ❌ Threshold logic failed");
+      addTestResult("MinNetApy Threshold Logic", false);
+    }
+
+    // Test 3: Test edge case - very high threshold
+    console.log("📊 Test 3: Testing very high threshold (50%)");
+    const veryHighApyVaults = await getVaults({
+      assetSymbol: "USDC",
+      chainId: NETWORK_CONFIG.chainId,
+      minNetApy: 0.5, // 50% minimum (likely no results)
+      sortBy: "netApy",
+      sortOrder: "desc",
+      limit: 10,
+      excludeIdle: true,
+    });
+
+    console.log(`   50% minimum: ${veryHighApyVaults.length} vaults`);
+    console.log("   ✅ High threshold test completed");
+    addTestResult("MinNetApy High Threshold", true);
+  } catch (error) {
+    console.error("❌ MinNetApy filtering tests failed:", error.message);
+    addTestResult("MinNetApy Filtering Tests", false);
+  }
+
+  /**
+   * ====================================
+   * Additional Filtering Tests
+   * ====================================
+   */
+  console.log("🔍 Testing additional filtering features...");
+
+  try {
+    // Test 4: MinTvl filtering
+    console.log("📊 Test 4: MinTvl filtering (minimum $1M TVL)");
+    const highTvlVaults = await getVaults({
+      chainId: NETWORK_CONFIG.chainId,
+      minTvl: 1000000, // $1M minimum
+      sortBy: "totalAssetsUsd",
+      sortOrder: "desc",
+      limit: 20,
+      excludeIdle: true,
+    });
+
+    console.log(`   Found ${highTvlVaults.length} vaults with >$1M TVL`);
+    
+    if (highTvlVaults.length > 0) {
+      let allValidTvl = true;
+      let correctlySortedByTvl = true;
+      
+      for (let i = 0; i < highTvlVaults.length; i++) {
+        const vault = highTvlVaults[i];
+        
+        // Check TVL is above $1M
+        if (vault.metrics.totalAssetsUsd < 1000000) {
+          allValidTvl = false;
+          console.error(`   ❌ Vault ${vault.address} has low TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`);
+        }
+        
+        // Check sorting by TVL (each vault should have TVL >= next vault)
+        if (i > 0 && vault.metrics.totalAssetsUsd > highTvlVaults[i-1].metrics.totalAssetsUsd) {
+          correctlySortedByTvl = false;
+          console.error(`   ❌ TVL sorting error: vault ${i} ($${vault.metrics.totalAssetsUsd.toLocaleString()}) > vault ${i-1} ($${highTvlVaults[i-1].metrics.totalAssetsUsd.toLocaleString()})`);
+        }
+      }
+      
+      // Display top results by TVL
+      console.log("   💰 Top vaults by TVL:");
+      highTvlVaults.slice(0, 5).forEach((vault, index) => {
+        console.log(`      ${index + 1}. ${vault.name} - $${vault.metrics.totalAssetsUsd.toLocaleString()} TVL`);
+        console.log(`         Asset: ${vault.asset.symbol}, APY: ${(vault.metrics.netApy * 100).toFixed(2)}%`);
+      });
+      
+      if (allValidTvl && correctlySortedByTvl) {
+        console.log("   ✅ All vaults meet the minTvl criteria and are sorted correctly");
+        addTestResult("MinTvl Filtering", true);
+      } else {
+        console.error("   ❌ Some vaults don't meet the minTvl criteria or sorting is incorrect");
+        addTestResult("MinTvl Filtering", false);
+      }
+    } else {
+      console.log("   ⚠️  No vaults found with >$1M TVL on this chain");
+      addTestResult("MinTvl Filtering", true, "No vaults found (acceptable)");
+    }
+
+    // Test 5: MaxTvl filtering
+    console.log("📊 Test 5: MaxTvl filtering (maximum $10M TVL)");
+    const lowTvlVaults = await getVaults({
+      chainId: NETWORK_CONFIG.chainId,
+      maxTvl: 10000000, // $10M maximum
+      sortBy: "totalAssetsUsd",
+      sortOrder: "asc",
+      limit: 20,
+      excludeIdle: true,
+    });
+
+    console.log(`   Found ${lowTvlVaults.length} vaults with <$10M TVL`);
+    
+    if (lowTvlVaults.length > 0) {
+      let allValidMaxTvl = true;
+      
+      for (const vault of lowTvlVaults) {
+        if (vault.metrics.totalAssetsUsd > 10000000) {
+          allValidMaxTvl = false;
+          console.error(`   ❌ Vault ${vault.address} has high TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`);
+        }
+      }
+      
+      if (allValidMaxTvl) {
+        console.log("   ✅ All vaults meet the maxTvl criteria");
+        addTestResult("MaxTvl Filtering", true);
+      } else {
+        console.error("   ❌ Some vaults don't meet the maxTvl criteria");
+        addTestResult("MaxTvl Filtering", false);
+      }
+    } else {
+      console.log("   ⚠️  No vaults found with <$10M TVL on this chain");
+      addTestResult("MaxTvl Filtering", true, "No vaults found (acceptable)");
+    }
+
+    // Test 6: MaxNetApy filtering
+    console.log("📊 Test 6: MaxNetApy filtering (maximum 20% APY)");
+    const moderateApyVaults = await getVaults({
+      chainId: NETWORK_CONFIG.chainId,
+      maxNetApy: 0.20, // 20% maximum
+      sortBy: "netApy",
+      sortOrder: "desc",
+      limit: 20,
+      excludeIdle: true,
+    });
+
+    console.log(`   Found ${moderateApyVaults.length} vaults with <20% net APY`);
+    
+    if (moderateApyVaults.length > 0) {
+      let allValidMaxApy = true;
+      
+      for (const vault of moderateApyVaults) {
+        if (vault.metrics.netApy > 0.20) {
+          allValidMaxApy = false;
+          console.error(`   ❌ Vault ${vault.address} has high APY: ${(vault.metrics.netApy * 100).toFixed(2)}%`);
+        }
+      }
+      
+      if (allValidMaxApy) {
+        console.log("   ✅ All vaults meet the maxNetApy criteria");
+        addTestResult("MaxNetApy Filtering", true);
+      } else {
+        console.error("   ❌ Some vaults don't meet the maxNetApy criteria");
+        addTestResult("MaxNetApy Filtering", false);
+      }
+    } else {
+      console.log("   ⚠️  No vaults found with <20% net APY on this chain");
+      addTestResult("MaxNetApy Filtering", true, "No vaults found (acceptable)");
+    }
+
+    // Test 7: WhitelistedOnly filtering
+    console.log("📊 Test 7: WhitelistedOnly filtering");
+    const whitelistedVaults = await getVaults({
+      chainId: NETWORK_CONFIG.chainId,
+      whitelistedOnly: true,
+      sortBy: "totalAssetsUsd",
+      sortOrder: "desc",
+      limit: 10,
+      excludeIdle: true,
+    });
+
+    const allVaults = await getVaults({
+      chainId: NETWORK_CONFIG.chainId,
+      sortBy: "totalAssetsUsd",
+      sortOrder: "desc",
+      limit: 50,
+      excludeIdle: true,
+    });
+
+    console.log(`   Whitelisted vaults: ${whitelistedVaults.length}`);
+    console.log(`   All vaults: ${allVaults.length}`);
+    
+    if (whitelistedVaults.length <= allVaults.length) {
+      console.log("   ✅ Whitelisted filtering works correctly (whitelisted ≤ all)");
+      addTestResult("WhitelistedOnly Filtering", true);
+    } else {
+      console.error("   ❌ Whitelisted filtering failed");
+      addTestResult("WhitelistedOnly Filtering", false);
+    }
+
+    // Test 8: Combined filtering
+    console.log("📊 Test 8: Combined filtering (USDC, >3% APY, >$500K TVL)");
+    const combinedFilterVaults = await getVaults({
+      assetSymbol: "USDC",
+      chainId: NETWORK_CONFIG.chainId,
+      minNetApy: 0.03, // 3% minimum
+      minTvl: 500000, // $500K minimum
+      sortBy: "netApy",
+      sortOrder: "desc",
+      limit: 10,
+      excludeIdle: true,
+    });
+
+    console.log(`   Found ${combinedFilterVaults.length} vaults meeting all criteria`);
+    
+    if (combinedFilterVaults.length > 0) {
+      let allValidCombined = true;
+      
+      for (const vault of combinedFilterVaults) {
+        if (vault.asset.symbol !== "USDC" || 
+            vault.metrics.netApy < 0.03 || 
+            vault.metrics.totalAssetsUsd < 500000) {
+          allValidCombined = false;
+          console.error(`   ❌ Vault ${vault.address} doesn't meet combined criteria`);
+          console.error(`      Asset: ${vault.asset.symbol}, APY: ${(vault.metrics.netApy * 100).toFixed(2)}%, TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`);
+        }
+      }
+      
+      if (allValidCombined) {
+        console.log("   ✅ All vaults meet the combined filtering criteria");
+        addTestResult("Combined Filtering", true);
+      } else {
+        console.error("   ❌ Some vaults don't meet the combined filtering criteria");
+        addTestResult("Combined Filtering", false);
+      }
+    } else {
+      console.log("   ⚠️  No vaults found meeting all combined criteria");
+      addTestResult("Combined Filtering", true, "No vaults found (acceptable)");
+    }
+
+    // Test 9: Different sorting options
+    console.log("📊 Test 9: Testing different sorting options");
+    
+    // Test creation timestamp sorting
+    const newestVaults = await getVaults({
+      chainId: NETWORK_CONFIG.chainId,
+      sortBy: "creationTimestamp",
+      sortOrder: "desc",
+      limit: 5,
+      excludeIdle: true,
+    });
+
+    const oldestVaults = await getVaults({
+      chainId: NETWORK_CONFIG.chainId,
+      sortBy: "creationTimestamp",
+      sortOrder: "asc",
+      limit: 5,
+      excludeIdle: true,
+    });
+
+    console.log(`   Newest vaults: ${newestVaults.length}`);
+    console.log(`   Oldest vaults: ${oldestVaults.length}`);
+    
+    let timestampSortingValid = true;
+    
+    // Check newest vaults are sorted correctly (descending)
+    for (let i = 1; i < newestVaults.length; i++) {
+      if (newestVaults[i].metrics.creationTimestamp > newestVaults[i-1].metrics.creationTimestamp) {
+        timestampSortingValid = false;
+        console.error(`   ❌ Newest vaults not sorted correctly`);
+        break;
+      }
+    }
+    
+    // Check oldest vaults are sorted correctly (ascending)
+    for (let i = 1; i < oldestVaults.length; i++) {
+      if (oldestVaults[i].metrics.creationTimestamp < oldestVaults[i-1].metrics.creationTimestamp) {
+        timestampSortingValid = false;
+        console.error(`   ❌ Oldest vaults not sorted correctly`);
+        break;
+      }
+    }
+    
+    if (timestampSortingValid) {
+      console.log("   ✅ Creation timestamp sorting works correctly");
+      addTestResult("Timestamp Sorting", true);
+    } else {
+      console.error("   ❌ Creation timestamp sorting failed");
+      addTestResult("Timestamp Sorting", false);
+    }
+
+  } catch (error) {
+    console.error("❌ Additional filtering tests failed:", error.message);
+    addTestResult("Additional Filtering Tests", false);
   }
 
   /**

@@ -194,7 +194,7 @@ export const ERC20_ABI = [
  */
 export const VAULT_FILTER_PRESETS = {
     highYield: {
-        minNetApy: 8.0,
+        minNetApy: 0.08,
         minTvl: 1000000,
         sortBy: "netApy",
         sortOrder: "desc",
@@ -203,7 +203,7 @@ export const VAULT_FILTER_PRESETS = {
     },
     stable: {
         minTvl: 5000000,
-        maxNetApy: 15.0,
+        maxNetApy: 0.15,
         whitelistedOnly: true,
         sortBy: "totalAssetsUsd",
         sortOrder: "desc",
@@ -738,7 +738,7 @@ export async function getVaultsByPreset(preset, overrides = {}) {
  * // Find best USDC vaults across all chains
  * const topVaults = await getVaults({
  *   assetSymbol: "USDC",
- *   minNetApy: 5.0,
+ *   minNetApy: 0.05,
  *   minTvl: 1000000,
  *   sortBy: "netApy",
  *   sortOrder: "desc",
