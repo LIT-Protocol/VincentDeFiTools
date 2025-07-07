@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 
 /**
  * AAVE v3 Protocol Constants indexed by chain name
+ * These are maintained for backward compatibility
  */
 export const AAVE_V3_ADDRESSES = {
   sepolia: {
@@ -178,23 +179,67 @@ export const INTEREST_RATE_MODE = {
 } as const;
 
 /**
- * Supported chain names
+ * Chain name to Aave Address Book mapping
  */
-export type SupportedChain = keyof typeof AAVE_V3_ADDRESSES;
+export const CHAIN_TO_AAVE_ADDRESS_BOOK: Record<string, () => any> = {
+  // Mainnets
+  ethereum: () => require("@bgd-labs/aave-address-book").AaveV3Ethereum,
+  polygon: () => require("@bgd-labs/aave-address-book").AaveV3Polygon,
+  avalanche: () => require("@bgd-labs/aave-address-book").AaveV3Avalanche,
+  arbitrum: () => require("@bgd-labs/aave-address-book").AaveV3Arbitrum,
+  optimism: () => require("@bgd-labs/aave-address-book").AaveV3Optimism,
+  base: () => require("@bgd-labs/aave-address-book").AaveV3Base,
+  fantom: () => require("@bgd-labs/aave-address-book").AaveV3Fantom,
+  bnb: () => require("@bgd-labs/aave-address-book").AaveV3BNB,
+  gnosis: () => require("@bgd-labs/aave-address-book").AaveV3Gnosis,
+  scroll: () => require("@bgd-labs/aave-address-book").AaveV3Scroll,
+  metis: () => require("@bgd-labs/aave-address-book").AaveV3Metis,
+  linea: () => require("@bgd-labs/aave-address-book").AaveV3Linea,
+  zksync: () => require("@bgd-labs/aave-address-book").AaveV3ZkSync,
+  // Testnets
+  sepolia: () => require("@bgd-labs/aave-address-book").AaveV3Sepolia,
+  basesepolia: () => require("@bgd-labs/aave-address-book").AaveV3BaseSepolia,
+  arbitrumsepolia: () => require("@bgd-labs/aave-address-book").AaveV3ArbitrumSepolia,
+  optimismsepolia: () => require("@bgd-labs/aave-address-book").AaveV3OptimismSepolia,
+  avalanchefuji: () => require("@bgd-labs/aave-address-book").AaveV3AvalancheFuji,
+  scrollsepolia: () => require("@bgd-labs/aave-address-book").AaveV3ScrollSepolia,
+} as const;
 
 /**
- * Get AAVE addresses for a specific chain
+ * Supported chain names
+ */
+export type SupportedChain = keyof typeof AAVE_V3_ADDRESSES | keyof typeof CHAIN_TO_AAVE_ADDRESS_BOOK;
+
+/**
+ * Get AAVE addresses for a specific chain using the Aave Address Book
  */
 export function getAaveAddresses(chain: string) {
-  const chainKey = chain.toLowerCase() as SupportedChain;
-  if (!(chainKey in AAVE_V3_ADDRESSES)) {
-    throw new Error(
-      `Unsupported chain: ${chain}. Supported chains: ${Object.keys(
-        AAVE_V3_ADDRESSES
-      ).join(", ")}`
-    );
+  const chainKey = chain.toLowerCase();
+  
+  // First try to get from the official Address Book
+  if (chainKey in CHAIN_TO_AAVE_ADDRESS_BOOK) {
+    try {
+      const addressBook = CHAIN_TO_AAVE_ADDRESS_BOOK[chainKey]();
+      return {
+        POOL: addressBook.POOL,
+        POOL_ADDRESSES_PROVIDER: addressBook.POOL_ADDRESSES_PROVIDER,
+      };
+    } catch (error) {
+      console.warn(`Failed to load from Address Book for ${chain}:`, error);
+    }
   }
-  return AAVE_V3_ADDRESSES[chainKey];
+  
+  // Fall back to hardcoded addresses for backward compatibility
+  if (chainKey in AAVE_V3_ADDRESSES) {
+    return AAVE_V3_ADDRESSES[chainKey as keyof typeof AAVE_V3_ADDRESSES];
+  }
+  
+  throw new Error(
+    `Unsupported chain: ${chain}. Supported chains: ${[
+      ...Object.keys(CHAIN_TO_AAVE_ADDRESS_BOOK),
+      ...Object.keys(AAVE_V3_ADDRESSES)
+    ].join(", ")}`
+  );
 }
 
 /**
@@ -210,6 +255,58 @@ export function getTestTokens(chain: string) {
     );
   }
   return TEST_TOKENS[chainKey];
+}
+
+/**
+ * Get available markets (asset addresses) for a specific chain using the Aave Address Book
+ */
+export function getAvailableMarkets(chain: string): Record<string, string> {
+  const chainKey = chain.toLowerCase();
+  
+  // First try to get from the official Address Book
+  if (chainKey in CHAIN_TO_AAVE_ADDRESS_BOOK) {
+    try {
+      const addressBook = CHAIN_TO_AAVE_ADDRESS_BOOK[chainKey]();
+      const markets: Record<string, string> = {};
+      
+      // Extract asset addresses from the address book
+      // The address book contains ASSETS object with token addresses
+      if (addressBook.ASSETS) {
+        Object.keys(addressBook.ASSETS).forEach(assetKey => {
+          const asset = addressBook.ASSETS[assetKey];
+          if (asset.UNDERLYING) {
+            markets[assetKey] = asset.UNDERLYING;
+          }
+        });
+      }
+      
+      return markets;
+    } catch (error) {
+      console.warn(`Failed to load markets from Address Book for ${chain}:`, error);
+    }
+  }
+  
+  // Fall back to hardcoded test tokens for backward compatibility
+  if (chainKey in TEST_TOKENS) {
+    return TEST_TOKENS[chainKey as keyof typeof TEST_TOKENS];
+  }
+  
+  throw new Error(
+    `No markets available for chain: ${chain}. Supported chains: ${[
+      ...Object.keys(CHAIN_TO_AAVE_ADDRESS_BOOK),
+      ...Object.keys(TEST_TOKENS)
+    ].join(", ")}`
+  );
+}
+
+/**
+ * Get all supported chains
+ */
+export function getSupportedChains(): string[] {
+  return [
+    ...Object.keys(CHAIN_TO_AAVE_ADDRESS_BOOK),
+    ...Object.keys(AAVE_V3_ADDRESSES)
+  ];
 }
 
 /**

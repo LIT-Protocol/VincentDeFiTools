@@ -10,6 +10,17 @@ export var AaveOperation;
     AaveOperation["REPAY"] = "repay";
 })(AaveOperation || (AaveOperation = {}));
 /**
+ * Supported chains for validation
+ */
+const SUPPORTED_CHAINS = [
+    // Mainnets
+    "ethereum", "polygon", "avalanche", "arbitrum", "optimism", "base",
+    "fantom", "bnb", "gnosis", "scroll", "metis", "linea", "zksync",
+    // Testnets
+    "sepolia", "basesepolia", "arbitrumsepolia", "optimismsepolia",
+    "avalanchefuji", "scrollsepolia"
+];
+/**
  * Tool parameters schema - defines the input parameters for the AAVE tool
  */
 export const toolParamsSchema = z.object({
@@ -24,7 +35,7 @@ export const toolParamsSchema = z.object({
         .string()
         .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid address")
         .optional(),
-    chain: z.string(),
+    chain: z.string().refine((val) => SUPPORTED_CHAINS.includes(val.toLowerCase()), `Chain must be one of: ${SUPPORTED_CHAINS.join(", ")}`),
     rpcUrl: z.string().optional(),
 });
 /**
@@ -38,6 +49,8 @@ export const precheckSuccessSchema = z.object({
     allowance: z.string().optional(),
     borrowCapacity: z.string().optional(),
     estimatedGas: z.number().optional(),
+    availableMarkets: z.record(z.string()).optional(),
+    supportedChains: z.array(z.string()).optional(),
 });
 /**
  * Precheck failure result schema
