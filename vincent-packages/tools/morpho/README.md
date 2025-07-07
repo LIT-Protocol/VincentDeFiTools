@@ -31,7 +31,7 @@ import { getVaults, getTokenAddress } from "./lib/helpers";
 const vaults = await getVaults({
   assetSymbol: "USDC",
   chainId: 8453, // Base
-  minNetApy: 2.0,
+  minNetApy: 0.02, // 2% minimum (decimal format)
   minTvl: 1000000,
   sortBy: "netApy",
   sortOrder: "desc",
@@ -266,16 +266,59 @@ await client.execute('approve', {
 
 ## 📚 Examples & Documentation
 
-### Running Interactive Examples
+### Interactive Vault Search Examples
+
+The Morpho tool includes comprehensive TypeScript examples demonstrating real-world vault discovery scenarios:
 
 ```bash
 # Navigate to the morpho tool directory
 cd vincent-packages/tools/morpho
 
-# Run vault discovery examples
-node examples/vault-search.js
+# Run interactive vault search examples (TypeScript)
+npm run vault-search
+```
 
-# Run server-side filtering examples
+**What `npm run vault-search` demonstrates:**
+
+1. **📍 Chain-Specific Search** - Find high-yield vaults on specific chains (Base, Ethereum, etc.)
+2. **💰 Asset-Based Discovery** - Search for WETH vaults across all supported chains  
+3. **🎯 Combined Filtering** - Filter by asset + chain (e.g., USDC vaults on Base)
+4. **🏆 Advanced Filtering** - High-yield vaults with minimum TVL requirements
+5. **🔗 Multi-Asset Comparison** - Compare USDC vs WETH opportunities on same chain
+6. **✅ Whitelisted Vaults** - Find only curated, whitelisted vaults
+7. **📊 TVL Range Filtering** - Medium-sized vaults within specific TVL ranges
+8. **⚡ Multi-Chain Comparison** - Compare same asset across different chains
+
+**Example Output:**
+```
+🔧 Unified Vault Search Examples
+
+📍 Example 1: Vaults on Base Chain
+Found 23 vaults on Base:
+  1. Steakhouse USDC (USDC)
+     TVL: $12,450,123, APY: 5.2340%
+  2. Moonwell WETH Flagship (WETH)  
+     TVL: $8,920,456, APY: 4.8756%
+
+💰 Example 2: WETH Vaults Across All Chains
+Found 45 WETH vaults:
+  1. Gauntlet WETH Core on ethereum
+     APY: 6.1234%, TVL: $25,123,789
+  2. Steakhouse WETH on base
+     APY: 5.4567%, TVL: $15,456,123
+```
+
+The examples use **proper TypeScript types** and demonstrate **all filtering options** including:
+- `minNetApy: 0.05` (5% minimum APY using decimal format)
+- `minTvl: 1000000` ($1M minimum TVL)
+- `sortBy: "netApy"` and `sortOrder: "desc"`
+- `whitelistedOnly: true` for curated vaults
+- `excludeIdle: true` for active vaults only
+
+### Additional Examples
+
+```bash
+# Run server-side filtering examples  
 node examples/server-side-filtering.js
 ```
 

@@ -24,9 +24,9 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
     baseVaults.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(`  ${index + 1}. ${vault.name} (${vault.asset.symbol})`);
       console.log(
-        `     TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, APY: ${
-          (100 * (vault.metrics.netApy || 0)).toFixed(4)
-        }%`
+        `     TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, APY: ${(
+          100 * (vault.metrics.netApy || 0)
+        ).toFixed(4)}%`
       );
     });
     console.log("");
@@ -46,9 +46,9 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
     wethVaults.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(`  ${index + 1}. ${vault.name} on ${vault.chain.network}`);
       console.log(
-        `     APY: ${
-          (100 * (vault.metrics.netApy || 0)).toFixed(4)
-        }%, TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`
+        `     APY: ${(100 * (vault.metrics.netApy || 0)).toFixed(
+          4
+        )}%, TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`
       );
     });
     console.log("");
@@ -68,9 +68,9 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
     usdcBaseVaults.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(`  ${index + 1}. ${vault.name}`);
       console.log(
-        `     APY: ${
-          (100 * (vault.metrics.netApy || 0)).toFixed(4)
-        }%, TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, address: ${
+        `     APY: ${(100 * (vault.metrics.netApy || 0)).toFixed(
+          4
+        )}%, TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, address: ${
           vault.address
         }`
       );
@@ -97,49 +97,50 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
         }`
       );
       console.log(
-        `     APY: ${(100 * (vault.metrics.netApy || 0)).toFixed(4)}%, TVL: $${
-          vault.metrics.totalAssetsUsd.toLocaleString()
-        }`
+        `     APY: ${(100 * (vault.metrics.netApy || 0)).toFixed(
+          4
+        )}%, TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`
       );
     });
     console.log("");
 
     // Example 5: Multiple asset types on specific chain
     console.log("🔗 Example 5: USDC and WETH Vaults on Base");
-    const [usdcBase, wethBase]: [MorphoVaultInfo[], MorphoVaultInfo[]] = await Promise.all([
-      getVaults({
-        assetSymbol: "USDC",
-        chainId: CHAIN_IDS.base,
-        limit: 2,
-        excludeIdle: true,
-        sortBy: "netApy",
-        sortOrder: "desc",
-      }),
-      getVaults({
-        assetSymbol: "WETH",
-        chainId: CHAIN_IDS.base,
-        limit: 2,
-        excludeIdle: true,
-        sortBy: "netApy",
-        sortOrder: "desc",
-      }),
-    ]);
+    const [usdcBase, wethBase]: [MorphoVaultInfo[], MorphoVaultInfo[]] =
+      await Promise.all([
+        getVaults({
+          assetSymbol: "USDC",
+          chainId: CHAIN_IDS.base,
+          limit: 2,
+          excludeIdle: true,
+          sortBy: "netApy",
+          sortOrder: "desc",
+        }),
+        getVaults({
+          assetSymbol: "WETH",
+          chainId: CHAIN_IDS.base,
+          limit: 2,
+          excludeIdle: true,
+          sortBy: "netApy",
+          sortOrder: "desc",
+        }),
+      ]);
 
     console.log("Best USDC vaults on Base:");
     usdcBase.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(
-        `  ${index + 1}. ${vault.name} - ${
-          (100 * (vault.metrics.netApy || 0)).toFixed(4)
-        }% APY`
+        `  ${index + 1}. ${vault.name} - ${(
+          100 * (vault.metrics.netApy || 0)
+        ).toFixed(4)}% APY`
       );
     });
 
     console.log("Best WETH vaults on Base:");
     wethBase.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(
-        `  ${index + 1}. ${vault.name} - ${
-          (100 * (vault.metrics.netApy || 0)).toFixed(4)
-        }% APY`
+        `  ${index + 1}. ${vault.name} - ${(
+          100 * (vault.metrics.netApy || 0)
+        ).toFixed(4)}% APY`
       );
     });
     console.log("");
@@ -162,9 +163,9 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
         }`
       );
       console.log(
-        `     TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, APY: ${
-          (100 * (vault.metrics.netApy || 0)).toFixed(4)
-        }%`
+        `     TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, APY: ${(
+          100 * (vault.metrics.netApy || 0)
+        ).toFixed(4)}%`
       );
     });
     console.log("");
@@ -188,9 +189,9 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
         }`
       );
       console.log(
-        `     TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, APY: ${
-          (100 * (vault.metrics.netApy || 0)).toFixed(4)
-        }%`
+        `     TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, APY: ${(
+          100 * (vault.metrics.netApy || 0)
+        ).toFixed(4)}%`
       );
     });
     console.log("");
@@ -200,7 +201,7 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
     const chainsToCompare: number[] = [
       CHAIN_IDS.ethereum,
       CHAIN_IDS.base,
-      CHAIN_IDS.arbitrum,
+      CHAIN_IDS.polygon,
     ];
 
     for (const chainId of chainsToCompare) {
@@ -210,7 +211,7 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
       const bestUsdcVault: MorphoVaultInfo[] = await getVaults({
         assetSymbol: "USDC",
         chainId,
-        limit: 1,
+        limit: 100,
         excludeIdle: true,
         sortBy: "netApy",
         sortOrder: "desc",
@@ -219,9 +220,9 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
       if (bestUsdcVault.length > 0) {
         const vault: MorphoVaultInfo = bestUsdcVault[0];
         console.log(
-          `  ${chainName}: ${(100 * (vault.metrics.netApy || 0)).toFixed(4)}% APY (${
-            vault.name
-          })`
+          `  ${chainName}: ${(100 * (vault.metrics.netApy || 0)).toFixed(
+            4
+          )}% APY (${vault.name})`
         );
       } else {
         console.log(`  ${chainName}: No USDC vaults found`);
