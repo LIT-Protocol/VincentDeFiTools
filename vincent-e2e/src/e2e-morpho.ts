@@ -556,52 +556,60 @@ const CONFIRMATIONS_TO_WAIT = 2;
     // Test 9: Different sorting options
     console.log("📊 Test 9: Testing different sorting options");
     
-    // Test creation timestamp sorting
-    const newestVaults = await getVaults({
+    // Test sorting by USD TVL (ascending vs descending) - focuses on sort order validation
+    const largestVaultsByUsd = await getVaults({
       chainId: NETWORK_CONFIG.chainId,
-      sortBy: "creationTimestamp",
+      sortBy: "totalAssetsUsd",
       sortOrder: "desc",
       limit: 5,
       excludeIdle: true,
     });
 
-    const oldestVaults = await getVaults({
+    const smallestVaultsByUsd = await getVaults({
       chainId: NETWORK_CONFIG.chainId,
-      sortBy: "creationTimestamp",
+      sortBy: "totalAssetsUsd",
       sortOrder: "asc",
       limit: 5,
       excludeIdle: true,
     });
 
-    console.log(`   Newest vaults: ${newestVaults.length}`);
-    console.log(`   Oldest vaults: ${oldestVaults.length}`);
+    console.log(`   Largest vaults by USD TVL: ${largestVaultsByUsd.length}`);
+    console.log(`   Smallest vaults by USD TVL: ${smallestVaultsByUsd.length}`);
     
-    let timestampSortingValid = true;
+    let usdSortingValid = true;
     
-    // Check newest vaults are sorted correctly (descending)
-    for (let i = 1; i < newestVaults.length; i++) {
-      if (newestVaults[i].metrics.creationTimestamp > newestVaults[i-1].metrics.creationTimestamp) {
-        timestampSortingValid = false;
-        console.error(`   ❌ Newest vaults not sorted correctly`);
+    // Check largest vaults are sorted correctly (descending)
+    for (let i = 1; i < largestVaultsByUsd.length; i++) {
+      if (largestVaultsByUsd[i].metrics.totalAssetsUsd > largestVaultsByUsd[i-1].metrics.totalAssetsUsd) {
+        usdSortingValid = false;
+        console.error(`   ❌ Largest vaults not sorted correctly: vault ${i} ($${largestVaultsByUsd[i].metrics.totalAssetsUsd.toLocaleString()}) > vault ${i-1} ($${largestVaultsByUsd[i-1].metrics.totalAssetsUsd.toLocaleString()})`);
         break;
       }
     }
     
-    // Check oldest vaults are sorted correctly (ascending)
-    for (let i = 1; i < oldestVaults.length; i++) {
-      if (oldestVaults[i].metrics.creationTimestamp < oldestVaults[i-1].metrics.creationTimestamp) {
-        timestampSortingValid = false;
-        console.error(`   ❌ Oldest vaults not sorted correctly`);
+    // Check smallest vaults are sorted correctly (ascending)
+    for (let i = 1; i < smallestVaultsByUsd.length; i++) {
+      if (smallestVaultsByUsd[i].metrics.totalAssetsUsd < smallestVaultsByUsd[i-1].metrics.totalAssetsUsd) {
+        usdSortingValid = false;
+        console.error(`   ❌ Smallest vaults not sorted correctly: vault ${i} ($${smallestVaultsByUsd[i].metrics.totalAssetsUsd.toLocaleString()}) < vault ${i-1} ($${smallestVaultsByUsd[i-1].metrics.totalAssetsUsd.toLocaleString()})`);
         break;
       }
     }
     
-    if (timestampSortingValid) {
-      console.log("   ✅ Creation timestamp sorting works correctly");
-      addTestResult("Timestamp Sorting", true);
+    // Display some results
+    if (largestVaultsByUsd.length > 0) {
+      console.log("   💰 Largest vaults by USD TVL:");
+      largestVaultsByUsd.slice(0, 3).forEach((vault, index) => {
+        console.log(`      ${index + 1}. ${vault.name} - $${vault.metrics.totalAssetsUsd.toLocaleString()} TVL`);
+      });
+    }
+    
+    if (usdSortingValid) {
+      console.log("   ✅ USD TVL sorting works correctly");
+      addTestResult("USD TVL Sorting", true);
     } else {
-      console.error("   ❌ Creation timestamp sorting failed");
-      addTestResult("Timestamp Sorting", false);
+      console.error("   ❌ USD TVL sorting failed");
+      addTestResult("USD TVL Sorting", false);
     }
 
   } catch (error) {
