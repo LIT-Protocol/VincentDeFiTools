@@ -1,19 +1,5 @@
 import { ethers } from "ethers";
 /**
- * AAVE v3 Protocol Constants indexed by chain name
- * These are maintained for backward compatibility
- */
-export const AAVE_V3_ADDRESSES = {
-    sepolia: {
-        POOL: "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
-        POOL_ADDRESSES_PROVIDER: "0x0496275d34753A48320CA58103d5220d394FF77F",
-    },
-    base: {
-        POOL: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
-        POOL_ADDRESSES_PROVIDER: "0x2cc668854B4dB6f23563c088d4A0bE2ad7C3D6f0",
-    },
-};
-/**
  * Test token addresses indexed by chain name
  */
 export const TEST_TOKENS = {
@@ -36,9 +22,6 @@ export const CHAIN_IDS = {
     sepolia: 11155111,
     base: 8453,
 };
-// Backward compatibility exports
-export const AAVE_V3_SEPOLIA_ADDRESSES = AAVE_V3_ADDRESSES.sepolia;
-export const SEPOLIA_TEST_TOKENS = TEST_TOKENS.sepolia;
 /**
  * AAVE v3 Pool Contract ABI - Essential methods only
  */
@@ -210,13 +193,8 @@ export function getAaveAddresses(chain) {
             console.warn(`Failed to load from Address Book for ${chain}:`, error);
         }
     }
-    // Fall back to hardcoded addresses for backward compatibility
-    if (chainKey in AAVE_V3_ADDRESSES) {
-        return AAVE_V3_ADDRESSES[chainKey];
-    }
     throw new Error(`Unsupported chain: ${chain}. Supported chains: ${[
         ...Object.keys(CHAIN_TO_AAVE_ADDRESS_BOOK),
-        ...Object.keys(AAVE_V3_ADDRESSES)
     ].join(", ")}`);
 }
 /**
@@ -242,7 +220,7 @@ export function getAvailableMarkets(chain) {
             // Extract asset addresses from the address book
             // The address book contains ASSETS object with token addresses
             if (addressBook.ASSETS) {
-                Object.keys(addressBook.ASSETS).forEach(assetKey => {
+                Object.keys(addressBook.ASSETS).forEach((assetKey) => {
                     const asset = addressBook.ASSETS[assetKey];
                     if (asset.UNDERLYING) {
                         markets[assetKey] = asset.UNDERLYING;
@@ -261,17 +239,14 @@ export function getAvailableMarkets(chain) {
     }
     throw new Error(`No markets available for chain: ${chain}. Supported chains: ${[
         ...Object.keys(CHAIN_TO_AAVE_ADDRESS_BOOK),
-        ...Object.keys(TEST_TOKENS)
+        ...Object.keys(TEST_TOKENS),
     ].join(", ")}`);
 }
 /**
  * Get all supported chains
  */
 export function getSupportedChains() {
-    return [
-        ...Object.keys(CHAIN_TO_AAVE_ADDRESS_BOOK),
-        ...Object.keys(AAVE_V3_ADDRESSES)
-    ];
+    return [...Object.keys(CHAIN_TO_AAVE_ADDRESS_BOOK)];
 }
 /**
  * Utility function to validate Ethereum address
