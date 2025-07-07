@@ -83,7 +83,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
 
 // Test amounts
 const WETH_DEPOSIT_AMOUNT = "0.001"; // 0.01 WETH to deposit on AAVE
-const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to Morpho
+const USDC_BORROW_AMOUNT = "0.1"; // 0.1 USDC to borrow from AAVE and deposit to Morpho
 
 (async () => {
   /**
