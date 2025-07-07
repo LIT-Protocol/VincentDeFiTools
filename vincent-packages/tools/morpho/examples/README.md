@@ -14,21 +14,11 @@ This directory contains examples demonstrating the comprehensive vault discovery
 
 ### `vault-search.js` 🆕
 
-Demonstrates the new consolidated `getVaults()` function:
+Demonstrates the`getVaults()` function:
 
-- Replaces `getVaultsByAsset()` and `getVaultsByChain()`
 - Advanced filtering combinations (asset + chain + performance)
 - Multiple criteria search examples
 - Migration patterns from legacy functions
-
-### `server-side-filtering.js` ⚡
-
-Demonstrates server-side GraphQL filtering optimization:
-
-- Server-side filtering for chain, asset, whitelisted status, APY, and TVL
-- Client-side filtering only for computed properties like `isIdle`
-- Performance improvements through reduced data transfer
-- Combined filtering examples with multiple criteria
 
 ## 🚀 Running Examples
 
@@ -47,12 +37,11 @@ node examples/server-side-filtering.js
 
 ### Unified Vault Discovery
 
-- `getVaults(options)` - **NEW!** Unified function with server-side GraphQL filtering
+- `getVaults(options)` - Unified function with server-side GraphQL filtering
 - `getBestVaultsForAsset(symbol, limit)` - Top vaults for an asset
 - `getTopVaultsByApy(limit, minTvl)` - Highest yielding vaults
 - `getTopVaultsByTvl(limit)` - Largest vaults by TVL
 - `searchVaults(query, limit)` - Search by name/symbol
-
 
 ### Multi-Chain Support
 
@@ -164,6 +153,7 @@ interface VaultFilterOptions {
 The `getVaults()` function now uses proper server-side GraphQL filtering for maximum performance:
 
 **Server-side filters** (applied at GraphQL query level via `VaultFilters`):
+
 - `chainId` / `chain` - Network filtering (`chainId_in`)
 - `assetSymbol` / `assetAddress` - Asset filtering (`assetSymbol_in`, `assetAddress_in`)
 - `whitelistedOnly` - Whitelisted status filtering (`whitelisted`)
@@ -172,6 +162,7 @@ The `getVaults()` function now uses proper server-side GraphQL filtering for max
 - `minTotalAssets` / `maxTotalAssets` - Total assets filtering (`totalAssets_gte`, `totalAssets_lte`)
 
 **Client-side filters** (applied after data retrieval for computed properties):
+
 - `excludeIdle` - Computed idle status filtering (TVL < $100)
 
 This hybrid approach maximizes performance by filtering at the database level while maintaining support for computed properties.

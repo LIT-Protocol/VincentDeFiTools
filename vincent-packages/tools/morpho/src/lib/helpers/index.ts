@@ -240,7 +240,6 @@ export function getTokenAddress(symbol: string, chainId: number): string {
   return tokens[upperSymbol];
 }
 
-
 /**
  * Check if a chain is supported by Morpho
  */
@@ -481,7 +480,7 @@ export class MorphoVaultClient {
     options: VaultFilterOptions = {}
   ): Promise<MorphoVaultInfo[]> {
     console.log("getAllVaults", options);
-    
+
     // Build GraphQL where clause from options
     const whereClause = this.buildVaultFilters(options);
 
@@ -821,8 +820,6 @@ export class MorphoVaultClient {
     return filtered;
   }
 
-
-
   /**
    * Map sortBy option to GraphQL enum
    */
@@ -895,7 +892,6 @@ export async function getVaults(
 ): Promise<MorphoVaultInfo[]> {
   return morphoVaultClient.getVaults(options);
 }
-
 
 /**
  * Get supported chains with active vaults
