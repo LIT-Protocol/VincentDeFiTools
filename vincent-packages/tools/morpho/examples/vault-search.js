@@ -79,7 +79,7 @@ async function demonstrateUnifiedVaultSearch() {
     // Example 4: Advanced filtering - High APY vaults with minimum TVL
     console.log("🏆 Example 4: High-Yield Vaults (>5% APY, >$1M TVL)");
     const highYieldVaults = await getVaults({
-      minApy: 5.0,
+      minApy: 0.05,
       minTvl: 1000000, // $1M minimum TVL
       excludeIdle: true,
       sortBy: "apy",

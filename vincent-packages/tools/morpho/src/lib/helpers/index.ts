@@ -504,7 +504,7 @@ export interface MorphoVaultInfo {
  * const vaults = await getVaults({
  *   assetSymbol: "USDC",
  *   chainId: 8453,
- *   minNetApy: 5.0,
+ *   minNetApy: 0.05,
  *   sortBy: "netApy",
  *   sortOrder: "desc",
  *   limit: 10
@@ -1063,7 +1063,7 @@ export async function getVaultsByPreset(
  * // Find best USDC vaults across all chains
  * const topVaults = await getVaults({
  *   assetSymbol: "USDC",
- *   minNetApy: 5.0,
+ *   minNetApy: 0.05,
  *   minTvl: 1000000,
  *   sortBy: "netApy",
  *   sortOrder: "desc",

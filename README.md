@@ -129,7 +129,7 @@ import {
 
 // Find high-yield opportunities across all chains
 const opportunities = await getVaults({
-  minNetApy: 5.0, // >5% Net APY
+  minNetApy: 0.05, // >5% Net APY
   minTvl: 1000000, // >$1M TVL
   sortBy: "netApy", // Sort by net yield
   sortOrder: "desc", // Highest first

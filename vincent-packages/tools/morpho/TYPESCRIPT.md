@@ -15,7 +15,7 @@ import { getVaults, VaultFilterOptions, MorphoVaultInfo } from './lib/helpers';
 const vaults: MorphoVaultInfo[] = await getVaults({
   assetSymbol: "USDC",     // Autocomplete: "USDC" | "WETH" | "USDT" | string
   chainId: 8453,           // Type: number (supports all chain IDs)
-  minNetApy: 5.0,          // Type: number
+  minNetApy: 0.05,          // Type: number
   sortBy: "netApy",        // Autocomplete: "netApy" | "totalAssets" | "totalAssetsUsd" | "creationTimestamp"
   sortOrder: "desc",       // Autocomplete: "asc" | "desc"
   limit: 10,               // Type: number
@@ -198,7 +198,7 @@ Your IDE will provide:
 const options: VaultFilterOptions = {
   assetSymbol: "USDC",  // ✅ Valid token symbol
   chainId: 8453,        // ✅ Valid Base chain ID
-  minNetApy: 5.0,       // ✅ Valid number
+  minNetApy: 0.05,       // ✅ Valid number
   sortBy: "netApy",     // ✅ Valid sort field - autocomplete suggests options
   sortOrder: "desc",    // ✅ Valid order - autocomplete suggests "asc" | "desc"
   excludeIdle: true,    // ✅ Valid boolean

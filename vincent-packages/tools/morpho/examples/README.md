@@ -98,7 +98,7 @@ import { getVaults, getTokenAddress } from "./helpers";
 const vaults = await getVaults({
   assetSymbol: "WETH",
   chainId: 8453, // Base
-  minApy: 5.0,
+  minApy: 0.05,
   minTvl: 1000000,
   limit: 5,
 });
