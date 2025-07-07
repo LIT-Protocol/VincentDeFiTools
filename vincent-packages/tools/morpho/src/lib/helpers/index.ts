@@ -209,6 +209,68 @@ export type SupportedChainId = keyof typeof WELL_KNOWN_TOKENS;
 export type SupportedChainName = keyof typeof CHAIN_IDS;
 
 /**
+ * Supported token symbols for vault filtering
+ */
+export type TokenSymbol = "USDC" | "WETH" | "USDT";
+
+/**
+ * Supported sorting fields for vault queries
+ */
+export type VaultSortBy = "netApy" | "totalAssets" | "totalAssetsUsd" | "creationTimestamp";
+
+/**
+ * Sort order options
+ */
+export type SortOrder = "asc" | "desc";
+
+/**
+ * Chain identifier (can be chain ID number or chain name string)
+ */
+export type ChainIdentifier = number | string;
+
+/**
+ * Common vault filtering presets for quick searches
+ */
+export type VaultFilterPresets = {
+  /** Find high-yield vaults across all chains */
+  highYield: VaultFilterOptions;
+  /** Find stable, low-risk vaults */
+  stable: VaultFilterOptions;
+  /** Find vaults with high TVL */
+  highTvl: VaultFilterOptions;
+};
+
+/**
+ * Pre-configured filter presets for common use cases
+ */
+export const VAULT_FILTER_PRESETS: VaultFilterPresets = {
+  highYield: {
+    minNetApy: 8.0,
+    minTvl: 1000000,
+    sortBy: "netApy",
+    sortOrder: "desc",
+    excludeIdle: true,
+    limit: 10,
+  },
+  stable: {
+    minTvl: 5000000,
+    maxNetApy: 15.0,
+    whitelistedOnly: true,
+    sortBy: "totalAssetsUsd",
+    sortOrder: "desc",
+    excludeIdle: true,
+    limit: 10,
+  },
+  highTvl: {
+    minTvl: 10000000,
+    sortBy: "totalAssetsUsd",
+    sortOrder: "desc",
+    excludeIdle: true,
+    limit: 20,
+  },
+};
+
+/**
  * Get well-known token addresses for a specific chain
  */
 export function getTokenAddresses(chainId: number) {
@@ -354,67 +416,136 @@ export async function validateOperationRequirements(
 }
 
 /**
- * Morpho Vault Information Interface
+ * Comprehensive Morpho Vault Information
+ * 
+ * Contains all vault details including address, asset info, chain data,
+ * performance metrics, and status information.
+ * 
+ * @example
+ * ```typescript
+ * const vaults = await getVaults({ limit: 1 });
+ * const vault = vaults[0];
+ * 
+ * console.log(`Vault: ${vault.name}`);
+ * console.log(`Asset: ${vault.asset.symbol}`);
+ * console.log(`Chain: ${vault.chain.network}`);
+ * console.log(`Net APY: ${vault.metrics.netApy}%`);
+ * console.log(`TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`);
+ * ```
  */
 export interface MorphoVaultInfo {
+  /** Vault contract address (0x format) */
   address: string;
+  /** Human-readable vault name */
   name: string;
+  /** Vault token symbol */
   symbol: string;
+  /** Underlying asset information */
   asset: {
+    /** Asset contract address */
     address: string;
+    /** Asset symbol (e.g., "USDC", "WETH") */
     symbol: string;
+    /** Full asset name */
     name: string;
+    /** Token decimals */
     decimals: number;
   };
+  /** Blockchain information */
   chain: {
+    /** Chain ID (1=Ethereum, 8453=Base, etc.) */
     id: number;
+    /** Chain name ("ethereum", "base", etc.) */
     network: string;
   };
+  /** Performance and financial metrics */
   metrics: {
+    /** Gross APY percentage (before fees) */
     apy: number;
+    /** Net APY percentage (after fees) - most accurate for users */
     netApy: number;
+    /** Total assets in vault (in token units as string) */
     totalAssets: string;
+    /** Total Value Locked in USD */
     totalAssetsUsd: number;
+    /** Vault fee percentage */
     fee: number;
+    /** Additional reward tokens and APRs */
     rewards?: Array<{
+      /** Reward token address */
       asset: string;
+      /** Supply APR for this reward */
       supplyApr: number;
+      /** Yearly supply tokens amount */
       yearlySupplyTokens: string;
     }>;
   };
+  /** Whether vault is whitelisted by Morpho */
   whitelisted: boolean;
+  /** Vault creation timestamp */
   creationTimestamp: number;
+  /** Whether vault has low activity (< $100 TVL) */
   isIdle?: boolean;
 }
 
 /**
- * Unified Vault Filter Options
- * Supports filtering by asset, chain, performance metrics, and more
+ * Unified Vault Filter Options for the getVaults() function
+ * 
+ * Supports comprehensive filtering by asset, chain, performance metrics, and more.
+ * All filters use server-side GraphQL queries for optimal performance.
+ * 
+ * @example
+ * ```typescript
+ * // Find high-yield USDC vaults on Base
+ * const vaults = await getVaults({
+ *   assetSymbol: "USDC",
+ *   chainId: 8453,
+ *   minNetApy: 5.0,
+ *   sortBy: "netApy",
+ *   sortOrder: "desc",
+ *   limit: 10
+ * });
+ * ```
  */
 export interface VaultFilterOptions {
   // Asset filtering
-  assetSymbol?: string;
+  /** Filter by token symbol (e.g., "USDC", "WETH", "USDT") */
+  assetSymbol?: TokenSymbol | string;
+  /** Filter by specific token contract address */
   assetAddress?: string;
 
   // Chain filtering (supports both name and ID for flexibility)
+  /** Chain identifier - supports chain name or ID */
   chain?: string | number;
+  /** Specific chain ID (1=Ethereum, 8453=Base, 42161=Arbitrum, etc.) */
   chainId?: number;
 
   // Performance filtering
+  /** Minimum Net APY percentage (after fees) */
   minNetApy?: number;
+  /** Maximum Net APY percentage (after fees) */
   maxNetApy?: number;
+  /** Minimum total assets in vault (in token units) */
   minTotalAssets?: number;
+  /** Maximum total assets in vault (in token units) */
   maxTotalAssets?: number;
-  minTvl?: number; // Minimum TVL in USD
-  maxTvl?: number; // Maximum TVL in USD
+  /** Minimum Total Value Locked in USD */
+  minTvl?: number;
+  /** Maximum Total Value Locked in USD */
+  maxTvl?: number;
 
   // Vault status filtering
+  /** Only include whitelisted vaults */
   whitelistedOnly?: boolean;
+  /** Exclude low-activity vaults (< $100 TVL) */
   excludeIdle?: boolean;
 
   // Sorting and pagination
-  sortBy?: "netApy" | "totalAssets" | "totalAssetsUsd" | "creationTimestamp";
-  sortOrder?: "asc" | "desc";
+  /** Field to sort results by */
+  sortBy?: VaultSortBy;
+  /** Sort order: ascending or descending */
+  sortOrder?: SortOrder;
+  /** Maximum number of results to return */
   limit?: number;
 }
 
@@ -885,8 +1016,76 @@ export async function searchVaults(
 }
 
 /**
- * Unified function to get vaults with flexible filtering
- * Supports filtering by asset, chain, performance metrics, and more
+ * 🚀 **Quick Vault Search with Presets**
+ * 
+ * Get vaults using pre-configured filter presets for common use cases.
+ * 
+ * @param preset - Pre-configured filter preset
+ * @param overrides - Additional options to override preset defaults
+ * @returns Promise resolving to array of vault information
+ * 
+ * @example
+ * ```typescript
+ * // Find high-yield vaults
+ * const highYieldVaults = await getVaultsByPreset("highYield");
+ * 
+ * // Find high-yield USDC vaults specifically
+ * const usdcHighYield = await getVaultsByPreset("highYield", {
+ *   assetSymbol: "USDC"
+ * });
+ * 
+ * // Find stable vaults on Base chain
+ * const stableBaseVaults = await getVaultsByPreset("stable", {
+ *   chainId: 8453
+ * });
+ * ```
+ */
+export async function getVaultsByPreset(
+  preset: keyof VaultFilterPresets,
+  overrides: Partial<VaultFilterOptions> = {}
+): Promise<MorphoVaultInfo[]> {
+  const presetOptions = VAULT_FILTER_PRESETS[preset];
+  const mergedOptions = { ...presetOptions, ...overrides };
+  return getVaults(mergedOptions);
+}
+
+/**
+ * 🔍 **Primary Vault Discovery Function**
+ * 
+ * Get Morpho vaults with comprehensive filtering and sorting options.
+ * Uses server-side GraphQL queries for optimal performance.
+ * 
+ * @param options - Vault filtering and sorting options
+ * @returns Promise resolving to array of vault information
+ * 
+ * @example
+ * ```typescript
+ * // Find best USDC vaults across all chains
+ * const topVaults = await getVaults({
+ *   assetSymbol: "USDC",
+ *   minNetApy: 5.0,
+ *   minTvl: 1000000,
+ *   sortBy: "netApy",
+ *   sortOrder: "desc",
+ *   limit: 5
+ * });
+ * 
+ * // Filter by specific chain
+ * const baseVaults = await getVaults({
+ *   chainId: 8453, // Base
+ *   excludeIdle: true,
+ *   sortBy: "totalAssetsUsd"
+ * });
+ * 
+ * // Search with multiple criteria
+ * const premiumVaults = await getVaults({
+ *   minNetApy: 10.0,
+ *   minTvl: 5000000,
+ *   whitelistedOnly: true,
+ *   sortBy: "netApy",
+ *   limit: 3
+ * });
+ * ```
  */
 export async function getVaults(
   options: VaultFilterOptions = {}
