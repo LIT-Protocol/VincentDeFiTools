@@ -50,18 +50,18 @@ const NETWORK_CONFIG = {
   // Get token addresses dynamically based on chain
   get testTokens() {
     return {
-      WETH: getTokenAddress('WETH', this.chainId),
-      USDC: getTokenAddress('USDC', this.chainId),
-      USDT: getTokenAddress('USDT', this.chainId),
+      WETH: getTokenAddress("WETH", this.chainId),
+      USDC: getTokenAddress("USDC", this.chainId),
+      USDT: getTokenAddress("USDT", this.chainId),
     };
   },
 
   // Convenience getters for commonly used addresses
   get wethAddress() {
-    return getTokenAddress('WETH', this.chainId);
+    return getTokenAddress("WETH", this.chainId);
   },
   get usdcAddress() {
-    return getTokenAddress('USDC', this.chainId);
+    return getTokenAddress("USDC", this.chainId);
   },
 
   // Dynamic vault discovery methods
@@ -76,14 +76,13 @@ const NETWORK_CONFIG = {
     return vaults.map((vault) => vault.address);
   },
   async getBestWethVaults(limit: number = 5) {
-    return getBestVaultsForAsset('WETH', limit);
+    return getBestVaultsForAsset("WETH", limit);
   },
   async getChainSummary() {
     return getVaultDiscoverySummary(this.chainId);
   },
 } as const;
 
-const VAULT_ASSET_DECIMALS = 18; // WETH has 18 decimals
 const CONFIRMATIONS_TO_WAIT = 2;
 
 (async () => {
@@ -93,15 +92,17 @@ const CONFIRMATIONS_TO_WAIT = 2;
    * ====================================
    */
   console.log("🌐 Discovering supported chains and vault ecosystem...");
-  
+
   try {
     // Get all supported chains with active vaults
     const supportedChains = await getSupportedChainsWithVaults();
     console.log("📋 Morpho-supported chains with active vaults:");
     supportedChains.forEach((chain) => {
-      console.log(`   ${chain.name} (${chain.chainId}): ${chain.vaultCount} vaults`);
+      console.log(
+        `   ${chain.name} (${chain.chainId}): ${chain.vaultCount} vaults`
+      );
     });
-    
+
     // Get detailed summary for current chain
     const chainSummary = await NETWORK_CONFIG.getChainSummary();
     console.log(`\n📊 ${chainSummary.chainName} Chain Summary:`);
@@ -109,12 +110,21 @@ const CONFIRMATIONS_TO_WAIT = 2;
     console.log(`   Total TVL: $${chainSummary.totalTvl.toLocaleString()}`);
     console.log(`   Asset Breakdown:`);
     chainSummary.assetBreakdown.slice(0, 5).forEach((asset) => {
-      console.log(`     ${asset.symbol}: ${asset.count} vaults, $${asset.totalTvl.toLocaleString()} TVL, ${asset.maxApy.toFixed(2)}% max APY`);
+      console.log(
+        `     ${asset.symbol}: ${
+          asset.count
+        } vaults, $${asset.totalTvl.toLocaleString()} TVL, ${asset.maxApy.toFixed(
+          2
+        )}% max APY`
+      );
     });
-    
+
     addTestResult("Multi-Chain Discovery", true);
   } catch (error) {
-    console.error("❌ Failed to discover multi-chain ecosystem:", error.message);
+    console.error(
+      "❌ Failed to discover multi-chain ecosystem:",
+      error.message
+    );
     addTestResult("Multi-Chain Discovery", false, error.message);
   }
 
@@ -125,44 +135,59 @@ const CONFIRMATIONS_TO_WAIT = 2;
    */
   console.log("🔍 Discovering best WETH vault dynamically...");
   let dynamicWethVaultAddress: string;
-  
+
   try {
     // Get best WETH vault for this chain
     const bestVaults = await getVaults({
-      assetSymbol: 'WETH',
+      assetSymbol: "WETH",
       chainId: NETWORK_CONFIG.chainId,
       sortBy: "apy",
       sortOrder: "desc",
-      limit: 1,
+      limit: 100,
       excludeIdle: true,
     });
-    
+
     if (bestVaults.length === 0) {
       throw new Error(`No WETH vaults found on ${NETWORK_NAME}`);
     }
-    
+
     dynamicWethVaultAddress = bestVaults[0].address;
-    console.log(`✅ Found best WETH vault: ${dynamicWethVaultAddress}`);
-    
+    console.log(
+      `✅ Found best WETH vault: ${dynamicWethVaultAddress} with APY: ${
+        100 * bestVaults[0].metrics.netApy.toFixed(4)
+      }%`
+    );
+
     // Get vault details for logging
-    const wethVaults = await getBestVaultsForAsset('WETH', 3);
-    const chainVaults = wethVaults.filter((vault: any) => vault.chain.id === NETWORK_CONFIG.chainId);
-    
+    const wethVaults = await getBestVaultsForAsset("WETH", 100);
+    const chainVaults = wethVaults.filter(
+      (vault: any) => vault.chain.id === NETWORK_CONFIG.chainId
+    );
+
     if (chainVaults.length > 0) {
       console.log("📊 Top WETH vaults on", NETWORK_NAME + ":");
       chainVaults.forEach((vault, index) => {
         console.log(`   ${index + 1}. ${vault.name} (${vault.symbol})`);
         console.log(`      Address: ${vault.address}`);
-        console.log(`      APY: ${vault.metrics.apy.toFixed(2)}%`);
-        console.log(`      TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`);
-        console.log(`      Asset: ${vault.asset.symbol} (${vault.asset.address})`);
+        console.log(`      APY: ${100 * vault.metrics.netApy.toFixed(4)}%`);
+        console.log(
+          `      TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`
+        );
+        console.log(
+          `      Asset: ${vault.asset.symbol} (${vault.asset.address})`
+        );
       });
     }
-    
+
     addTestResult("Dynamic WETH Vault Discovery", true);
   } catch (error) {
-    console.error("❌ Failed to discover WETH vault dynamically:", error.message);
-    throw new Error(`Cannot proceed without a valid WETH vault address: ${error.message}`);
+    console.error(
+      "❌ Failed to discover WETH vault dynamically:",
+      error.message
+    );
+    throw new Error(
+      `Cannot proceed without a valid WETH vault address: ${error.message}`
+    );
   }
 
   /**
@@ -379,7 +404,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // Morpho Tool Testing - Complete Workflow
   // ========================================
   console.log("🧪 Testing Morpho Tool - Vault Workflow");
-  console.log("📋 Workflow: Deposit WETH → Redeem vault shares for WETH + rewards");
+  console.log(
+    "📋 Workflow: Deposit WETH → Redeem vault shares for WETH + rewards"
+  );
 
   // Store initial balances for comparison throughout the workflow
   let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);
@@ -606,8 +633,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
           const postDepositWethBalance = await wethContract.balanceOf(
             agentWalletPkp.ethAddress
           );
-          const postDepositWethBalanceFormatted =
-            ethers.utils.formatEther(postDepositWethBalance);
+          const postDepositWethBalanceFormatted = ethers.utils.formatEther(
+            postDepositWethBalance
+          );
           console.log(
             `   Post-deposit WETH balance: ${postDepositWethBalanceFormatted} WETH`
           );
@@ -616,7 +644,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
           const postDepositShares = await vaultContract.balanceOf(
             agentWalletPkp.ethAddress
           );
-          const postDepositSharesFormatted = ethers.utils.formatEther(postDepositShares);
+          const postDepositSharesFormatted =
+            ethers.utils.formatEther(postDepositShares);
           console.log(
             `   Post-deposit vault shares: ${postDepositSharesFormatted} shares`
           );
@@ -632,8 +661,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
           );
 
           // Validation 1: WETH balance should be reduced
-          const wethBalanceCorrect = postDepositWethBalance.eq(expectedWethBalance);
-          
+          const wethBalanceCorrect =
+            postDepositWethBalance.eq(expectedWethBalance);
+
           // Validation 2: Should have received vault shares (greater than 0)
           const hasVaultShares = postDepositShares.gt(0);
 
@@ -676,7 +706,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
       }
     } else {
       const errorMsg = `Deposit precheck failed: ${
-        "error" in morphoDepositPrecheckRes ? morphoDepositPrecheckRes.error : "Unknown precheck error"
+        "error" in morphoDepositPrecheckRes
+          ? morphoDepositPrecheckRes.error
+          : "Unknown precheck error"
       }`;
       console.log("❌ (MORPHO-PRECHECK-DEPOSIT)", errorMsg);
       console.log(
@@ -702,26 +734,30 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // Get vault position for redeem operation
   let userVaultShares: ethers.BigNumber;
   let userVaultSharesFormatted: string;
-  
+
   try {
     console.log("🔍 Checking vault position before redeem...");
-    
+
     userVaultShares = await vaultContract.balanceOf(agentWalletPkp.ethAddress);
     userVaultSharesFormatted = ethers.utils.formatEther(userVaultShares);
-    
+
     // Estimate assets that will be received for shares
-    const estimatedAssets = await vaultContract.convertToAssets(userVaultShares);
+    const estimatedAssets = await vaultContract.convertToAssets(
+      userVaultShares
+    );
     const estimatedAssetsFormatted = ethers.utils.formatEther(estimatedAssets);
-    
+
     console.log(`   User vault shares: ${userVaultSharesFormatted} shares`);
-    console.log(`   Estimated WETH to receive: ${estimatedAssetsFormatted} WETH`);
+    console.log(
+      `   Estimated WETH to receive: ${estimatedAssetsFormatted} WETH`
+    );
     console.log(`   Redeeming all vault shares for WETH + rewards`);
-    
+
     // Verify user has shares to redeem
     if (userVaultShares.eq(0)) {
       throw new Error("No vault shares found to redeem");
     }
-    
+
     addTestResult("Morpho Pre-Redeem Check", true);
   } catch (error) {
     console.log("❌ Could not check vault position:", error.message);
@@ -753,9 +789,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
       morphoRedeemPrecheckRes.success &&
       !("error" in morphoRedeemPrecheckRes.result)
     ) {
-      console.log(
-        "✅ (MORPHO-PRECHECK-REDEEM) Share redeem precheck passed"
-      );
+      console.log("✅ (MORPHO-PRECHECK-REDEEM) Share redeem precheck passed");
 
       // Execute the redeem operation
       console.log("🚀 (MORPHO-REDEEM) Executing share redeem operation...");
@@ -816,8 +850,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
           const postRedeemWethBalance = await wethContract.balanceOf(
             agentWalletPkp.ethAddress
           );
-          const postRedeemWethBalanceFormatted =
-            ethers.utils.formatEther(postRedeemWethBalance);
+          const postRedeemWethBalanceFormatted = ethers.utils.formatEther(
+            postRedeemWethBalance
+          );
           console.log(
             `   Post-redeem WETH balance: ${postRedeemWethBalanceFormatted} WETH`
           );
@@ -826,26 +861,30 @@ const CONFIRMATIONS_TO_WAIT = 2;
           const postRedeemShares = await vaultContract.balanceOf(
             agentWalletPkp.ethAddress
           );
-          const postRedeemSharesFormatted = ethers.utils.formatEther(postRedeemShares);
+          const postRedeemSharesFormatted =
+            ethers.utils.formatEther(postRedeemShares);
           console.log(
             `   Post-redeem vault shares: ${postRedeemSharesFormatted} shares`
           );
 
           // Reference balances for validation
-          const initialWethFormatted = ethers.utils.formatEther(initialWethBalance);
+          const initialWethFormatted =
+            ethers.utils.formatEther(initialWethBalance);
           console.log(`   Initial WETH balance: ${initialWethFormatted} WETH`);
-          
+
           // Calculate deposited amount for comparison
           const depositedAmount = ethers.utils.parseEther(WETH_DEPOSIT_AMOUNT);
-          const depositedAmountFormatted = ethers.utils.formatEther(depositedAmount);
+          const depositedAmountFormatted =
+            ethers.utils.formatEther(depositedAmount);
           console.log(`   Amount deposited: ${depositedAmountFormatted} WETH`);
 
           // Validation 1: WETH balance should be at least initial amount (may be more due to rewards)
-          const wethBalanceIncreased = postRedeemWethBalance.gte(initialWethBalance);
-          
+          const wethBalanceIncreased =
+            postRedeemWethBalance.gte(initialWethBalance);
+
           // Validation 2: WETH balance should be higher than what we deposited (rewards earned)
           const earnedRewards = postRedeemWethBalance.gt(depositedAmount);
-          
+
           // Validation 3: Vault shares should be 0 or very close to 0 (allowing for rounding dust)
           const maxDustShares = ethers.utils.parseUnits("0.000001", 18); // 1 microshare tolerance
           const vaultSharesEmpty = postRedeemShares.lte(maxDustShares);
@@ -858,7 +897,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
             console.log("✅ WETH balance returned to at least initial amount");
             console.log(`✅ Rewards earned: ${rewardsFormatted} WETH`);
             console.log("✅ Vault shares successfully redeemed (balance ~0)");
-            console.log(`✅ Total return higher than deposit (${postRedeemWethBalanceFormatted} WETH > ${depositedAmountFormatted} WETH)`);
+            console.log(
+              `✅ Total return higher than deposit (${postRedeemWethBalanceFormatted} WETH > ${depositedAmountFormatted} WETH)`
+            );
             addTestResult("Morpho Redeem WETH", true);
           } else {
             let errorMsg = "";
@@ -898,7 +939,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
       }
     } else {
       const errorMsg = `Redeem precheck failed: ${
-        "error" in morphoRedeemPrecheckRes ? morphoRedeemPrecheckRes.error : "Unknown precheck error"
+        "error" in morphoRedeemPrecheckRes
+          ? morphoRedeemPrecheckRes.error
+          : "Unknown precheck error"
       }`;
       console.log("❌ (MORPHO-PRECHECK-REDEEM)", errorMsg);
       console.log(
