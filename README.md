@@ -16,7 +16,7 @@ This project demonstrates how to build comprehensive blockchain tools using the 
 ### Morpho Protocol Integration
 
 - **🔍 Advanced Vault Discovery**: Dynamic vault search with real-time APY, TVL, and metrics
-- **⚡ Server-Side Filtering**: High-performance vault discovery using GraphQL queries  
+- **⚡ Powerful Filtering**: High-performance vault discovery using GraphQL queries
 - **🌐 Multi-Chain Support**: Works across Ethereum, Base, Arbitrum, Optimism, Polygon
 - **💎 Vault Operations**: Deposit assets and redeem vault shares for yield farming
 
@@ -122,20 +122,25 @@ The Morpho tool includes powerful vault discovery capabilities that set it apart
 ### Real-Time Vault Search
 
 ```typescript
-import { getVaults, getTokenAddress } from "./vincent-packages/tools/morpho/lib/helpers";
+import {
+  getVaults,
+  getTokenAddress,
+} from "./vincent-packages/tools/morpho/lib/helpers";
 
 // Find high-yield opportunities across all chains
 const opportunities = await getVaults({
-  minApy: 5.0,           // >5% APY
-  minTvl: 1000000,       // >$1M TVL
-  sortBy: "apy",         // Sort by yield
-  sortOrder: "desc",     // Highest first
-  excludeIdle: true,     // Active vaults only
+  minApy: 5.0, // >5% APY
+  minTvl: 1000000, // >$1M TVL
+  sortBy: "apy", // Sort by yield
+  sortOrder: "desc", // Highest first
+  excludeIdle: true, // Active vaults only
 });
 
 console.log(`Found ${opportunities.length} high-yield opportunities:`);
-opportunities.forEach(vault => {
-  console.log(`${vault.name}: ${vault.metrics.apy}% APY on ${vault.chain.network}`);
+opportunities.forEach((vault) => {
+  console.log(
+    `${vault.name}: ${vault.metrics.apy}% APY on ${vault.chain.network}`
+  );
 });
 ```
 
@@ -153,7 +158,7 @@ for (const chainId of chains) {
     sortBy: "apy",
     sortOrder: "desc",
   });
-  
+
   if (vaults.length > 0) {
     console.log(`${vaults[0].chain.network}: ${vaults[0].metrics.apy}% APY`);
   }
@@ -163,7 +168,7 @@ for (const chainId of chains) {
 ### Key Features
 
 - **⚡ Server-Side Filtering**: 80-95% faster queries using GraphQL
-- **📊 Real-Time Data**: Live APY, TVL, and vault metrics  
+- **📊 Real-Time Data**: Live APY, TVL, and vault metrics
 - **🌐 Multi-Chain**: Ethereum, Base, Arbitrum, Optimism, Polygon
 - **🎯 Flexible Search**: Filter by asset, chain, APY, TVL, and more
 - **🚀 Zero Hardcoded Addresses**: All vault addresses discovered dynamically
