@@ -249,7 +249,7 @@ export type VaultFilterPresets = {
  */
 export const VAULT_FILTER_PRESETS: VaultFilterPresets = {
   highYield: {
-    minNetApy: 8.0,
+    minNetApy: 0.08,
     minTvl: 1000000,
     sortBy: "netApy",
     sortOrder: "desc",
@@ -258,7 +258,7 @@ export const VAULT_FILTER_PRESETS: VaultFilterPresets = {
   },
   stable: {
     minTvl: 5000000,
-    maxNetApy: 15.0,
+    maxNetApy: 0.15,
     whitelistedOnly: true,
     sortBy: "totalAssetsUsd",
     sortOrder: "desc",
