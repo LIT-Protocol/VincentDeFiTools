@@ -216,7 +216,11 @@ export type TokenSymbol = "USDC" | "WETH" | "USDT";
 /**
  * Supported sorting fields for vault queries
  */
-export type VaultSortBy = "netApy" | "totalAssets" | "totalAssetsUsd" | "creationTimestamp";
+export type VaultSortBy =
+  | "netApy"
+  | "totalAssets"
+  | "totalAssetsUsd"
+  | "creationTimestamp";
 
 /**
  * Sort order options
@@ -417,15 +421,15 @@ export async function validateOperationRequirements(
 
 /**
  * Comprehensive Morpho Vault Information
- * 
+ *
  * Contains all vault details including address, asset info, chain data,
  * performance metrics, and status information.
- * 
+ *
  * @example
  * ```typescript
  * const vaults = await getVaults({ limit: 1 });
  * const vault = vaults[0];
- * 
+ *
  * console.log(`Vault: ${vault.name}`);
  * console.log(`Asset: ${vault.asset.symbol}`);
  * console.log(`Chain: ${vault.chain.network}`);
@@ -490,10 +494,10 @@ export interface MorphoVaultInfo {
 
 /**
  * Unified Vault Filter Options for the getVaults() function
- * 
+ *
  * Supports comprehensive filtering by asset, chain, performance metrics, and more.
  * All filters use server-side GraphQL queries for optimal performance.
- * 
+ *
  * @example
  * ```typescript
  * // Find high-yield USDC vaults on Base
@@ -611,8 +615,6 @@ export class MorphoVaultClient {
   async getAllVaults(
     options: VaultFilterOptions = {}
   ): Promise<MorphoVaultInfo[]> {
-    console.log("getAllVaults", options);
-
     // Build GraphQL where clause from options
     const whereClause = this.buildVaultFilters(options);
 
@@ -928,8 +930,6 @@ export class MorphoVaultClient {
       filters.totalAssets_lte = options.maxTotalAssets.toString();
     }
 
-    console.log("Built VaultFilters:", filters);
-
     // Return null if no filters to avoid empty where clause
     return Object.keys(filters).length > 0 ? filters : null;
   }
@@ -1017,23 +1017,23 @@ export async function searchVaults(
 
 /**
  * 🚀 **Quick Vault Search with Presets**
- * 
+ *
  * Get vaults using pre-configured filter presets for common use cases.
- * 
+ *
  * @param preset - Pre-configured filter preset
  * @param overrides - Additional options to override preset defaults
  * @returns Promise resolving to array of vault information
- * 
+ *
  * @example
  * ```typescript
  * // Find high-yield vaults
  * const highYieldVaults = await getVaultsByPreset("highYield");
- * 
+ *
  * // Find high-yield USDC vaults specifically
  * const usdcHighYield = await getVaultsByPreset("highYield", {
  *   assetSymbol: "USDC"
  * });
- * 
+ *
  * // Find stable vaults on Base chain
  * const stableBaseVaults = await getVaultsByPreset("stable", {
  *   chainId: 8453
@@ -1051,13 +1051,13 @@ export async function getVaultsByPreset(
 
 /**
  * 🔍 **Primary Vault Discovery Function**
- * 
+ *
  * Get Morpho vaults with comprehensive filtering and sorting options.
  * Uses server-side GraphQL queries for optimal performance.
- * 
+ *
  * @param options - Vault filtering and sorting options
  * @returns Promise resolving to array of vault information
- * 
+ *
  * @example
  * ```typescript
  * // Find best USDC vaults across all chains
@@ -1069,14 +1069,14 @@ export async function getVaultsByPreset(
  *   sortOrder: "desc",
  *   limit: 5
  * });
- * 
+ *
  * // Filter by specific chain
  * const baseVaults = await getVaults({
  *   chainId: 8453, // Base
  *   excludeIdle: true,
  *   sortBy: "totalAssetsUsd"
  * });
- * 
+ *
  * // Search with multiple criteria
  * const premiumVaults = await getVaults({
  *   minNetApy: 10.0,

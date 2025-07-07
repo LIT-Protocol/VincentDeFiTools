@@ -372,7 +372,6 @@ export class MorphoVaultClient {
      * Now uses proper server-side filtering via GraphQL VaultFilters
      */
     async getAllVaults(options = {}) {
-        console.log("getAllVaults", options);
         // Build GraphQL where clause from options
         const whereClause = this.buildVaultFilters(options);
         const query = `
@@ -634,7 +633,6 @@ export class MorphoVaultClient {
         if (options.maxTotalAssets !== undefined) {
             filters.totalAssets_lte = options.maxTotalAssets.toString();
         }
-        console.log("Built VaultFilters:", filters);
         // Return null if no filters to avoid empty where clause
         return Object.keys(filters).length > 0 ? filters : null;
     }
