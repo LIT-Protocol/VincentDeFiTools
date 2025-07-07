@@ -61,7 +61,7 @@ const NETWORK_CONFIG = {
     const vaults = await getVaults({
       assetSymbol: "USDC",
       chainId: this.chainId,
-      sortBy: "apy",
+      sortBy: "netApy",
       sortOrder: "desc",
       limit: 1,
       excludeIdle: true,
@@ -402,7 +402,7 @@ let selectedUsdcVault: any;
     console.log(
       `✅ Selected vault: ${selectedUsdcVault.name} (${selectedUsdcVault.address})`
     );
-    console.log(`   APY: ${selectedUsdcVault.metrics.apy}%`);
+    console.log(`   Net APY: ${selectedUsdcVault.metrics.netApy}%`);
     console.log(
       `   TVL: $${selectedUsdcVault.metrics.totalAssetsUsd.toLocaleString()}`
     );
@@ -449,8 +449,8 @@ let selectedUsdcVault: any;
   );
   console.log(
     `📊 Vault metrics: ${
-      selectedUsdcVault.metrics.apy
-    }% APY, $${selectedUsdcVault.metrics.totalAssetsUsd.toLocaleString()} TVL`
+      selectedUsdcVault.metrics.netApy
+    }% Net APY, $${selectedUsdcVault.metrics.totalAssetsUsd.toLocaleString()} TVL`
   );
 
   // Store initial balances for comparison throughout the workflow

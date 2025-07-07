@@ -16,6 +16,7 @@ async function demonstrateUnifiedVaultSearch() {
       excludeIdle: true,
       sortBy: "totalAssetsUsd",
       sortOrder: "desc",
+      minNetApy: 0.05, // 5% minimum APY
     });
 
     console.log(`Found ${baseVaults.length} vaults on Base:`);

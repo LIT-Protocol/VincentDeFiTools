@@ -141,7 +141,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
     const bestVaults = await getVaults({
       assetSymbol: "WETH",
       chainId: NETWORK_CONFIG.chainId,
-      sortBy: "apy",
+      sortBy: "netApy",
       sortOrder: "desc",
       limit: 100,
       excludeIdle: true,
@@ -153,7 +153,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
 
     dynamicWethVaultAddress = bestVaults[0].address;
     console.log(
-      `✅ Found best WETH vault: ${dynamicWethVaultAddress} with APY: ${
+      `✅ Found best WETH vault: ${dynamicWethVaultAddress} with Net APY: ${
         100 * bestVaults[0].metrics.netApy.toFixed(4)
       }%`
     );

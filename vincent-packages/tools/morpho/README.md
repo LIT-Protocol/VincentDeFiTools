@@ -11,12 +11,12 @@ The Vincent Morpho Tool provides two main capabilities:
 
 ### Key Features
 
-- **📊 Real-Time Vault Data**: APY, TVL, fees, and reward metrics from Morpho's GraphQL API
+- **📊 Real-Time Vault Data**: Net APY, TVL, fees, and reward metrics from Morpho's GraphQL API
 - **🚀 Server-Side Filtering**: High-performance vault discovery using GraphQL queries
 - **🌐 Multi-Chain Support**: Works across Ethereum, Base, Arbitrum, Optimism, Polygon, and testnets
 - **🎯 Zero Hardcoded Addresses**: All vault and token addresses discovered dynamically
 - **🔒 Secure Operations**: Comprehensive validation and error handling
-- **📈 Flexible Filtering**: Search by asset, chain, APY range, TVL, and more
+- **📈 Flexible Filtering**: Search by asset, chain, Net APY range, TVL, and more
 
 ## 🔍 Vault Discovery & Search
 
@@ -27,20 +27,20 @@ The tool provides comprehensive vault discovery capabilities with server-side Gr
 ```typescript
 import { getVaults, getTokenAddress } from "./lib/helpers";
 
-// Find best USDC vaults on Base with >2% APY
+// Find best USDC vaults on Base with >2% Net APY
 const vaults = await getVaults({
   assetSymbol: "USDC",
   chainId: 8453, // Base
-  minApy: 2.0,
+  minNetApy: 2.0,
   minTvl: 1000000,
-  sortBy: "apy",
+  sortBy: "netApy",
   sortOrder: "desc",
   limit: 5,
 });
 
 console.log(`Found ${vaults.length} high-yield USDC vaults:`);
 vaults.forEach(vault => {
-  console.log(`${vault.name}: ${vault.metrics.apy}% APY, $${vault.metrics.totalAssetsUsd.toLocaleString()} TVL`);
+  console.log(`${vault.name}: ${vault.metrics.netApy}% APY, $${vault.metrics.totalAssetsUsd.toLocaleString()} TVL`);
 });
 ```
 
@@ -75,8 +75,8 @@ interface VaultFilterOptions {
   chain?: string | number;    // Chain name or ID
 
   // Performance filtering
-  minApy?: number;            // Minimum APY %
-  maxApy?: number;            // Maximum APY %
+  minNetApy?: number;         // Minimum Net APY %
+  maxNetApy?: number;         // Maximum Net APY %
   minTvl?: number;            // Minimum TVL in USD
   maxTvl?: number;            // Maximum TVL in USD
 
@@ -85,7 +85,7 @@ interface VaultFilterOptions {
   excludeIdle?: boolean;      // Exclude low-activity vaults
 
   // Sorting & pagination
-  sortBy?: "apy" | "totalAssetsUsd" | "creationTimestamp";
+  sortBy?: "netApy" | "totalAssetsUsd" | "creationTimestamp";
   sortOrder?: "asc" | "desc";
   limit?: number;
 }
@@ -118,7 +118,7 @@ await client.registerTool('./vincent-packages/tools/morpho');
 const bestVaults = await getVaults({
   assetSymbol: "WETH",
   chainId: 8453, // Base
-  sortBy: "apy",
+  sortBy: "netApy",
   sortOrder: "desc",
   limit: 1,
   excludeIdle: true,
@@ -129,7 +129,7 @@ if (bestVaults.length === 0) {
 }
 
 const vault = bestVaults[0];
-console.log(`Selected vault: ${vault.name} with ${vault.metrics.apy}% APY`);
+console.log(`Selected vault: ${vault.name} with ${vault.metrics.netApy}% APY`);
 
 // 2. Deposit WETH into the discovered vault
 await client.execute('morpho', {
@@ -157,14 +157,14 @@ for (const chain of chains) {
     assetSymbol: "USDC",
     chainId: chain.id,
     limit: 1,
-    sortBy: "apy", 
+    sortBy: "netApy", 
     sortOrder: "desc",
     minTvl: 1000000, // Min $1M TVL
   });
   
   if (vaults.length > 0) {
     const vault = vaults[0];
-    console.log(`${chain.name}: ${vault.metrics.apy}% APY (${vault.name})`);
+    console.log(`${chain.name}: ${vault.metrics.netApy}% APY (${vault.name})`);
   }
 }
 ```

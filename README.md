@@ -72,7 +72,7 @@ await client.execute("aave", {
 const bestVaults = await getVaults({
   assetSymbol: "WETH",
   chainId: 8453, // Base
-  sortBy: "apy",
+  sortBy: "netApy",
   sortOrder: "desc",
   limit: 1,
 });
@@ -129,9 +129,9 @@ import {
 
 // Find high-yield opportunities across all chains
 const opportunities = await getVaults({
-  minApy: 5.0, // >5% APY
+  minNetApy: 5.0, // >5% Net APY
   minTvl: 1000000, // >$1M TVL
-  sortBy: "apy", // Sort by yield
+  sortBy: "netApy", // Sort by net yield
   sortOrder: "desc", // Highest first
   excludeIdle: true, // Active vaults only
 });
@@ -139,7 +139,7 @@ const opportunities = await getVaults({
 console.log(`Found ${opportunities.length} high-yield opportunities:`);
 opportunities.forEach((vault) => {
   console.log(
-    `${vault.name}: ${vault.metrics.apy}% APY on ${vault.chain.network}`
+    `${vault.name}: ${vault.metrics.netApy}% Net APY on ${vault.chain.network}`
   );
 });
 ```
@@ -155,12 +155,12 @@ for (const chainId of chains) {
     assetSymbol: "USDC",
     chainId,
     limit: 1,
-    sortBy: "apy",
+    sortBy: "netApy",
     sortOrder: "desc",
   });
 
   if (vaults.length > 0) {
-    console.log(`${vaults[0].chain.network}: ${vaults[0].metrics.apy}% APY`);
+    console.log(`${vaults[0].chain.network}: ${vaults[0].metrics.netApy}% Net APY`);
   }
 }
 ```

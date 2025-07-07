@@ -401,8 +401,8 @@ export interface VaultFilterOptions {
   chainId?: number;
 
   // Performance filtering
-  minApy?: number;
-  maxApy?: number;
+  minNetApy?: number;
+  maxNetApy?: number;
   minTotalAssets?: number;
   maxTotalAssets?: number;
   minTvl?: number; // Minimum TVL in USD
@@ -413,7 +413,7 @@ export interface VaultFilterOptions {
   excludeIdle?: boolean;
 
   // Sorting and pagination
-  sortBy?: "apy" | "totalAssets" | "totalAssetsUsd" | "creationTimestamp";
+  sortBy?: "netApy" | "totalAssets" | "totalAssetsUsd" | "creationTimestamp";
   sortOrder?: "asc" | "desc";
   limit?: number;
 }
@@ -439,6 +439,7 @@ export class MorphoVaultClient {
    */
   private async fetchVaultData(query: string, variables?: any): Promise<any> {
     try {
+      // console.log("fetchVaultData", query, variables);
       const response = await fetch(this.apiUrl, {
         method: "POST",
         headers: {
@@ -535,11 +536,11 @@ export class MorphoVaultClient {
       this.mapVaultData(vault)
     );
 
-    console.log("vaults after server-side filtering", vaults.length);
+    // console.log("vaults after server-side filtering", vaults.length);
 
     // Apply only remaining client-side filters not supported by GraphQL
     const filtered = this.applyRemainingClientFilters(vaults, options);
-    console.log("vaults after additional client filtering", filtered.length);
+    // console.log("vaults after additional client filtering", filtered.length);
     return filtered;
   }
 
@@ -564,12 +565,12 @@ export class MorphoVaultClient {
   /**
    * Get top vaults by APY
    */
-  async getTopVaultsByApy(
+  async getTopVaultsByNetApy(
     limit: number = 10,
     minTvl: number = 0
   ): Promise<MorphoVaultInfo[]> {
     return this.getAllVaults({
-      sortBy: "apy",
+      sortBy: "netApy",
       sortOrder: "desc",
       limit,
       minTvl,
@@ -678,7 +679,7 @@ export class MorphoVaultClient {
     limit: number = 5
   ): Promise<MorphoVaultInfo[]> {
     const vaults = await this.getAllVaults({
-      sortBy: "apy",
+      sortBy: "netApy",
       sortOrder: "desc",
       limit: 100,
       minTvl: 10000, // Minimum $10k TVL
@@ -769,13 +770,13 @@ export class MorphoVaultClient {
       filters.whitelisted = true;
     }
 
-    // APY filtering - server-side supported
-    if (options.minApy !== undefined) {
-      filters.apy_gte = options.minApy;
+    // Net APY filtering - server-side supported
+    if (options.minNetApy !== undefined) {
+      filters.netApy_gte = options.minNetApy;
     }
 
-    if (options.maxApy !== undefined) {
-      filters.apy_lte = options.maxApy;
+    if (options.maxNetApy !== undefined) {
+      filters.netApy_lte = options.maxNetApy;
     }
 
     // TVL filtering - server-side supported
@@ -825,7 +826,7 @@ export class MorphoVaultClient {
    */
   private mapSortBy(sortBy: string): string {
     switch (sortBy) {
-      case "apy":
+      case "netApy":
         return "NetApy";
       case "totalAssets":
         return "TotalAssets";
@@ -857,11 +858,11 @@ export async function getBestVaultsForAsset(
 /**
  * Helper function to get top vaults by APY
  */
-export async function getTopVaultsByApy(
+export async function getTopVaultsByNetApy(
   limit: number = 10,
   minTvl: number = 10000
 ): Promise<MorphoVaultInfo[]> {
-  return morphoVaultClient.getTopVaultsByApy(limit, minTvl);
+  return morphoVaultClient.getTopVaultsByNetApy(limit, minTvl);
 }
 
 /**
@@ -940,7 +941,7 @@ export async function getSupportedChainsWithVaults(): Promise<
  */
 export async function getVaultDiscoverySummary(chainId: number) {
   try {
-    const [topByTvl, topByApy, assetBreakdown] = await Promise.all([
+    const [topByTvl, topByNetApy, assetBreakdown] = await Promise.all([
       morphoVaultClient.getVaults({
         chainId,
         sortBy: "totalAssetsUsd",
@@ -950,7 +951,7 @@ export async function getVaultDiscoverySummary(chainId: number) {
       }),
       morphoVaultClient.getVaults({
         chainId,
-        sortBy: "apy",
+        sortBy: "netApy",
         sortOrder: "desc",
         limit: 5,
         excludeIdle: true,
@@ -966,13 +967,16 @@ export async function getVaultDiscoverySummary(chainId: number) {
     const assetGroups = assetBreakdown.reduce((acc, vault) => {
       const symbol = vault.asset.symbol;
       if (!acc[symbol]) {
-        acc[symbol] = { count: 0, totalTvl: 0, maxApy: 0 };
+        acc[symbol] = { count: 0, totalTvl: 0, maxNetApy: 0 };
       }
       acc[symbol].count++;
       acc[symbol].totalTvl += vault.metrics.totalAssetsUsd;
-      acc[symbol].maxApy = Math.max(acc[symbol].maxApy, vault.metrics.apy);
+      acc[symbol].maxNetApy = Math.max(
+        acc[symbol].maxNetApy,
+        vault.metrics.netApy
+      );
       return acc;
-    }, {} as Record<string, { count: number; totalTvl: number; maxApy: number }>);
+    }, {} as Record<string, { count: number; totalTvl: number; maxNetApy: number }>);
 
     return {
       chainId,
@@ -983,7 +987,7 @@ export async function getVaultDiscoverySummary(chainId: number) {
         0
       ),
       topVaultsByTvl: topByTvl,
-      topVaultsByApy: topByApy,
+      topVaultsByNetApy: topByNetApy,
       assetBreakdown: Object.entries(assetGroups)
         .map(([symbol, data]) => ({ symbol, ...data }))
         .sort((a, b) => b.totalTvl - a.totalTvl),
