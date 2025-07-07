@@ -21,6 +21,9 @@ import {
   getMorphoVaultAddresses,
   getTestTokens,
   CHAIN_IDS,
+  getTopVaultAddresses,
+  getBestVaultsForAsset,
+  getVaultAddressForAsset,
 } from "../../vincent-packages/tools/morpho/dist/lib/helpers/index.js";
 import {
   setupWethFunding,
@@ -59,12 +62,54 @@ const NETWORK_CONFIG = {
   get wethAddress() {
     return this.testTokens.WETH;
   },
+
+  // Dynamic vault discovery methods
+  async getTopVaultAddresses(limit: number = 5) {
+    return getTopVaultAddresses(NETWORK_NAME, limit);
+  },
+  async getBestWethVaults(limit: number = 5) {
+    return getBestVaultsForAsset('WETH', limit);
+  },
 } as const;
 
 const VAULT_ASSET_DECIMALS = 18; // WETH has 18 decimals
 const CONFIRMATIONS_TO_WAIT = 2;
 
 (async () => {
+  /**
+   * ====================================
+   * Dynamic Vault Discovery
+   * ====================================
+   */
+  console.log("🔍 Discovering best WETH vault dynamically...");
+  let dynamicWethVaultAddress: string;
+  
+  try {
+    dynamicWethVaultAddress = await getVaultAddressForAsset('WETH', NETWORK_NAME);
+    console.log(`✅ Found best WETH vault: ${dynamicWethVaultAddress}`);
+    
+    // Get vault details for logging
+    const wethVaults = await getBestVaultsForAsset('WETH', 3);
+    const chainVaults = wethVaults.filter(vault => vault.chain.id === NETWORK_CONFIG.chainId);
+    
+    if (chainVaults.length > 0) {
+      console.log("📊 Top WETH vaults on", NETWORK_NAME + ":");
+      chainVaults.forEach((vault, index) => {
+        console.log(`   ${index + 1}. ${vault.name} (${vault.symbol})`);
+        console.log(`      Address: ${vault.address}`);
+        console.log(`      APY: ${vault.metrics.apy.toFixed(2)}%`);
+        console.log(`      TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`);
+        console.log(`      Asset: ${vault.asset.symbol} (${vault.asset.address})`);
+      });
+    }
+    
+    addTestResult("Dynamic Vault Discovery", true);
+  } catch (error) {
+    console.error("❌ Failed to discover vault dynamically, using fallback:", error.message);
+    dynamicWethVaultAddress = NETWORK_CONFIG.wethVaultAddress;
+    addTestResult("Dynamic Vault Discovery", false, error.message);
+  }
+
   /**
    * ====================================
    * Initialise the environment
@@ -312,7 +357,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
 
   // Setup vault contract for balance checks
   const vaultContract = new ethers.Contract(
-    NETWORK_CONFIG.wethVaultAddress,
+    dynamicWethVaultAddress,
     [
       {
         inputs: [{ internalType: "address", name: "account", type: "address" }],
@@ -341,7 +386,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
     const approveWethParams = {
       chainId: NETWORK_CONFIG.chainId,
       tokenAddress: NETWORK_CONFIG.wethAddress,
-      spenderAddress: NETWORK_CONFIG.wethVaultAddress,
+      spenderAddress: dynamicWethVaultAddress,
       tokenAmount: parseFloat(WETH_DEPOSIT_AMOUNT),
       tokenDecimals: wethDecimals,
       rpcUrl: rpcUrl,
@@ -422,14 +467,14 @@ const CONFIRMATIONS_TO_WAIT = 2;
   console.log("(MORPHO-STEP-1) Deposit WETH to vault");
 
   console.log(`   Depositing ${WETH_DEPOSIT_AMOUNT} WETH to vault`);
-  console.log(`   Vault Address: ${NETWORK_CONFIG.wethVaultAddress}`);
+  console.log(`   Vault Address: ${dynamicWethVaultAddress}`);
 
   // Morpho Deposit Operation
   try {
     const morphoDepositPrecheckRes = await morphoToolClient.precheck(
       {
         operation: "deposit",
-        vaultAddress: NETWORK_CONFIG.wethVaultAddress,
+        vaultAddress: dynamicWethVaultAddress,
         amount: WETH_DEPOSIT_AMOUNT,
         rpcUrl: rpcUrl,
         chain: NETWORK_CONFIG.network,
@@ -456,7 +501,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
       const morphoDepositExecuteRes = await morphoToolClient.execute(
         {
           operation: "deposit",
-          vaultAddress: NETWORK_CONFIG.wethVaultAddress,
+          vaultAddress: dynamicWethVaultAddress,
           amount: WETH_DEPOSIT_AMOUNT,
           chain: NETWORK_CONFIG.network,
         },
@@ -634,7 +679,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
     const morphoRedeemPrecheckRes = await morphoToolClient.precheck(
       {
         operation: "redeem",
-        vaultAddress: NETWORK_CONFIG.wethVaultAddress,
+        vaultAddress: dynamicWethVaultAddress,
         amount: userVaultSharesFormatted, // Pass shares amount for redeem
         rpcUrl: rpcUrl,
         chain: NETWORK_CONFIG.network,
@@ -663,7 +708,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
       const morphoRedeemExecuteRes = await morphoToolClient.execute(
         {
           operation: "redeem",
-          vaultAddress: NETWORK_CONFIG.wethVaultAddress,
+          vaultAddress: dynamicWethVaultAddress,
           amount: userVaultSharesFormatted,
           chain: NETWORK_CONFIG.network,
         },
