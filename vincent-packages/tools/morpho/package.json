@@ -21,8 +21,6 @@
   "dependencies": {
     "@lit-protocol/vincent-scaffold-sdk": "^1.1.4",
     "@lit-protocol/vincent-tool-sdk": "^1.0.1",
-    "@morpho-org/blue-api-sdk": "^2.8.1",
-    "@morpho-org/blue-sdk": "^4.2.0",
     "ethers": "^5.8.0"
   },
   "exports": {

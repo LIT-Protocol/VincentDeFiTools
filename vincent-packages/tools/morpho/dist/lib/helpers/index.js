@@ -258,16 +258,16 @@ export async function validateOperationRequirements(operation, userBalance, allo
  * Morpho GraphQL API Client
  */
 export class MorphoVaultClient {
-    apiUrl = 'https://blue-api.morpho.org/graphql';
+    apiUrl = "https://blue-api.morpho.org/graphql";
     /**
      * Fetch vault data from Morpho GraphQL API
      */
     async fetchVaultData(query, variables) {
         try {
             const response = await fetch(this.apiUrl, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
+                    "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                     query,
@@ -279,12 +279,12 @@ export class MorphoVaultClient {
             }
             const data = await response.json();
             if (data.errors) {
-                throw new Error(`GraphQL error: ${data.errors.map((e) => e.message).join(', ')}`);
+                throw new Error(`GraphQL error: ${data.errors.map((e) => e.message).join(", ")}`);
             }
             return data.data;
         }
         catch (error) {
-            console.error('Failed to fetch vault data:', error);
+            console.error("Failed to fetch vault data:", error);
             throw error;
         }
     }
@@ -332,8 +332,8 @@ export class MorphoVaultClient {
     `;
         const variables = {
             first: options.limit || 100,
-            orderBy: this.mapSortBy(options.sortBy || 'totalAssetsUsd'),
-            orderDirection: options.sortOrder === 'asc' ? 'Asc' : 'Desc',
+            orderBy: this.mapSortBy(options.sortBy || "totalAssetsUsd"),
+            orderDirection: options.sortOrder === "asc" ? "Asc" : "Desc",
         };
         const data = await this.fetchVaultData(query, variables);
         const vaults = data.vaults.items.map((vault) => this.mapVaultData(vault));
@@ -344,22 +344,22 @@ export class MorphoVaultClient {
      */
     async getVaultsByAsset(assetAddress, options = {}) {
         const allVaults = await this.getAllVaults(options);
-        return allVaults.filter(vault => vault.asset.address.toLowerCase() === assetAddress.toLowerCase());
+        return allVaults.filter((vault) => vault.asset.address.toLowerCase() === assetAddress.toLowerCase());
     }
     /**
      * Get vaults by chain
      */
     async getVaultsByChain(chainId, options = {}) {
         const allVaults = await this.getAllVaults(options);
-        return allVaults.filter(vault => vault.chain.id === chainId);
+        return allVaults.filter((vault) => vault.chain.id === chainId);
     }
     /**
      * Get top vaults by APY
      */
     async getTopVaultsByApy(limit = 10, minTvl = 0) {
         return this.getAllVaults({
-            sortBy: 'apy',
-            sortOrder: 'desc',
+            sortBy: "apy",
+            sortOrder: "desc",
             limit,
             minTvl,
             excludeIdle: true,
@@ -370,8 +370,8 @@ export class MorphoVaultClient {
      */
     async getTopVaultsByTvl(limit = 10) {
         return this.getAllVaults({
-            sortBy: 'totalAssetsUsd',
-            sortOrder: 'desc',
+            sortBy: "totalAssetsUsd",
+            sortOrder: "desc",
             limit,
             excludeIdle: true,
         });
@@ -385,7 +385,7 @@ export class MorphoVaultClient {
             return allVaults.slice(0, searchOptions.limit || 50);
         }
         const query = searchOptions.query.toLowerCase();
-        const filtered = allVaults.filter(vault => vault.name.toLowerCase().includes(query) ||
+        const filtered = allVaults.filter((vault) => vault.name.toLowerCase().includes(query) ||
             vault.symbol.toLowerCase().includes(query) ||
             vault.asset.symbol.toLowerCase().includes(query) ||
             vault.asset.name.toLowerCase().includes(query));
@@ -434,7 +434,9 @@ export class MorphoVaultClient {
         const variables = { address, chainId };
         try {
             const data = await this.fetchVaultData(query, variables);
-            return data.vaultByAddress ? this.mapVaultData(data.vaultByAddress) : null;
+            return data.vaultByAddress
+                ? this.mapVaultData(data.vaultByAddress)
+                : null;
         }
         catch (error) {
             console.error(`Failed to fetch vault ${address}:`, error);
@@ -446,14 +448,14 @@ export class MorphoVaultClient {
      */
     async getBestVaultsForAsset(assetSymbol, limit = 5) {
         const vaults = await this.getAllVaults({
-            sortBy: 'apy',
-            sortOrder: 'desc',
+            sortBy: "apy",
+            sortOrder: "desc",
             limit: 100,
             minTvl: 10000, // Minimum $10k TVL
             excludeIdle: true,
         });
         return vaults
-            .filter(vault => vault.asset.symbol.toLowerCase() === assetSymbol.toLowerCase())
+            .filter((vault) => vault.asset.symbol.toLowerCase() === assetSymbol.toLowerCase())
             .slice(0, limit);
     }
     /**
@@ -477,7 +479,7 @@ export class MorphoVaultClient {
             metrics: {
                 apy: vault.state.apy || 0,
                 netApy: vault.state.netApy || 0,
-                totalAssets: vault.state.totalAssets || '0',
+                totalAssets: vault.state.totalAssets || "0",
                 totalAssetsUsd: vault.state.totalAssetsUsd || 0,
                 fee: vault.state.fee || 0,
                 rewards: vault.state.rewards?.map((reward) => ({
@@ -497,38 +499,42 @@ export class MorphoVaultClient {
     filterVaults(vaults, options) {
         let filtered = vaults;
         if (options.minApy !== undefined) {
-            filtered = filtered.filter(vault => vault.metrics.apy >= options.minApy);
+            filtered = filtered.filter((vault) => vault.metrics.apy >= options.minApy);
         }
         if (options.maxApy !== undefined) {
-            filtered = filtered.filter(vault => vault.metrics.apy <= options.maxApy);
+            filtered = filtered.filter((vault) => vault.metrics.apy <= options.maxApy);
         }
         if (options.minTotalAssets !== undefined) {
-            filtered = filtered.filter(vault => parseFloat(vault.metrics.totalAssets) >= options.minTotalAssets);
+            filtered = filtered.filter((vault) => parseFloat(vault.metrics.totalAssets) >= options.minTotalAssets);
         }
         if (options.maxTotalAssets !== undefined) {
-            filtered = filtered.filter(vault => parseFloat(vault.metrics.totalAssets) <= options.maxTotalAssets);
+            filtered = filtered.filter((vault) => parseFloat(vault.metrics.totalAssets) <= options.maxTotalAssets);
         }
         if (options.minTvl !== undefined) {
-            filtered = filtered.filter(vault => vault.metrics.totalAssetsUsd >= options.minTvl);
+            filtered = filtered.filter((vault) => vault.metrics.totalAssetsUsd >= options.minTvl);
         }
         if (options.maxTvl !== undefined) {
-            filtered = filtered.filter(vault => vault.metrics.totalAssetsUsd <= options.maxTvl);
+            filtered = filtered.filter((vault) => vault.metrics.totalAssetsUsd <= options.maxTvl);
         }
         if (options.assetSymbol) {
-            filtered = filtered.filter(vault => vault.asset.symbol.toLowerCase() === options.assetSymbol.toLowerCase());
+            filtered = filtered.filter((vault) => vault.asset.symbol.toLowerCase() ===
+                options.assetSymbol.toLowerCase());
         }
         if (options.assetAddress) {
-            filtered = filtered.filter(vault => vault.asset.address.toLowerCase() === options.assetAddress.toLowerCase());
+            filtered = filtered.filter((vault) => vault.asset.address.toLowerCase() ===
+                options.assetAddress.toLowerCase());
         }
         if (options.whitelistedOnly) {
-            filtered = filtered.filter(vault => vault.whitelisted);
+            filtered = filtered.filter((vault) => vault.whitelisted);
         }
         if (options.excludeIdle) {
-            filtered = filtered.filter(vault => !vault.isIdle);
+            filtered = filtered.filter((vault) => !vault.isIdle);
         }
         if (options.chain !== undefined) {
-            const chainId = typeof options.chain === 'string' ? CHAIN_IDS[options.chain] : options.chain;
-            filtered = filtered.filter(vault => vault.chain.id === chainId);
+            const chainId = typeof options.chain === "string"
+                ? CHAIN_IDS[options.chain]
+                : options.chain;
+            filtered = filtered.filter((vault) => vault.chain.id === chainId);
         }
         return filtered;
     }
@@ -537,16 +543,16 @@ export class MorphoVaultClient {
      */
     mapSortBy(sortBy) {
         switch (sortBy) {
-            case 'apy':
-                return 'NetApy';
-            case 'totalAssets':
-                return 'TotalAssets';
-            case 'totalAssetsUsd':
-                return 'TotalAssetsUsd';
-            case 'creationTimestamp':
-                return 'CreationTimestamp';
+            case "apy":
+                return "NetApy";
+            case "totalAssets":
+                return "TotalAssets";
+            case "totalAssetsUsd":
+                return "TotalAssetsUsd";
+            case "creationTimestamp":
+                return "CreationTimestamp";
             default:
-                return 'TotalAssetsUsd';
+                return "TotalAssetsUsd";
         }
     }
 }
@@ -593,12 +599,12 @@ export async function getTopVaultAddresses(chain, limit = 5) {
         throw new Error(`Unsupported chain: ${chain}`);
     }
     const vaults = await morphoVaultClient.getVaultsByChain(chainId, {
-        sortBy: 'totalAssetsUsd',
-        sortOrder: 'desc',
+        sortBy: "totalAssetsUsd",
+        sortOrder: "desc",
         limit,
         excludeIdle: true,
     });
-    return vaults.map(vault => vault.address);
+    return vaults.map((vault) => vault.address);
 }
 /**
  * Get the best vault address for a specific asset on a chain
@@ -606,7 +612,7 @@ export async function getTopVaultAddresses(chain, limit = 5) {
 export async function getBestVaultAddress(asset, chain) {
     const vaults = await getBestVaultsForAsset(asset, 1);
     const chainId = CHAIN_IDS[chain.toLowerCase()];
-    const chainVault = vaults.find(vault => vault.chain.id === chainId);
+    const chainVault = vaults.find((vault) => vault.chain.id === chainId);
     return chainVault ? chainVault.address : null;
 }
 /**
@@ -622,10 +628,12 @@ export async function getVaultAddressForAsset(asset, chain) {
         console.warn(`Failed to get dynamic vault for ${asset} on ${chain}, using fallback`);
         const fallbackVaults = getMorphoVaultAddresses(chain);
         // Map asset to fallback vault
-        if (asset.toLowerCase() === 'weth' && 'SEAMLESS_WETH_VAULT' in fallbackVaults) {
+        if (asset.toLowerCase() === "weth" &&
+            "SEAMLESS_WETH_VAULT" in fallbackVaults) {
             return fallbackVaults.SEAMLESS_WETH_VAULT;
         }
-        if (asset.toLowerCase() === 'usdc' && 'GAUNTLET_USDC_CORE' in fallbackVaults) {
+        if (asset.toLowerCase() === "usdc" &&
+            "GAUNTLET_USDC_CORE" in fallbackVaults) {
             return fallbackVaults.GAUNTLET_USDC_CORE;
         }
         throw new Error(`No vault found for asset ${asset} on chain ${chain}`);
