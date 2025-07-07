@@ -1,41 +1,70 @@
 import { ethers } from "ethers";
 
 /**
- * Morpho Vault Addresses indexed by chain name
- * @deprecated Use dynamic vault discovery functions instead
+ * Well-known token addresses across different chains
+ * Using official Circle USDC and canonical WETH addresses
  */
-export const MORPHO_VAULT_ADDRESSES = {
-  sepolia: {
-    // Use dynamic vault discovery for Sepolia
-    WETH_VAULT: "0x0000000000000000000000000000000000000000", // Placeholder - use getBestVaultsForAsset('WETH')
+export const WELL_KNOWN_TOKENS = {
+  // Ethereum mainnet
+  1: {
+    USDC: "0xA0b86991c6218A36c1D19D4a2e9Eb0cE3606eB48", // Circle USDC
+    WETH: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // Canonical WETH
+    USDT: "0xdAC17F958D2ee523a2206206994597C13D831ec7", // Tether USDT
   },
-  base: {
-    // Use dynamic vault discovery for Base
-    SEAMLESS_WETH_VAULT: "0x27D8c7273fd3fcC6956a0B370cE5Fd4A7fc65c18", // Fallback - use getBestVaultsForAsset('WETH')
-    IONIC_ECOSYSTEM_WETH_VAULT: "0x5A32099837D89E3a794a44fb131CBbAD41f87a8C", // Fallback - use getBestVaultsForAsset('WETH')
-    GAUNTLET_USDC_CORE: "0xc0c5689e6f4D256E861F65465b691aeEcC0dEb12", // Fallback - use getBestVaultsForAsset('USDC')
+  // Base
+  8453: {
+    USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Native USDC on Base
+    WETH: "0x4200000000000000000000000000000000000006", // WETH on Base
+    USDT: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", // USDT on Base
+  },
+  // Arbitrum One
+  42161: {
+    USDC: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // Native USDC on Arbitrum
+    WETH: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", // WETH on Arbitrum
+    USDT: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", // USDT on Arbitrum
+  },
+  // Optimism
+  10: {
+    USDC: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", // Native USDC on Optimism
+    WETH: "0x4200000000000000000000000000000000000006", // WETH on Optimism
+    USDT: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", // USDT on Optimism
+  },
+  // Polygon
+  137: {
+    USDC: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Native USDC on Polygon
+    WETH: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", // WETH on Polygon
+    USDT: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", // USDT on Polygon
+  },
+  // Sepolia testnet
+  11155111: {
+    USDC: "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8", // Test USDC on Sepolia
+    WETH: "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c", // Test WETH on Sepolia
+    USDT: "0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0", // Test USDT on Sepolia
   },
 } as const;
 
 /**
- * Test token addresses indexed by chain name
+ * Supported chain IDs and their names
  */
-export const TEST_TOKENS = {
-  sepolia: {
-    USDC: "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
-    WETH: "0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c",
-    USDT: "0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0",
-  },
-  base: {
-    USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-    WETH: "0x4200000000000000000000000000000000000006",
-    USDT: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
-  },
+export const SUPPORTED_CHAINS = {
+  1: "ethereum",
+  8453: "base",
+  42161: "arbitrum",
+  10: "optimism",
+  137: "polygon",
+  11155111: "sepolia",
 } as const;
 
+/**
+ * Chain names to IDs mapping for backwards compatibility
+ */
 export const CHAIN_IDS = {
-  sepolia: 11155111,
+  ethereum: 1,
   base: 8453,
+  arbitrum: 42161,
+  optimism: 10,
+  polygon: 137,
+  sepolia: 11155111,
 } as const;
 
 /**
@@ -174,38 +203,66 @@ export const ERC20_ABI: any[] = [
 ];
 
 /**
- * Supported chain names
+ * Supported chain type
  */
-export type SupportedChain = keyof typeof MORPHO_VAULT_ADDRESSES;
+export type SupportedChainId = keyof typeof WELL_KNOWN_TOKENS;
+export type SupportedChainName = keyof typeof CHAIN_IDS;
 
 /**
- * Get Morpho vault addresses for a specific chain
+ * Get well-known token addresses for a specific chain
  */
-export function getMorphoVaultAddresses(chain: string) {
-  const chainKey = chain.toLowerCase() as SupportedChain;
-  if (!(chainKey in MORPHO_VAULT_ADDRESSES)) {
+export function getTokenAddresses(chainId: number) {
+  if (!(chainId in WELL_KNOWN_TOKENS)) {
     throw new Error(
-      `Unsupported chain: ${chain}. Supported chains: ${Object.keys(
-        MORPHO_VAULT_ADDRESSES
+      `Unsupported chain ID: ${chainId}. Supported chains: ${Object.keys(
+        WELL_KNOWN_TOKENS
       ).join(", ")}`
     );
   }
-  return MORPHO_VAULT_ADDRESSES[chainKey];
+  return WELL_KNOWN_TOKENS[chainId as SupportedChainId];
 }
 
 /**
- * Get test token addresses for a specific chain
+ * Get token address for a specific token symbol and chain
  */
-export function getTestTokens(chain: string) {
-  const chainKey = chain.toLowerCase() as SupportedChain;
-  if (!(chainKey in TEST_TOKENS)) {
+export function getTokenAddress(symbol: string, chainId: number): string {
+  const tokens = getTokenAddresses(chainId);
+  const upperSymbol = symbol.toUpperCase() as keyof typeof tokens;
+
+  if (!(upperSymbol in tokens)) {
     throw new Error(
-      `Unsupported chain: ${chain}. Supported chains: ${Object.keys(
-        TEST_TOKENS
+      `Token ${symbol} not found on chain ${chainId}. Available tokens: ${Object.keys(
+        tokens
       ).join(", ")}`
     );
   }
-  return TEST_TOKENS[chainKey];
+
+  return tokens[upperSymbol];
+}
+
+
+/**
+ * Check if a chain is supported by Morpho
+ */
+export function isSupportedChain(chainId: number): boolean {
+  return chainId in WELL_KNOWN_TOKENS;
+}
+
+/**
+ * Get all supported chain IDs
+ */
+export function getSupportedChainIds(): number[] {
+  return Object.keys(WELL_KNOWN_TOKENS).map(Number);
+}
+
+/**
+ * Get chain name from chain ID
+ */
+export function getChainName(chainId: number): string {
+  return (
+    SUPPORTED_CHAINS[chainId as keyof typeof SUPPORTED_CHAINS] ||
+    `chain-${chainId}`
+  );
 }
 
 /**
@@ -332,20 +389,31 @@ export interface MorphoVaultInfo {
 }
 
 /**
- * Vault Filter Options
+ * Unified Vault Filter Options
+ * Supports filtering by asset, chain, performance metrics, and more
  */
 export interface VaultFilterOptions {
+  // Asset filtering
+  assetSymbol?: string;
+  assetAddress?: string;
+
+  // Chain filtering (supports both name and ID for flexibility)
+  chain?: string | number;
+  chainId?: number;
+
+  // Performance filtering
   minApy?: number;
   maxApy?: number;
   minTotalAssets?: number;
   maxTotalAssets?: number;
-  assetSymbol?: string;
-  assetAddress?: string;
-  whitelistedOnly?: boolean;
-  excludeIdle?: boolean;
-  chain?: string | number;
   minTvl?: number; // Minimum TVL in USD
   maxTvl?: number; // Maximum TVL in USD
+
+  // Vault status filtering
+  whitelistedOnly?: boolean;
+  excludeIdle?: boolean;
+
+  // Sorting and pagination
   sortBy?: "apy" | "totalAssets" | "totalAssetsUsd" | "creationTimestamp";
   sortOrder?: "asc" | "desc";
   limit?: number;
@@ -384,7 +452,10 @@ export class MorphoVaultClient {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const body = await response.text();
+        throw new Error(
+          `HTTP error! status: ${response.status} and body: ${body}`
+        );
       }
 
       const data = await response.json();
@@ -404,13 +475,19 @@ export class MorphoVaultClient {
 
   /**
    * Get all vaults with comprehensive information
+   * Now uses proper server-side filtering via GraphQL VaultFilters
    */
   async getAllVaults(
     options: VaultFilterOptions = {}
   ): Promise<MorphoVaultInfo[]> {
+    console.log("getAllVaults", options);
+    
+    // Build GraphQL where clause from options
+    const whereClause = this.buildVaultFilters(options);
+
     const query = `
-      query GetAllVaults($first: Int, $orderBy: VaultOrderBy, $orderDirection: OrderDirection) {
-        vaults(first: $first, orderBy: $orderBy, orderDirection: $orderDirection) {
+      query GetAllVaults($first: Int, $orderBy: VaultOrderBy, $orderDirection: OrderDirection, $where: VaultFilters) {
+        vaults(first: $first, orderBy: $orderBy, orderDirection: $orderDirection, where: $where) {
           items {
             address
             name
@@ -451,6 +528,7 @@ export class MorphoVaultClient {
       first: options.limit || 100,
       orderBy: this.mapSortBy(options.sortBy || "totalAssetsUsd"),
       orderDirection: options.sortOrder === "asc" ? "Asc" : "Desc",
+      where: whereClause,
     };
 
     const data = await this.fetchVaultData(query, variables);
@@ -458,32 +536,30 @@ export class MorphoVaultClient {
       this.mapVaultData(vault)
     );
 
-    return this.filterVaults(vaults, options);
+    console.log("vaults after server-side filtering", vaults.length);
+
+    // Apply only remaining client-side filters not supported by GraphQL
+    const filtered = this.applyRemainingClientFilters(vaults, options);
+    console.log("vaults after additional client filtering", filtered.length);
+    return filtered;
   }
 
   /**
-   * Get vaults by asset (token)
+   * Unified function to get vaults with flexible filtering
+   * Supports filtering by asset, chain, and all other options
    */
-  async getVaultsByAsset(
-    assetAddress: string,
+  async getVaults(
     options: VaultFilterOptions = {}
   ): Promise<MorphoVaultInfo[]> {
-    const allVaults = await this.getAllVaults(options);
-    return allVaults.filter(
-      (vault) =>
-        vault.asset.address.toLowerCase() === assetAddress.toLowerCase()
-    );
-  }
+    // If specific asset or chain filters are provided, enhance the options
+    const enhancedOptions = { ...options };
 
-  /**
-   * Get vaults by chain
-   */
-  async getVaultsByChain(
-    chainId: number,
-    options: VaultFilterOptions = {}
-  ): Promise<MorphoVaultInfo[]> {
-    const allVaults = await this.getAllVaults(options);
-    return allVaults.filter((vault) => vault.chain.id === chainId);
+    // Handle chain filtering - support both chainId and chain name/ID
+    if (options.chainId) {
+      enhancedOptions.chain = options.chainId;
+    }
+
+    return this.getAllVaults(enhancedOptions);
   }
 
   /**
@@ -656,86 +732,96 @@ export class MorphoVaultClient {
   }
 
   /**
-   * Filter vaults based on options
+   * Build GraphQL VaultFilters from filter options
+   * Uses proper server-side filtering for better performance
    */
-  private filterVaults(
+  private buildVaultFilters(options: VaultFilterOptions): any {
+    const filters: any = {};
+
+    // Chain filtering - server-side supported
+    if (options.chain !== undefined || options.chainId !== undefined) {
+      let targetChainId: number | undefined;
+
+      if (options.chainId !== undefined) {
+        targetChainId = options.chainId;
+      } else if (options.chain !== undefined) {
+        targetChainId =
+          typeof options.chain === "string"
+            ? CHAIN_IDS[options.chain as keyof typeof CHAIN_IDS]
+            : options.chain;
+      }
+
+      if (targetChainId !== undefined) {
+        filters.chainId_in = [targetChainId];
+      }
+    }
+
+    // Asset filtering - server-side supported
+    if (options.assetAddress) {
+      filters.assetAddress_in = [options.assetAddress.toLowerCase()];
+    }
+
+    if (options.assetSymbol) {
+      filters.assetSymbol_in = [options.assetSymbol.toUpperCase()];
+    }
+
+    // Whitelisted status filtering - server-side supported
+    if (options.whitelistedOnly) {
+      filters.whitelisted = true;
+    }
+
+    // APY filtering - server-side supported
+    if (options.minApy !== undefined) {
+      filters.apy_gte = options.minApy;
+    }
+
+    if (options.maxApy !== undefined) {
+      filters.apy_lte = options.maxApy;
+    }
+
+    // TVL filtering - server-side supported
+    if (options.minTvl !== undefined) {
+      filters.totalAssetsUsd_gte = options.minTvl;
+    }
+
+    if (options.maxTvl !== undefined) {
+      filters.totalAssetsUsd_lte = options.maxTvl;
+    }
+
+    // Total assets filtering - server-side supported
+    if (options.minTotalAssets !== undefined) {
+      filters.totalAssets_gte = options.minTotalAssets.toString();
+    }
+
+    if (options.maxTotalAssets !== undefined) {
+      filters.totalAssets_lte = options.maxTotalAssets.toString();
+    }
+
+    console.log("Built VaultFilters:", filters);
+
+    // Return null if no filters to avoid empty where clause
+    return Object.keys(filters).length > 0 ? filters : null;
+  }
+
+  /**
+   * Apply remaining client-side filters not supported by GraphQL
+   * Only handles computed properties like isIdle
+   */
+  private applyRemainingClientFilters(
     vaults: MorphoVaultInfo[],
     options: VaultFilterOptions
   ): MorphoVaultInfo[] {
     let filtered = vaults;
 
-    if (options.minApy !== undefined) {
-      filtered = filtered.filter(
-        (vault) => vault.metrics.apy >= options.minApy!
-      );
-    }
-
-    if (options.maxApy !== undefined) {
-      filtered = filtered.filter(
-        (vault) => vault.metrics.apy <= options.maxApy!
-      );
-    }
-
-    if (options.minTotalAssets !== undefined) {
-      filtered = filtered.filter(
-        (vault) =>
-          parseFloat(vault.metrics.totalAssets) >= options.minTotalAssets!
-      );
-    }
-
-    if (options.maxTotalAssets !== undefined) {
-      filtered = filtered.filter(
-        (vault) =>
-          parseFloat(vault.metrics.totalAssets) <= options.maxTotalAssets!
-      );
-    }
-
-    if (options.minTvl !== undefined) {
-      filtered = filtered.filter(
-        (vault) => vault.metrics.totalAssetsUsd >= options.minTvl!
-      );
-    }
-
-    if (options.maxTvl !== undefined) {
-      filtered = filtered.filter(
-        (vault) => vault.metrics.totalAssetsUsd <= options.maxTvl!
-      );
-    }
-
-    if (options.assetSymbol) {
-      filtered = filtered.filter(
-        (vault) =>
-          vault.asset.symbol.toLowerCase() ===
-          options.assetSymbol!.toLowerCase()
-      );
-    }
-
-    if (options.assetAddress) {
-      filtered = filtered.filter(
-        (vault) =>
-          vault.asset.address.toLowerCase() ===
-          options.assetAddress!.toLowerCase()
-      );
-    }
-
-    if (options.whitelistedOnly) {
-      filtered = filtered.filter((vault) => vault.whitelisted);
-    }
-
+    // Idle vault filtering (computed client-side)
     if (options.excludeIdle) {
       filtered = filtered.filter((vault) => !vault.isIdle);
     }
 
-    if (options.chain !== undefined) {
-      const chainId =
-        typeof options.chain === "string"
-          ? CHAIN_IDS[options.chain as keyof typeof CHAIN_IDS]
-          : options.chain;
-      filtered = filtered.filter((vault) => vault.chain.id === chainId);
-    }
-
     return filtered;
   }
+
+
 
   /**
    * Map sortBy option to GraphQL enum
@@ -801,87 +887,113 @@ export async function searchVaults(
 }
 
 /**
- * Helper function to get vaults by chain
+ * Unified function to get vaults with flexible filtering
+ * Supports filtering by asset, chain, performance metrics, and more
  */
-export async function getVaultsByChain(
-  chainId: number,
+export async function getVaults(
   options: VaultFilterOptions = {}
 ): Promise<MorphoVaultInfo[]> {
-  return morphoVaultClient.getVaultsByChain(chainId, options);
+  return morphoVaultClient.getVaults(options);
 }
 
+
 /**
- * Updated function to get vault addresses from the API instead of hardcoded
+ * Get supported chains with active vaults
  */
-export async function getTopVaultAddresses(
-  chain: string,
-  limit: number = 5
-): Promise<string[]> {
-  const chainId = CHAIN_IDS[chain.toLowerCase() as keyof typeof CHAIN_IDS];
-  if (!chainId) {
-    throw new Error(`Unsupported chain: ${chain}`);
+export async function getSupportedChainsWithVaults(): Promise<
+  { chainId: number; name: string; vaultCount: number }[]
+> {
+  const supportedChains = getSupportedChainIds();
+  const results = [];
+
+  for (const chainId of supportedChains) {
+    try {
+      const vaults = await morphoVaultClient.getVaults({
+        chainId,
+        limit: 1,
+        excludeIdle: true,
+      });
+
+      if (vaults.length > 0) {
+        // Get total count
+        const allVaults = await morphoVaultClient.getVaults({
+          chainId,
+          limit: 1000,
+          excludeIdle: true,
+        });
+
+        results.push({
+          chainId,
+          name: getChainName(chainId),
+          vaultCount: allVaults.length,
+        });
+      }
+    } catch (error) {
+      console.warn(
+        `Could not fetch vaults for chain ${chainId}:`,
+        error.message
+      );
+    }
   }
 
-  const vaults = await morphoVaultClient.getVaultsByChain(chainId, {
-    sortBy: "totalAssetsUsd",
-    sortOrder: "desc",
-    limit,
-    excludeIdle: true,
-  });
-
-  return vaults.map((vault) => vault.address);
+  return results.sort((a, b) => b.vaultCount - a.vaultCount);
 }
 
 /**
- * Get the best vault address for a specific asset on a chain
+ * Get vault discovery summary for a chain
  */
-export async function getBestVaultAddress(
-  asset: string,
-  chain: string
-): Promise<string | null> {
-  const vaults = await getBestVaultsForAsset(asset, 1);
-  const chainId = CHAIN_IDS[chain.toLowerCase() as keyof typeof CHAIN_IDS];
-
-  const chainVault = vaults.find((vault) => vault.chain.id === chainId);
-  return chainVault ? chainVault.address : null;
-}
-
-/**
- * Dynamic vault discovery function that replaces hardcoded addresses
- */
-export async function getVaultAddressForAsset(
-  asset: string,
-  chain: string
-): Promise<string> {
+export async function getVaultDiscoverySummary(chainId: number) {
   try {
-    const vaultAddress = await getBestVaultAddress(asset, chain);
-    if (vaultAddress) {
-      return vaultAddress;
-    }
+    const [topByTvl, topByApy, assetBreakdown] = await Promise.all([
+      morphoVaultClient.getVaults({
+        chainId,
+        sortBy: "totalAssetsUsd",
+        sortOrder: "desc",
+        limit: 5,
+        excludeIdle: true,
+      }),
+      morphoVaultClient.getVaults({
+        chainId,
+        sortBy: "apy",
+        sortOrder: "desc",
+        limit: 5,
+        excludeIdle: true,
+      }),
+      morphoVaultClient.getVaults({
+        chainId,
+        limit: 1000,
+        excludeIdle: true,
+      }),
+    ]);
 
-    // Fallback to hardcoded addresses if API fails
-    console.warn(
-      `Failed to get dynamic vault for ${asset} on ${chain}, using fallback`
-    );
-    const fallbackVaults = getMorphoVaultAddresses(chain);
+    // Group by asset
+    const assetGroups = assetBreakdown.reduce((acc, vault) => {
+      const symbol = vault.asset.symbol;
+      if (!acc[symbol]) {
+        acc[symbol] = { count: 0, totalTvl: 0, maxApy: 0 };
+      }
+      acc[symbol].count++;
+      acc[symbol].totalTvl += vault.metrics.totalAssetsUsd;
+      acc[symbol].maxApy = Math.max(acc[symbol].maxApy, vault.metrics.apy);
+      return acc;
+    }, {} as Record<string, { count: number; totalTvl: number; maxApy: number }>);
 
-    // Map asset to fallback vault
-    if (
-      asset.toLowerCase() === "weth" &&
-      "SEAMLESS_WETH_VAULT" in fallbackVaults
-    ) {
-      return (fallbackVaults as any).SEAMLESS_WETH_VAULT;
-    }
-    if (
-      asset.toLowerCase() === "usdc" &&
-      "GAUNTLET_USDC_CORE" in fallbackVaults
-    ) {
-      return (fallbackVaults as any).GAUNTLET_USDC_CORE;
-    }
-
-    throw new Error(`No vault found for asset ${asset} on chain ${chain}`);
+    return {
+      chainId,
+      chainName: getChainName(chainId),
+      totalVaults: assetBreakdown.length,
+      totalTvl: assetBreakdown.reduce(
+        (sum, v) => sum + v.metrics.totalAssetsUsd,
+        0
+      ),
+      topVaultsByTvl: topByTvl,
+      topVaultsByApy: topByApy,
+      assetBreakdown: Object.entries(assetGroups)
+        .map(([symbol, data]) => ({ symbol, ...data }))
+        .sort((a, b) => b.totalTvl - a.totalTvl),
+    };
   } catch (error) {
-    console.error(`Error getting vault for ${asset} on ${chain}:`, error);
+    console.error(`Error getting vault summary for chain ${chainId}:`, error);
     throw error;
   }
 }

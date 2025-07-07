@@ -18,12 +18,12 @@ import { bundledVincentTool as morphoTool } from "../../vincent-packages/tools/m
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { ethers } from "ethers";
 import {
-  getMorphoVaultAddresses,
-  getTestTokens,
   CHAIN_IDS,
-  getTopVaultAddresses,
   getBestVaultsForAsset,
-  getVaultAddressForAsset,
+  getTokenAddress,
+  getSupportedChainsWithVaults,
+  getVaultDiscoverySummary,
+  getVaults,
 } from "../../vincent-packages/tools/morpho/dist/lib/helpers/index.js";
 import {
   setupWethFunding,
@@ -47,28 +47,39 @@ const NETWORK_CONFIG = {
   // RPC URL environment variable
   rpcUrlEnv: `${NETWORK_NAME.toUpperCase()}_RPC_URL`,
 
-  // Get addresses dynamically based on chain
-  get morphoVaultAddresses() {
-    return getMorphoVaultAddresses(NETWORK_NAME);
-  },
+  // Get token addresses dynamically based on chain
   get testTokens() {
-    return getTestTokens(NETWORK_NAME);
+    return {
+      WETH: getTokenAddress('WETH', this.chainId),
+      USDC: getTokenAddress('USDC', this.chainId),
+      USDT: getTokenAddress('USDT', this.chainId),
+    };
   },
 
   // Convenience getters for commonly used addresses
-  get wethVaultAddress() {
-    return this.morphoVaultAddresses.SEAMLESS_WETH_VAULT;
-  },
   get wethAddress() {
-    return this.testTokens.WETH;
+    return getTokenAddress('WETH', this.chainId);
+  },
+  get usdcAddress() {
+    return getTokenAddress('USDC', this.chainId);
   },
 
   // Dynamic vault discovery methods
   async getTopVaultAddresses(limit: number = 5) {
-    return getTopVaultAddresses(NETWORK_NAME, limit);
+    const vaults = await getVaults({
+      chainId: this.chainId,
+      sortBy: "totalAssetsUsd",
+      sortOrder: "desc",
+      limit,
+      excludeIdle: true,
+    });
+    return vaults.map((vault) => vault.address);
   },
   async getBestWethVaults(limit: number = 5) {
     return getBestVaultsForAsset('WETH', limit);
+  },
+  async getChainSummary() {
+    return getVaultDiscoverySummary(this.chainId);
   },
 } as const;
 
@@ -78,19 +89,64 @@ const CONFIRMATIONS_TO_WAIT = 2;
 (async () => {
   /**
    * ====================================
-   * Dynamic Vault Discovery
+   * Multi-Chain Vault Discovery & Network Analysis
+   * ====================================
+   */
+  console.log("🌐 Discovering supported chains and vault ecosystem...");
+  
+  try {
+    // Get all supported chains with active vaults
+    const supportedChains = await getSupportedChainsWithVaults();
+    console.log("📋 Morpho-supported chains with active vaults:");
+    supportedChains.forEach((chain) => {
+      console.log(`   ${chain.name} (${chain.chainId}): ${chain.vaultCount} vaults`);
+    });
+    
+    // Get detailed summary for current chain
+    const chainSummary = await NETWORK_CONFIG.getChainSummary();
+    console.log(`\n📊 ${chainSummary.chainName} Chain Summary:`);
+    console.log(`   Total Vaults: ${chainSummary.totalVaults}`);
+    console.log(`   Total TVL: $${chainSummary.totalTvl.toLocaleString()}`);
+    console.log(`   Asset Breakdown:`);
+    chainSummary.assetBreakdown.slice(0, 5).forEach((asset) => {
+      console.log(`     ${asset.symbol}: ${asset.count} vaults, $${asset.totalTvl.toLocaleString()} TVL, ${asset.maxApy.toFixed(2)}% max APY`);
+    });
+    
+    addTestResult("Multi-Chain Discovery", true);
+  } catch (error) {
+    console.error("❌ Failed to discover multi-chain ecosystem:", error.message);
+    addTestResult("Multi-Chain Discovery", false, error.message);
+  }
+
+  /**
+   * ====================================
+   * Dynamic WETH Vault Discovery
    * ====================================
    */
   console.log("🔍 Discovering best WETH vault dynamically...");
   let dynamicWethVaultAddress: string;
   
   try {
-    dynamicWethVaultAddress = await getVaultAddressForAsset('WETH', NETWORK_NAME);
+    // Get best WETH vault for this chain
+    const bestVaults = await getVaults({
+      assetSymbol: 'WETH',
+      chainId: NETWORK_CONFIG.chainId,
+      sortBy: "apy",
+      sortOrder: "desc",
+      limit: 1,
+      excludeIdle: true,
+    });
+    
+    if (bestVaults.length === 0) {
+      throw new Error(`No WETH vaults found on ${NETWORK_NAME}`);
+    }
+    
+    dynamicWethVaultAddress = bestVaults[0].address;
     console.log(`✅ Found best WETH vault: ${dynamicWethVaultAddress}`);
     
     // Get vault details for logging
     const wethVaults = await getBestVaultsForAsset('WETH', 3);
-    const chainVaults = wethVaults.filter(vault => vault.chain.id === NETWORK_CONFIG.chainId);
+    const chainVaults = wethVaults.filter((vault: any) => vault.chain.id === NETWORK_CONFIG.chainId);
     
     if (chainVaults.length > 0) {
       console.log("📊 Top WETH vaults on", NETWORK_NAME + ":");
@@ -103,11 +159,10 @@ const CONFIRMATIONS_TO_WAIT = 2;
       });
     }
     
-    addTestResult("Dynamic Vault Discovery", true);
+    addTestResult("Dynamic WETH Vault Discovery", true);
   } catch (error) {
-    console.error("❌ Failed to discover vault dynamically, using fallback:", error.message);
-    dynamicWethVaultAddress = NETWORK_CONFIG.wethVaultAddress;
-    addTestResult("Dynamic Vault Discovery", false, error.message);
+    console.error("❌ Failed to discover WETH vault dynamically:", error.message);
+    throw new Error(`Cannot proceed without a valid WETH vault address: ${error.message}`);
   }
 
   /**
