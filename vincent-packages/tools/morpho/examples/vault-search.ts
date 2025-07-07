@@ -1,16 +1,17 @@
 import {
   getVaults,
   CHAIN_IDS,
-  getTokenAddress,
-} from "../dist/lib/helpers/index.js";
+  type MorphoVaultInfo,
+  type VaultFilterOptions,
+} from "../src/lib/helpers/index.js";
 
-async function demonstrateUnifiedVaultSearch() {
+async function demonstrateUnifiedVaultSearch(): Promise<void> {
   console.log("🔧 Unified Vault Search Examples\n");
 
   try {
     // Example 1: Get vaults by chain
     console.log("📍 Example 1: Vaults on Base Chain");
-    const baseVaults = await getVaults({
+    const baseVaults: MorphoVaultInfo[] = await getVaults({
       chainId: CHAIN_IDS.base,
       limit: 100,
       excludeIdle: true,
@@ -20,11 +21,11 @@ async function demonstrateUnifiedVaultSearch() {
     });
 
     console.log(`Found ${baseVaults.length} vaults on Base:`);
-    baseVaults.forEach((vault, index) => {
+    baseVaults.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(`  ${index + 1}. ${vault.name} (${vault.asset.symbol})`);
       console.log(
         `     TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, APY: ${
-          100 * vault.metrics.netApy.toFixed(4)
+          (100 * (vault.metrics.netApy || 0)).toFixed(4)
         }%`
       );
     });
@@ -32,21 +33,21 @@ async function demonstrateUnifiedVaultSearch() {
 
     // Example 2: Get vaults by asset
     console.log("💰 Example 2: WETH Vaults Across All Chains");
-    const wethAddress = getTokenAddress("WETH", CHAIN_IDS.ethereum); // Get any WETH address for symbol search
-    const wethVaults = await getVaults({
+    // Using symbol search (more flexible than address)
+    const wethVaults: MorphoVaultInfo[] = await getVaults({
       assetSymbol: "WETH", // More flexible than address
       limit: 100,
       excludeIdle: true,
-      sortBy: "apy",
+      sortBy: "netApy",
       sortOrder: "desc",
     });
 
     console.log(`Found ${wethVaults.length} WETH vaults:`);
-    wethVaults.forEach((vault, index) => {
+    wethVaults.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(`  ${index + 1}. ${vault.name} on ${vault.chain.network}`);
       console.log(
         `     APY: ${
-          100 * vault.metrics.netApy.toFixed(4)
+          (100 * (vault.metrics.netApy || 0)).toFixed(4)
         }%, TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}`
       );
     });
@@ -54,21 +55,21 @@ async function demonstrateUnifiedVaultSearch() {
 
     // Example 3: Combined asset + chain filtering
     console.log("🎯 Example 3: USDC Vaults on Base");
-    const usdcBaseVaults = await getVaults({
+    const usdcBaseVaults: MorphoVaultInfo[] = await getVaults({
       assetSymbol: "USDC",
       chainId: CHAIN_IDS.base,
       limit: 100,
       excludeIdle: true,
-      sortBy: "apy",
+      sortBy: "netApy",
       sortOrder: "desc",
     });
 
     console.log(`Found ${usdcBaseVaults.length} USDC vaults on Base:`);
-    usdcBaseVaults.forEach((vault, index) => {
+    usdcBaseVaults.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(`  ${index + 1}. ${vault.name}`);
       console.log(
         `     APY: ${
-          100 * vault.metrics.netApy.toFixed(4)
+          (100 * (vault.metrics.netApy || 0)).toFixed(4)
         }%, TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, address: ${
           vault.address
         }`
@@ -78,25 +79,26 @@ async function demonstrateUnifiedVaultSearch() {
 
     // Example 4: Advanced filtering - High APY vaults with minimum TVL
     console.log("🏆 Example 4: High-Yield Vaults (>5% APY, >$1M TVL)");
-    const highYieldVaults = await getVaults({
-      minApy: 0.05,
+    const filterOptions: VaultFilterOptions = {
+      minNetApy: 0.05,
       minTvl: 1000000, // $1M minimum TVL
       excludeIdle: true,
-      sortBy: "apy",
+      sortBy: "netApy",
       sortOrder: "desc",
       limit: 5,
-    });
+    };
+    const highYieldVaults: MorphoVaultInfo[] = await getVaults(filterOptions);
 
     console.log(`Found ${highYieldVaults.length} high-yield vaults:`);
-    highYieldVaults.forEach((vault, index) => {
+    highYieldVaults.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(
         `  ${index + 1}. ${vault.name} (${vault.asset.symbol}) on ${
           vault.chain.network
         }`
       );
       console.log(
-        `     APY: ${vault.metrics.netApy.toFixed(4)}%, TVL: $${
-          100 * vault.metrics.totalAssetsUsd.toLocaleString()
+        `     APY: ${(100 * (vault.metrics.netApy || 0)).toFixed(4)}%, TVL: $${
+          vault.metrics.totalAssetsUsd.toLocaleString()
         }`
       );
     });
@@ -104,13 +106,13 @@ async function demonstrateUnifiedVaultSearch() {
 
     // Example 5: Multiple asset types on specific chain
     console.log("🔗 Example 5: USDC and WETH Vaults on Base");
-    const [usdcBase, wethBase] = await Promise.all([
+    const [usdcBase, wethBase]: [MorphoVaultInfo[], MorphoVaultInfo[]] = await Promise.all([
       getVaults({
         assetSymbol: "USDC",
         chainId: CHAIN_IDS.base,
         limit: 2,
         excludeIdle: true,
-        sortBy: "apy",
+        sortBy: "netApy",
         sortOrder: "desc",
       }),
       getVaults({
@@ -118,25 +120,25 @@ async function demonstrateUnifiedVaultSearch() {
         chainId: CHAIN_IDS.base,
         limit: 2,
         excludeIdle: true,
-        sortBy: "apy",
+        sortBy: "netApy",
         sortOrder: "desc",
       }),
     ]);
 
     console.log("Best USDC vaults on Base:");
-    usdcBase.forEach((vault, index) => {
+    usdcBase.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(
         `  ${index + 1}. ${vault.name} - ${
-          100 * vault.metrics.netApy.toFixed(4)
+          (100 * (vault.metrics.netApy || 0)).toFixed(4)
         }% APY`
       );
     });
 
     console.log("Best WETH vaults on Base:");
-    wethBase.forEach((vault, index) => {
+    wethBase.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(
         `  ${index + 1}. ${vault.name} - ${
-          100 * vault.metrics.netApy.toFixed(4)
+          (100 * (vault.metrics.netApy || 0)).toFixed(4)
         }% APY`
       );
     });
@@ -144,7 +146,7 @@ async function demonstrateUnifiedVaultSearch() {
 
     // Example 6: Whitelisted vaults only
     console.log("✅ Example 6: Whitelisted Vaults Only");
-    const whitelistedVaults = await getVaults({
+    const whitelistedVaults: MorphoVaultInfo[] = await getVaults({
       whitelistedOnly: true,
       excludeIdle: true,
       sortBy: "totalAssetsUsd",
@@ -153,7 +155,7 @@ async function demonstrateUnifiedVaultSearch() {
     });
 
     console.log(`Found ${whitelistedVaults.length} whitelisted vaults:`);
-    whitelistedVaults.forEach((vault, index) => {
+    whitelistedVaults.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(
         `  ${index + 1}. ${vault.name} (${vault.asset.symbol}) on ${
           vault.chain.network
@@ -161,7 +163,7 @@ async function demonstrateUnifiedVaultSearch() {
       );
       console.log(
         `     TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, APY: ${
-          100 * vault.metrics.netApy.toFixed(4)
+          (100 * (vault.metrics.netApy || 0)).toFixed(4)
         }%`
       );
     });
@@ -169,17 +171,17 @@ async function demonstrateUnifiedVaultSearch() {
 
     // Example 7: TVL range filtering
     console.log("📊 Example 7: Medium-sized Vaults ($100K - $10M TVL)");
-    const mediumVaults = await getVaults({
+    const mediumVaults: MorphoVaultInfo[] = await getVaults({
       minTvl: 100000, // $100K minimum
       maxTvl: 10000000, // $10M maximum
       excludeIdle: true,
-      sortBy: "apy",
+      sortBy: "netApy",
       sortOrder: "desc",
       limit: 5,
     });
 
     console.log(`Found ${mediumVaults.length} medium-sized vaults:`);
-    mediumVaults.forEach((vault, index) => {
+    mediumVaults.forEach((vault: MorphoVaultInfo, index: number) => {
       console.log(
         `  ${index + 1}. ${vault.name} (${vault.asset.symbol}) on ${
           vault.chain.network
@@ -187,7 +189,7 @@ async function demonstrateUnifiedVaultSearch() {
       );
       console.log(
         `     TVL: $${vault.metrics.totalAssetsUsd.toLocaleString()}, APY: ${
-          100 * vault.metrics.netApy.toFixed(4)
+          (100 * (vault.metrics.netApy || 0)).toFixed(4)
         }%`
       );
     });
@@ -195,29 +197,29 @@ async function demonstrateUnifiedVaultSearch() {
 
     // Example 8: Multi-chain comparison for same asset
     console.log("⚡ Example 8: USDC Vault APY Comparison Across Chains");
-    const chainsToCompare = [
+    const chainsToCompare: number[] = [
       CHAIN_IDS.ethereum,
       CHAIN_IDS.base,
       CHAIN_IDS.arbitrum,
     ];
 
     for (const chainId of chainsToCompare) {
-      const chainName = Object.keys(CHAIN_IDS).find(
-        (key) => CHAIN_IDS[key] === chainId
+      const chainName: string | undefined = Object.keys(CHAIN_IDS).find(
+        (key: string) => CHAIN_IDS[key as keyof typeof CHAIN_IDS] === chainId
       );
-      const bestUsdcVault = await getVaults({
+      const bestUsdcVault: MorphoVaultInfo[] = await getVaults({
         assetSymbol: "USDC",
         chainId,
         limit: 1,
         excludeIdle: true,
-        sortBy: "apy",
+        sortBy: "netApy",
         sortOrder: "desc",
       });
 
       if (bestUsdcVault.length > 0) {
-        const vault = bestUsdcVault[0];
+        const vault: MorphoVaultInfo = bestUsdcVault[0];
         console.log(
-          `  ${chainName}: ${100 * vault.metrics.netApy.toFixed(4)}% APY (${
+          `  ${chainName}: ${(100 * (vault.metrics.netApy || 0)).toFixed(4)}% APY (${
             vault.name
           })`
         );
@@ -225,8 +227,9 @@ async function demonstrateUnifiedVaultSearch() {
         console.log(`  ${chainName}: No USDC vaults found`);
       }
     }
-  } catch (error) {
-    console.error("❌ Error during unified vault search:", error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("❌ Error during unified vault search:", errorMessage);
     console.error(
       "   Make sure you have internet connectivity to access the Morpho API"
     );
@@ -234,4 +237,8 @@ async function demonstrateUnifiedVaultSearch() {
 }
 
 // Run the demonstration
-demonstrateUnifiedVaultSearch();
+demonstrateUnifiedVaultSearch().catch((error: unknown) => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  console.error("❌ Failed to run vault search demonstration:", errorMessage);
+  process.exit(1);
+});
