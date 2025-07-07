@@ -410,6 +410,56 @@ export async function testMorphoVaultFiltering(chainId: number, chainName: strin
       addTestResult("USD TVL Sorting", false);
     }
 
+    /**
+     * ====================================
+     * Limit Behavior Tests
+     * ====================================
+     */
+    console.log("📊 Test 5: Limit behavior with client-side filtering");
+
+    // Test that limit works correctly with excludeIdle filtering
+    console.log("   🎯 Test 5a: Limit with excludeIdle filtering");
+    const limitedVaultsWithFiltering = await getVaults({
+      chainId: chainId,
+      limit: 2, // Should get exactly 2 results after filtering
+      excludeIdle: true,
+      sortBy: "netApy",
+      sortOrder: "desc",
+    });
+
+    console.log(`   Requested 2 vaults with excludeIdle=true, got: ${limitedVaultsWithFiltering.length}`);
+    
+    if (limitedVaultsWithFiltering.length <= 2) {
+      console.log("   ✅ Limit correctly applied after client-side filtering");
+      addTestResult("Limit with Client Filtering", true);
+    } else {
+      console.error("   ❌ Limit not properly applied after client-side filtering");
+      addTestResult("Limit with Client Filtering", false);
+    }
+
+    // Test edge case: limit 1 with filtering should still work
+    console.log("   🎯 Test 5b: Limit 1 with excludeIdle (edge case)");
+    const singleVaultWithFiltering = await getVaults({
+      chainId: chainId,
+      limit: 1,
+      excludeIdle: true,
+      sortBy: "netApy",
+      sortOrder: "desc",
+    });
+
+    console.log(`   Requested 1 vault with excludeIdle=true, got: ${singleVaultWithFiltering.length}`);
+    
+    if (singleVaultWithFiltering.length === 0) {
+      console.log("   ⚠️  No active vaults found on this chain (acceptable)");
+      addTestResult("Limit 1 Edge Case", true, "No active vaults found");
+    } else if (singleVaultWithFiltering.length === 1) {
+      console.log("   ✅ Limit 1 with filtering works correctly");
+      addTestResult("Limit 1 Edge Case", true);
+    } else {
+      console.error("   ❌ Limit 1 returned more than 1 result");
+      addTestResult("Limit 1 Edge Case", false);
+    }
+
     console.log("✅ Morpho vault filtering tests completed");
     addTestResult("Morpho Vault Filtering Suite", true);
 

@@ -657,8 +657,14 @@ export class MorphoVaultClient {
       }
     `;
 
+    // Fetch more results than requested to account for client-side filtering
+    // If excludeIdle is true, we might need to filter some out, so fetch extra
+    const fetchLimit = options.excludeIdle && options.limit 
+      ? Math.max(options.limit * 3, 100) // Fetch 3x the limit or 100, whichever is larger
+      : options.limit || 100;
+
     const variables = {
-      first: options.limit || 100,
+      first: fetchLimit,
       orderBy: this.mapSortBy(options.sortBy || "totalAssetsUsd"),
       orderDirection: options.sortOrder === "asc" ? "Asc" : "Desc",
       where: whereClause,
@@ -674,7 +680,10 @@ export class MorphoVaultClient {
     // Apply only remaining client-side filters not supported by GraphQL
     const filtered = this.applyRemainingClientFilters(vaults, options);
     // console.log("vaults after additional client filtering", filtered.length);
-    return filtered;
+
+    // Apply the limit AFTER client-side filtering to ensure we get the expected number of results
+    const finalResults = options.limit ? filtered.slice(0, options.limit) : filtered;
+    return finalResults;
   }
 
   /**
