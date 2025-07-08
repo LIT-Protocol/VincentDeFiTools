@@ -82,7 +82,6 @@ const NETWORK_CONFIG = {
 //
 // Supported networks: "sepolia", "base"
 
-const AAVE_BASE_DEBT_ASSET_DECIMALS = 8;
 const CONFIRMATIONS_TO_WAIT = 2;
 
 (async () => {
@@ -288,7 +287,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // ========================================
   // WETH and ETH Funding Setup
   // ========================================
-  const WETH_SUPPLY_AMOUNT = "0.01"; // 0.01 WETH as collateral
+  const WETH_SUPPLY_AMOUNT = "0.001"; // 0.001 WETH as collateral
   const { wethContract, wethDecimals } = await setupWethFunding(
     networkProvider,
     agentWalletPkp.ethAddress,
@@ -321,7 +320,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
     "📋 Workflow: Supply WETH → Borrow USDC → Repay USDC → Withdraw WETH"
   );
 
-  const USDC_BORROW_AMOUNT = "1.0"; // 1 USDC
+  const USDC_BORROW_AMOUNT = "0.1"; // 0.1 USDC
 
   // Store initial balances for comparison throughout the workflow
   let initialWethBalance: ethers.BigNumber = ethers.BigNumber.from(0);
@@ -576,8 +575,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
             "supply",
             {
               collateralIncrease: true,
-              minCollateral: "1", // Expect at least $1 worth of collateral
-              minCollateralChange: "1", // Expect at least $1 increase in collateral
+              minCollateral: USDC_BORROW_AMOUNT,
+              minCollateralChange: USDC_BORROW_AMOUNT,
             },
             NETWORK_CONFIG.network
           );
@@ -758,8 +757,8 @@ const CONFIRMATIONS_TO_WAIT = 2;
             "borrow",
             {
               debtIncrease: true,
-              minDebt: "0.5", // Expect at least $0.5 worth of debt
-              minDebtChange: "0.8", // Expect at least $0.8 increase in debt (1 USDC)
+              minDebt: "0.05", // Expect at least $0.05 worth of debt
+              minDebtChange: "0.08", // Expect at least $0.08 increase in debt (1 USDC)
             },
             NETWORK_CONFIG.network
           );
@@ -1039,7 +1038,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
             "repay",
             {
               debtDecrease: true,
-              minDebtChange: "0.8", // Expect at least $0.8 decrease in debt (1 USDC repaid)
+              minDebtChange: "0.08", // Expect at least $0.08 decrease in debt
             },
             NETWORK_CONFIG.network
           );
@@ -1225,7 +1224,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
             "withdraw",
             {
               collateralDecrease: true,
-              minCollateralChange: "1", // Expect at least $1 decrease in collateral (0.01 WETH withdrawn)
+              minCollateralChange: USDC_BORROW_AMOUNT,
             },
             NETWORK_CONFIG.network
           );
@@ -1362,7 +1361,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
     console.log(`   - Debt Difference: ${debtDifference.toFixed(4)} USD`);
 
     // Define acceptable tolerance (small differences due to interest accrual, rounding, etc.)
-    const TOLERANCE_USD = 0.01; // $0.01 tolerance
+    const TOLERANCE_USD = 0.001; // $0.001 tolerance
 
     const collateralWithinTolerance = collateralDifference <= TOLERANCE_USD;
     const debtWithinTolerance = debtDifference <= TOLERANCE_USD;

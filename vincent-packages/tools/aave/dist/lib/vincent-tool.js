@@ -1,7 +1,7 @@
 import { createVincentTool, supportedPoliciesForTool, } from "@lit-protocol/vincent-tool-sdk";
 import "@lit-protocol/vincent-tool-sdk/internal";
 import { executeFailSchema, executeSuccessSchema, precheckFailSchema, precheckSuccessSchema, toolParamsSchema, AaveOperation, } from "./schemas";
-import { getAaveAddresses, AAVE_POOL_ABI, ERC20_ABI, INTEREST_RATE_MODE, isValidAddress, parseAmount, validateOperationRequirements, } from "./helpers";
+import { getAaveAddresses, getAvailableMarkets, getSupportedChains, AAVE_POOL_ABI, ERC20_ABI, INTEREST_RATE_MODE, isValidAddress, parseAmount, validateOperationRequirements, } from "./helpers";
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
 import { ethers } from "ethers";
 export const vincentTool = createVincentTool({
@@ -71,7 +71,7 @@ export const vincentTool = createVincentTool({
             }
             catch (error) {
                 return fail({
-                    error: `[@lit-protocol/vincent-tool-aave/precheck] ${error.message}`,
+                    error: `[@lit-protocol/vincent-tool-aave/precheck] ${error instanceof Error ? error.message : String(error)}`,
                 });
             }
             // Get PKP address
@@ -138,6 +138,14 @@ export const vincentTool = createVincentTool({
                     error: `[@lit-protocol/vincent-tool-aave/precheck] Gas estimation failed: ${error instanceof Error ? error.message : error.toString()}`,
                 });
             }
+            // Get available markets for this chain to include in response
+            let availableMarkets = {};
+            try {
+                availableMarkets = getAvailableMarkets(chain || "sepolia");
+            }
+            catch (error) {
+                console.warn("Failed to get available markets:", error);
+            }
             // Enhanced validation passed
             const successResult = {
                 operationValid: true,
@@ -147,6 +155,8 @@ export const vincentTool = createVincentTool({
                 allowance,
                 borrowCapacity,
                 estimatedGas,
+                availableMarkets,
+                supportedChains: getSupportedChains(),
             };
             console.log("[@lit-protocol/vincent-tool-aave/precheck] Enhanced validation successful:", successResult);
             return succeed(successResult);
@@ -180,7 +190,7 @@ export const vincentTool = createVincentTool({
             }
             catch (error) {
                 return fail({
-                    error: `[@lit-protocol/vincent-tool-aave/execute] ${error.message}`,
+                    error: `[@lit-protocol/vincent-tool-aave/execute] ${error instanceof Error ? error.message : String(error)}`,
                 });
             }
             // Get provider - for AAVE operations, we need to work with Sepolia testnet

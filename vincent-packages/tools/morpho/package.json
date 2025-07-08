@@ -9,7 +9,8 @@
     "build": "npm run action:build && tsc && npm run action:deploy",
     "action:build": "vincent-scaffold pkg build",
     "action:deploy": "sh -c '[ -f .env ] && dotenv -e .env -- vincent-scaffold pkg deploy || dotenv -e ../../../.env -- vincent-scaffold pkg deploy'",
-    "clean": "vincent-scaffold pkg clean"
+    "clean": "vincent-scaffold pkg clean",
+    "vault-search": "npx tsx examples/vault-search.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -21,6 +22,7 @@
   "dependencies": {
     "@lit-protocol/vincent-scaffold-sdk": "^1.1.4",
     "@lit-protocol/vincent-tool-sdk": "^1.0.1",
+    "@uniswap/token-lists": "^1.0.0-beta.34",
     "ethers": "^5.8.0"
   },
   "exports": {

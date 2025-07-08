@@ -15,6 +15,8 @@ import {
 
 import {
   getAaveAddresses,
+  getAvailableMarkets,
+  getSupportedChains,
   AAVE_POOL_ABI,
   ERC20_ABI,
   INTEREST_RATE_MODE,
@@ -101,7 +103,7 @@ export const vincentTool = createVincentTool({
       }
 
       // Get provider
-      let provider;
+      let provider: ethers.providers.JsonRpcProvider;
       try {
         provider = new ethers.providers.JsonRpcProvider(rpcUrl);
       } catch (error) {
@@ -113,12 +115,12 @@ export const vincentTool = createVincentTool({
       }
 
       // Get chain-specific AAVE addresses
-      let aaveAddresses;
+      let aaveAddresses: { POOL: string; POOL_ADDRESSES_PROVIDER: string };
       try {
         aaveAddresses = getAaveAddresses(chain || "sepolia");
       } catch (error) {
         return fail({
-          error: `[@lit-protocol/vincent-tool-aave/precheck] ${error.message}`,
+          error: `[@lit-protocol/vincent-tool-aave/precheck] ${error instanceof Error ? error.message : String(error)}`,
         });
       }
 
@@ -250,6 +252,14 @@ export const vincentTool = createVincentTool({
         });
       }
 
+      // Get available markets for this chain to include in response
+      let availableMarkets: Record<string, string> = {};
+      try {
+        availableMarkets = getAvailableMarkets(chain || "sepolia");
+      } catch (error) {
+        console.warn("Failed to get available markets:", error);
+      }
+
       // Enhanced validation passed
       const successResult = {
         operationValid: true,
@@ -259,6 +269,8 @@ export const vincentTool = createVincentTool({
         allowance,
         borrowCapacity,
         estimatedGas,
+        availableMarkets,
+        supportedChains: getSupportedChains(),
       };
 
       console.log(
@@ -308,18 +320,18 @@ export const vincentTool = createVincentTool({
       }
 
       // Get chain-specific AAVE addresses
-      let aaveAddresses;
+      let aaveAddresses: { POOL: string; POOL_ADDRESSES_PROVIDER: string };
       try {
         aaveAddresses = getAaveAddresses(chain || "sepolia");
       } catch (error) {
         return fail({
-          error: `[@lit-protocol/vincent-tool-aave/execute] ${error.message}`,
+          error: `[@lit-protocol/vincent-tool-aave/execute] ${error instanceof Error ? error.message : String(error)}`,
         });
       }
 
       // Get provider - for AAVE operations, we need to work with Sepolia testnet
       // The Vincent framework typically uses Yellowstone, but AAVE is deployed on Sepolia
-      let provider;
+      let provider: ethers.providers.JsonRpcProvider;
       try {
         // For now, try to get the default provider, but this will need configuration
         // In a real deployment, this would be configured via Vincent SDK settings
@@ -463,13 +475,13 @@ export const vincentTool = createVincentTool({
  * Execute AAVE Supply operation
  */
 async function executeSupply(
-  provider: any,
+  provider: ethers.providers.JsonRpcProvider,
   pkpPublicKey: string,
   asset: string,
   amount: string,
   onBehalfOf: string,
   chainId: number,
-  aaveAddresses: any
+  aaveAddresses: { POOL: string; POOL_ADDRESSES_PROVIDER: string }
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeSupply] Starting supply operation"
@@ -497,13 +509,13 @@ async function executeSupply(
  * Execute AAVE Withdraw operation
  */
 async function executeWithdraw(
-  provider: any,
+  provider: ethers.providers.JsonRpcProvider,
   pkpPublicKey: string,
   asset: string,
   amount: string,
   to: string,
   chainId: number,
-  aaveAddresses: any
+  aaveAddresses: { POOL: string; POOL_ADDRESSES_PROVIDER: string }
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeWithdraw] Starting withdraw operation"
@@ -530,14 +542,14 @@ async function executeWithdraw(
  * Execute AAVE Borrow operation
  */
 async function executeBorrow(
-  provider: any,
+  provider: ethers.providers.JsonRpcProvider,
   pkpPublicKey: string,
   asset: string,
   amount: string,
   interestRateMode: number,
   onBehalfOf: string,
   chainId: number,
-  aaveAddresses: any
+  aaveAddresses: { POOL: string; POOL_ADDRESSES_PROVIDER: string }
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeBorrow] Starting borrow operation"
@@ -564,14 +576,14 @@ async function executeBorrow(
  * Execute AAVE Repay operation
  */
 async function executeRepay(
-  provider: any,
+  provider: ethers.providers.JsonRpcProvider,
   pkpPublicKey: string,
   asset: string,
   amount: string,
   rateMode: number,
   onBehalfOf: string,
   chainId: number,
-  aaveAddresses: any
+  aaveAddresses: { POOL: string; POOL_ADDRESSES_PROVIDER: string }
 ): Promise<string> {
   console.log(
     "[@lit-protocol/vincent-tool-aave/executeRepay] Starting repay operation"

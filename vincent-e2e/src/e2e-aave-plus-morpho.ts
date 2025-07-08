@@ -24,9 +24,8 @@ import {
   CHAIN_IDS as AAVE_CHAIN_IDS,
 } from "../../vincent-packages/tools/aave/dist/lib/helpers/index.js";
 import {
-  getMorphoVaultAddresses,
-  getTestTokens as getMorphoTestTokens,
-  CHAIN_IDS as MORPHO_CHAIN_IDS,
+  getVaults,
+  getTokenAddress,
 } from "../../vincent-packages/tools/morpho/dist/lib/helpers/index.js";
 import {
   setupWethFunding,
@@ -57,11 +56,31 @@ const NETWORK_CONFIG = {
   get aaveTestTokens() {
     return getAaveTestTokens(NETWORK_NAME);
   },
-  get morphoVaultAddresses() {
-    return getMorphoVaultAddresses(NETWORK_NAME);
+  // Dynamic morpho vault discovery - get best USDC vault
+  async getBestUsdcVault() {
+    const vaults = await getVaults({
+      assetSymbol: "USDC",
+      chainId: this.chainId,
+      sortBy: "netApy",
+      sortOrder: "desc",
+      limit: 1,
+      excludeIdle: true,
+      minTvl: 10000, // Minimum $10k TVL for safety
+    });
+
+    if (vaults.length === 0) {
+      throw new Error(`No suitable USDC vaults found on ${NETWORK_NAME}`);
+    }
+
+    return vaults[0];
   },
-  get morphoTestTokens() {
-    return getMorphoTestTokens(NETWORK_NAME);
+
+  get morphoTokenAddresses() {
+    return {
+      USDC: getTokenAddress("USDC", this.chainId),
+      WETH: getTokenAddress("WETH", this.chainId),
+      USDT: getTokenAddress("USDT", this.chainId),
+    };
   },
 
   // Convenience getters for commonly used addresses
@@ -74,16 +93,17 @@ const NETWORK_CONFIG = {
   get usdcAddress() {
     return this.aaveTestTokens.USDC;
   },
-  get usdcVaultAddress() {
-    return this.morphoVaultAddresses.GAUNTLET_USDC_CORE;
-  },
+  // Note: usdcVaultAddress will be dynamically discovered in the test flow
 } as const;
 
 const CONFIRMATIONS_TO_WAIT = 2;
 
 // Test amounts
 const WETH_DEPOSIT_AMOUNT = "0.001"; // 0.01 WETH to deposit on AAVE
-const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to Morpho
+const USDC_BORROW_AMOUNT = "0.1"; // 0.1 USDC to borrow from AAVE and deposit to Morpho
+
+// Global variable to store the dynamically discovered vault
+let selectedUsdcVault: any;
 
 (async () => {
   /**
@@ -372,9 +392,30 @@ const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to
     NETWORK_CONFIG.network
   );
 
-  // Setup vault contract for Morpho operations
+  // ========================================
+  // Dynamic Vault Discovery
+  // ========================================
+  console.log("🔍 Discovering best USDC vault on Morpho...");
+
+  try {
+    selectedUsdcVault = await NETWORK_CONFIG.getBestUsdcVault();
+    console.log(
+      `✅ Selected vault: ${selectedUsdcVault.name} (${selectedUsdcVault.address})`
+    );
+    console.log(`   Net APY: ${selectedUsdcVault.metrics.netApy}%`);
+    console.log(
+      `   TVL: $${selectedUsdcVault.metrics.totalAssetsUsd.toLocaleString()}`
+    );
+    addTestResult("Morpho Vault Discovery", true);
+  } catch (error) {
+    console.error("❌ Failed to discover USDC vault:", error.message);
+    addTestResult("Morpho Vault Discovery", false, error.message);
+    process.exit(1);
+  }
+
+  // Setup vault contract for Morpho operations using discovered vault
   const usdcVaultContract = new ethers.Contract(
-    NETWORK_CONFIG.usdcVaultAddress,
+    selectedUsdcVault.address,
     [
       {
         inputs: [{ internalType: "address", name: "account", type: "address" }],
@@ -397,9 +438,19 @@ const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to
   // ========================================
   // Combined AAVE + Morpho Workflow Testing
   // ========================================
-  console.log("🧪 Testing Combined AAVE + Morpho Workflow");
   console.log(
-    "📋 Workflow: AAVE Deposit WETH → Borrow USDC → Morpho Deposit USDC → Morpho Redeem USDC → AAVE Repay → AAVE Withdraw WETH"
+    "🧪 Testing Combined AAVE + Morpho Workflow with Dynamic Vault Discovery"
+  );
+  console.log(
+    `📋 Workflow: AAVE Deposit WETH → Borrow USDC → Morpho Deposit USDC (to ${selectedUsdcVault.name}) → Morpho Redeem USDC → AAVE Repay → AAVE Withdraw WETH`
+  );
+  console.log(
+    `🏛️ Using dynamically discovered vault: ${selectedUsdcVault.address}`
+  );
+  console.log(
+    `📊 Vault metrics: ${
+      selectedUsdcVault.metrics.netApy
+    }% Net APY, $${selectedUsdcVault.metrics.totalAssetsUsd.toLocaleString()} TVL`
   );
 
   // Store initial balances for comparison throughout the workflow
@@ -734,7 +785,7 @@ const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to
     const approveUsdcParams = {
       chainId: NETWORK_CONFIG.chainId,
       tokenAddress: NETWORK_CONFIG.usdcAddress,
-      spenderAddress: NETWORK_CONFIG.usdcVaultAddress,
+      spenderAddress: selectedUsdcVault.address,
       tokenAmount: parseFloat(USDC_BORROW_AMOUNT),
       tokenDecimals: usdcDecimals,
       rpcUrl: rpcUrl,
@@ -816,7 +867,7 @@ const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to
   try {
     const morphoDepositPrecheckParams = {
       operation: "deposit",
-      vaultAddress: NETWORK_CONFIG.usdcVaultAddress,
+      vaultAddress: selectedUsdcVault.address,
       amount: USDC_BORROW_AMOUNT,
       rpcUrl: rpcUrl,
       chain: NETWORK_CONFIG.network,
@@ -824,7 +875,7 @@ const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to
 
     const morphoDepositExecuteParams = {
       operation: "deposit",
-      vaultAddress: NETWORK_CONFIG.usdcVaultAddress,
+      vaultAddress: selectedUsdcVault.address,
       amount: USDC_BORROW_AMOUNT,
       chain: NETWORK_CONFIG.network,
     };
@@ -959,7 +1010,7 @@ const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to
   try {
     const morphoRedeemPrecheckParams = {
       operation: "redeem",
-      vaultAddress: NETWORK_CONFIG.usdcVaultAddress,
+      vaultAddress: selectedUsdcVault.address,
       amount: userVaultSharesFormatted,
       rpcUrl: rpcUrl,
       chain: NETWORK_CONFIG.network,
@@ -967,7 +1018,7 @@ const USDC_BORROW_AMOUNT = "0.5"; // 0.5 USDC to borrow from AAVE and deposit to
 
     const morphoRedeemExecuteParams = {
       operation: "redeem",
-      vaultAddress: NETWORK_CONFIG.usdcVaultAddress,
+      vaultAddress: selectedUsdcVault.address,
       amount: userVaultSharesFormatted,
       chain: NETWORK_CONFIG.network,
     };
