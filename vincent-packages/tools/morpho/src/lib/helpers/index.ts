@@ -659,9 +659,23 @@ export class MorphoVaultClient {
 
     // Fetch more results than requested to account for client-side filtering
     // If excludeIdle is true, we might need to filter some out, so fetch extra
-    const fetchLimit = options.excludeIdle && options.limit 
-      ? Math.max(options.limit * 3, 100) // Fetch 3x the limit or 100, whichever is larger
-      : options.limit || 100;
+    // But never exceed 1000 (GraphQL API limit)
+    const calculateFetchLimit = (requestedLimit?: number): number => {
+      if (!requestedLimit) return 100; // Default limit
+
+      // Always cap at 1000 to respect GraphQL API limits
+      const cappedLimit = Math.min(requestedLimit, 1000);
+
+      if (options.excludeIdle) {
+        // For excludeIdle filtering, fetch extra but never exceed 1000
+        return Math.max(cappedLimit, 1000);
+      }
+
+      // No client-side filtering, use requested limit (capped at 1000)
+      return cappedLimit;
+    };
+
+    const fetchLimit = calculateFetchLimit(options.limit);
 
     const variables = {
       first: fetchLimit,
@@ -682,7 +696,21 @@ export class MorphoVaultClient {
     // console.log("vaults after additional client filtering", filtered.length);
 
     // Apply the limit AFTER client-side filtering to ensure we get the expected number of results
-    const finalResults = options.limit ? filtered.slice(0, options.limit) : filtered;
+    const finalResults = options.limit
+      ? filtered.slice(0, options.limit)
+      : filtered;
+
+    // Log a warning if we couldn't fetch enough results due to API limits
+    if (
+      options.limit &&
+      options.limit > 1000 &&
+      finalResults.length < options.limit
+    ) {
+      console.warn(
+        `Warning: Requested ${options.limit} vaults but GraphQL API limit is 1000. Got ${finalResults.length} results.`
+      );
+    }
+
     return finalResults;
   }
 
@@ -738,7 +766,7 @@ export class MorphoVaultClient {
   async searchVaults(
     searchOptions: VaultSearchOptions
   ): Promise<MorphoVaultInfo[]> {
-    const allVaults = await this.getAllVaults({ limit: 1000 });
+    const allVaults = await this.getAllVaults({ limit: 500 }); // Reduced to avoid GraphQL limit issues
 
     if (!searchOptions.query) {
       return allVaults.slice(0, searchOptions.limit || 50);
@@ -1120,10 +1148,10 @@ export async function getSupportedChainsWithVaults(): Promise<
       });
 
       if (vaults.length > 0) {
-        // Get total count
+        // Get total count - reduced limit to avoid GraphQL errors
         const allVaults = await morphoVaultClient.getVaults({
           chainId,
-          limit: 1000,
+          limit: 500, // Reduced to avoid GraphQL limit issues
           excludeIdle: true,
         });
 
@@ -1166,7 +1194,7 @@ export async function getVaultDiscoverySummary(chainId: number) {
       }),
       morphoVaultClient.getVaults({
         chainId,
-        limit: 1000,
+        limit: 500, // Reduced to avoid GraphQL limit issues
         excludeIdle: true,
       }),
     ]);

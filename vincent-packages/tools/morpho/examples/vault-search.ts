@@ -211,7 +211,7 @@ async function demonstrateUnifiedVaultSearch(): Promise<void> {
       const bestUsdcVault: MorphoVaultInfo[] = await getVaults({
         assetSymbol: "USDC",
         chainId,
-        limit: 1, // Now this works correctly - gets 1 result after filtering
+        limit: 1,
         excludeIdle: true,
         sortBy: "netApy",
         sortOrder: "desc",
