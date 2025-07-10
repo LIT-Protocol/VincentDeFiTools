@@ -35,21 +35,29 @@ const NETWORK_CONFIG = {
     chainId: "1", // Ethereum mainnet
     rpcUrlEnv: "ETHEREUM_RPC_URL",
     nativeToken: "0x0000000000000000000000000000000000000000", // ETH
+    // Common ERC20 tokens on Ethereum for testing
+    usdcToken: "0xA0b86a33E6441e1e0A8B32F168f0CbBAeE30Cdde", // USDC on Ethereum
+    wethToken: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WETH on Ethereum
   },
   destination: {
     network: DESTINATION_NETWORK_NAME,
     chainId: "8453", // Base
     rpcUrlEnv: "BASE_RPC_URL",
     nativeToken: "0x0000000000000000000000000000000000000000", // ETH on Base
+    // Corresponding tokens on Base
+    usdcToken: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
+    wethToken: "0x4200000000000000000000000000000000000006", // WETH on Base
   },
 } as const;
 
 const CONFIRMATIONS_TO_WAIT = 2;
-const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
+const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Ethereum to Base
 
 (async () => {
   console.log("🌉 Starting deBridge Tool E2E Test - ETH to Base Bridge");
-  console.log(`   Bridging ${BRIDGE_AMOUNT} ETH from ${SOURCE_NETWORK_NAME} to ${DESTINATION_NETWORK_NAME}`);
+  console.log(
+    `   Bridging ${BRIDGE_AMOUNT} ETH from ${SOURCE_NETWORK_NAME} to ${DESTINATION_NETWORK_NAME}`
+  );
 
   /**
    * ====================================
@@ -82,7 +90,9 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
   }
 
   const sourceProvider = new ethers.providers.JsonRpcProvider(sourceRpcUrl);
-  const destinationProvider = new ethers.providers.JsonRpcProvider(destinationRpcUrl);
+  const destinationProvider = new ethers.providers.JsonRpcProvider(
+    destinationRpcUrl
+  );
 
   /**
    * ====================================
@@ -92,6 +102,11 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
 
   const deBridgeToolClient = getVincentToolClient({
     bundledVincentTool: deBridgeTool,
+    ethersSigner: accounts.delegatee.ethersWallet,
+  });
+
+  const approveToolClient = getVincentToolClient({
+    bundledVincentTool: erc20ApproveTool,
     ethersSigner: accounts.delegatee.ethersWallet,
   });
 
@@ -105,20 +120,26 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
    */
   const appConfig = createAppConfig(
     {
-      toolIpfsCids: [deBridgeTool.ipfsCid],
+      toolIpfsCids: [deBridgeTool.ipfsCid, erc20ApproveTool.ipfsCid],
       toolPolicies: [
         [
           // No policies for deBridge tool for now
         ],
+        [
+          // No policies for ERC20 Approval tool
+        ],
       ],
       toolPolicyParameterNames: [
         [], // No policy parameter names for deBridgeTool
+        [], // No policy parameter names for approveTool
       ],
       toolPolicyParameterTypes: [
         [], // No policy parameter types for deBridgeTool
+        [], // No policy parameter types for approveTool
       ],
       toolPolicyParameterValues: [
         [], // No policy parameter values for deBridgeTool
+        [], // No policy parameter values for approveTool
       ],
     },
 
@@ -126,6 +147,7 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
     {
       cidToNameMap: {
         [deBridgeTool.ipfsCid]: "deBridge Tool",
+        [erc20ApproveTool.ipfsCid]: "ERC20 Approval Tool",
         [sendLimitPolicyMetadata.ipfsCid]: "Send Limit Policy",
       },
       debug: true,
@@ -139,6 +161,7 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
    */
   const toolAndPolicyIpfsCids = [
     deBridgeTool.ipfsCid,
+    erc20ApproveTool.ipfsCid,
     sendLimitPolicyMetadata.ipfsCid,
   ];
 
@@ -261,23 +284,36 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
     console.log("🔍 Recording initial balances on both chains...");
 
     // Get initial balances
-    initialSourceBalance = await sourceProvider.getBalance(agentWalletPkp.ethAddress);
-    initialDestinationBalance = await destinationProvider.getBalance(agentWalletPkp.ethAddress);
+    initialSourceBalance = await sourceProvider.getBalance(
+      agentWalletPkp.ethAddress
+    );
+    initialDestinationBalance = await destinationProvider.getBalance(
+      agentWalletPkp.ethAddress
+    );
 
-    const initialSourceFormatted = ethers.utils.formatEther(initialSourceBalance);
-    const initialDestinationFormatted = ethers.utils.formatEther(initialDestinationBalance);
+    const initialSourceFormatted =
+      ethers.utils.formatEther(initialSourceBalance);
+    const initialDestinationFormatted = ethers.utils.formatEther(
+      initialDestinationBalance
+    );
 
-    console.log(`   Initial ${SOURCE_NETWORK_NAME} ETH balance: ${initialSourceFormatted} ETH`);
-    console.log(`   Initial ${DESTINATION_NETWORK_NAME} ETH balance: ${initialDestinationFormatted} ETH`);
+    console.log(
+      `   Initial ${SOURCE_NETWORK_NAME} ETH balance: ${initialSourceFormatted} ETH`
+    );
+    console.log(
+      `   Initial ${DESTINATION_NETWORK_NAME} ETH balance: ${initialDestinationFormatted} ETH`
+    );
 
     // Verify PKP has sufficient ETH for the bridge + gas
     const requiredBalance = ethers.utils.parseEther(BRIDGE_AMOUNT);
-    const gasBuffer = ethers.utils.parseEther("0.01"); // Extra for gas
+    const gasBuffer = ethers.utils.parseEther("0.003"); // Extra for gas + debridge fee of 0.001
     const totalRequired = requiredBalance.add(gasBuffer);
 
     if (initialSourceBalance.lt(totalRequired)) {
       throw new Error(
-        `Insufficient ETH balance on ${SOURCE_NETWORK_NAME}. Required: ${ethers.utils.formatEther(totalRequired)} ETH (including gas), Available: ${initialSourceFormatted} ETH`
+        `Insufficient ETH balance on ${SOURCE_NETWORK_NAME}. Required: ${ethers.utils.formatEther(
+          totalRequired
+        )} ETH (including gas), Available: ${initialSourceFormatted} ETH`
       );
     }
 
@@ -313,41 +349,50 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
 
     // Step 1: Precheck
     console.log("🔍 Running deBridge precheck...");
-    const bridgePrecheckRes = await deBridgeToolClient.precheck(
-      bridgeParams,
-      {
-        delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-      }
-    );
+    const bridgePrecheckRes = await deBridgeToolClient.precheck(bridgeParams, {
+      delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+    });
 
     console.log(
       "(DEBRIDGE-PRECHECK): ",
       JSON.stringify(bridgePrecheckRes, null, 2)
     );
 
-    if (
-      bridgePrecheckRes.success &&
-      !("error" in bridgePrecheckRes.result)
-    ) {
+    if (bridgePrecheckRes.success && !("error" in bridgePrecheckRes.result)) {
       console.log("✅ deBridge precheck passed");
-      
+
       // Log expected costs and destination amount
       const precheckData = bridgePrecheckRes.result.data;
-      console.log(`   Estimated destination amount: ${ethers.utils.formatEther(precheckData.estimatedDestinationAmount)} ETH`);
-      console.log(`   Protocol fee: ${ethers.utils.formatEther(precheckData.estimatedFees.protocolFee)} ETH`);
-      console.log(`   Gas fee: ${ethers.utils.formatEther(precheckData.estimatedFees.gasFee)} ETH`);
-      console.log(`   Total fees: ${ethers.utils.formatEther(precheckData.estimatedFees.totalFee)} ETH`);
-      console.log(`   Estimated execution time: ${precheckData.estimatedExecutionTime} seconds`);
+      console.log(
+        `   Estimated destination amount: ${ethers.utils.formatEther(
+          precheckData.estimatedDestinationAmount
+        )} ETH`
+      );
+      console.log(
+        `   Protocol fee: ${ethers.utils.formatEther(
+          precheckData.estimatedFees.protocolFee
+        )} ETH`
+      );
+      console.log(
+        `   Gas fee: ${ethers.utils.formatEther(
+          precheckData.estimatedFees.gasFee
+        )} ETH`
+      );
+      console.log(
+        `   Total fees: ${ethers.utils.formatEther(
+          precheckData.estimatedFees.totalFee
+        )} ETH`
+      );
+      console.log(
+        `   Estimated execution time: ${precheckData.estimatedExecutionTime} seconds`
+      );
 
       // Step 2: Execute the bridge operation
       console.log("🚀 Executing bridge operation...");
 
-      const bridgeExecuteRes = await deBridgeToolClient.execute(
-        bridgeParams,
-        {
-          delegatorPkpEthAddress: agentWalletPkp.ethAddress,
-        }
-      );
+      const bridgeExecuteRes = await deBridgeToolClient.execute(bridgeParams, {
+        delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+      });
 
       console.log(
         "(DEBRIDGE-EXECUTE): ",
@@ -357,7 +402,7 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
       if (bridgeExecuteRes.success) {
         console.log("✅ Bridge transaction submitted successfully!");
         console.log(`   Tx hash: ${bridgeExecuteRes.result.data.txHash}`);
-        
+
         if (bridgeExecuteRes.result.data.orderId) {
           console.log(`   Order ID: ${bridgeExecuteRes.result.data.orderId}`);
         }
@@ -390,20 +435,29 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
         try {
           console.log("🔍 Verifying source chain balance change...");
 
-          const postBridgeSourceBalance = await sourceProvider.getBalance(agentWalletPkp.ethAddress);
-          const postBridgeSourceFormatted = ethers.utils.formatEther(postBridgeSourceBalance);
-          
-          console.log(`   Post-bridge ${SOURCE_NETWORK_NAME} ETH balance: ${postBridgeSourceFormatted} ETH`);
+          const postBridgeSourceBalance = await sourceProvider.getBalance(
+            agentWalletPkp.ethAddress
+          );
+          const postBridgeSourceFormatted = ethers.utils.formatEther(
+            postBridgeSourceBalance
+          );
+
+          console.log(
+            `   Post-bridge ${SOURCE_NETWORK_NAME} ETH balance: ${postBridgeSourceFormatted} ETH`
+          );
 
           // Source balance should be reduced by at least the bridge amount
           const bridgeAmountBN = ethers.utils.parseEther(BRIDGE_AMOUNT);
-          const expectedMaxSourceBalance = initialSourceBalance.sub(bridgeAmountBN);
-          
+          const expectedMaxSourceBalance =
+            initialSourceBalance.sub(bridgeAmountBN);
+
           if (postBridgeSourceBalance.lte(expectedMaxSourceBalance)) {
             console.log("✅ Source balance correctly reduced");
             addTestResult("deBridge Source Transaction", true);
           } else {
-            const errorMsg = `Source balance not reduced correctly. Expected <= ${ethers.utils.formatEther(expectedMaxSourceBalance)} ETH, Got: ${postBridgeSourceFormatted} ETH`;
+            const errorMsg = `Source balance not reduced correctly. Expected <= ${ethers.utils.formatEther(
+              expectedMaxSourceBalance
+            )} ETH, Got: ${postBridgeSourceFormatted} ETH`;
             console.log(`❌ ${errorMsg}`);
             addTestResult("deBridge Source Transaction", false, errorMsg);
           }
@@ -420,11 +474,19 @@ const BRIDGE_AMOUNT = "0.001"; // 0.001 ETH to bridge from Ethereum to Base
         }
 
         // Note about destination verification
-        console.log("📝 Note: deBridge is a cross-chain protocol that requires time for settlement.");
-        console.log("   The destination balance will update when the bridge order is fulfilled by solvers.");
-        console.log("   This typically takes 1-5 minutes depending on network conditions.");
-        console.log("   For production use, you would monitor the order status via deBridge API.");
-        
+        console.log(
+          "📝 Note: deBridge is a cross-chain protocol that requires time for settlement."
+        );
+        console.log(
+          "   The destination balance will update when the bridge order is fulfilled by solvers."
+        );
+        console.log(
+          "   This typically takes 1-5 minutes depending on network conditions."
+        );
+        console.log(
+          "   For production use, you would monitor the order status via deBridge API."
+        );
+
         addTestResult("deBridge Bridge Execution", true);
       } else {
         const errorMsg = `Bridge execution failed: ${

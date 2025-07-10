@@ -3,7 +3,7 @@ import "@lit-protocol/vincent-tool-sdk/internal";
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
 import { ethers } from "ethers";
 import { toolParamsSchema, precheckSuccessSchema, precheckFailSchema, executeSuccessSchema, executeFailSchema, } from "./schemas";
-import { DEBRIDGE_CONTRACTS, DEBRIDGE_ABI, ERC20_ABI, validateChainId, validateAddress, getTokenBalance, getTokenDecimals, checkAndApproveToken, isNativeToken, callDeBridgeAPI, } from "./helpers";
+import { DEBRIDGE_CONTRACTS, DEBRIDGE_ABI, validateChainId, validateAddress, getTokenBalance, getTokenDecimals, checkAndApproveToken, isNativeToken, callDeBridgeAPI, } from "./helpers";
 export const vincentTool = createVincentTool({
     packageName: "@lit-protocol/vincent-tool-debridge",
     toolParamsSchema,
@@ -66,6 +66,14 @@ export const vincentTool = createVincentTool({
             console.log(`${logPrefix} PKP balance: ${balance.toString()}, Required: ${amountBN.toString()}`);
             if (balance.lt(amountBN)) {
                 return fail({ error: `Insufficient balance. Have: ${balance.toString()}, Need: ${amountBN.toString()}` });
+            }
+            // Check approval if needed (for ERC20 tokens)
+            if (!isNativeToken(sourceToken)) {
+                const { needsApproval, currentAllowance } = await checkAndApproveToken(provider, sourceToken, pkpAddress, deBridgeContract, amountBN);
+                if (needsApproval) {
+                    return fail({ error: `Insufficient token allowance. Current allowance: ${currentAllowance.toString()}, Required: ${amountBN.toString()}. Please approve the token first using the ERC20 approval tool.` });
+                }
+                console.log(`${logPrefix} Token approval verified: ${currentAllowance.toString()} >= ${amountBN.toString()}`);
             }
             // Get quote from deBridge API
             console.log(`${logPrefix} Getting quote from deBridge API...`);
@@ -169,22 +177,11 @@ export const vincentTool = createVincentTool({
             const amountBN = ethers.BigNumber.from(amount);
             // Check approval if needed (for ERC20 tokens)
             if (!isNativeToken(sourceToken)) {
-                const { needsApproval } = await checkAndApproveToken(provider, sourceToken, pkpAddress, deBridgeContract, amountBN);
+                const { needsApproval, currentAllowance } = await checkAndApproveToken(provider, sourceToken, pkpAddress, deBridgeContract, amountBN);
                 if (needsApproval) {
-                    console.log(`${logPrefix} Approving token...`);
-                    const approvalTxHash = await laUtils.transaction.handler.contractCall({
-                        provider,
-                        pkpPublicKey,
-                        callerAddress: pkpAddress,
-                        abi: ERC20_ABI,
-                        contractAddress: sourceToken,
-                        functionName: "approve",
-                        args: [deBridgeContract, ethers.constants.MaxUint256],
-                        chainId: parseInt(sourceChain),
-                        gasBumpPercentage: 10,
-                    });
-                    console.log(`${logPrefix} Approval transaction hash: ${approvalTxHash}`);
+                    return fail({ error: `Insufficient token allowance. Current allowance: ${currentAllowance.toString()}, Required: ${amountBN.toString()}. Please approve the token first using the ERC20 approval tool.` });
                 }
+                console.log(`${logPrefix} Token approval verified: ${currentAllowance.toString()} >= ${amountBN.toString()}`);
             }
             // Get transaction data from deBridge API
             console.log(`${logPrefix} Getting transaction data from deBridge API...`);
