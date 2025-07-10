@@ -23,6 +23,7 @@ import {
   checkAndApproveToken,
   isNativeToken,
   callDeBridgeAPI,
+  getRpcUrl,
 } from "./helpers";
 
 export const vincentTool = createVincentTool({
@@ -224,7 +225,7 @@ export const vincentTool = createVincentTool({
       console.log(`${logPrefix} PKP Address: ${pkpAddress}`);
 
       // Get RPC URL from Lit Actions
-      const rpcUrl = await Lit.Actions.getRpcUrl({ chain: sourceChain });
+      const rpcUrl = await getRpcUrl(sourceChain);
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
 
       // Get deBridge contract address
@@ -289,30 +290,69 @@ export const vincentTool = createVincentTool({
         });
       }
 
-      // Decode the transaction data to get the order details
-      const deBridgeInterface = new ethers.utils.Interface(DEBRIDGE_ABI);
-      const decodedData = deBridgeInterface.decodeFunctionData(
-        "createOrder",
-        orderTxData.tx.data
+      console.log("Order transaction data:", orderTxData);
+
+      const txn = {
+        to: orderTxData.tx.to,
+        from: pkpAddress,
+        data: orderTxData.tx.data,
+        value: orderTxData.tx.value || "0",
+        chainId: Number(sourceChain),
+      } as ethers.providers.TransactionRequest;
+
+      console.log("Transaction data:", txn);
+
+      const gasParamsResponse = await Lit.Actions.runOnce(
+        { waitForResponse: true, name: "gasParams" },
+        async () => {
+          // Step 2: Estimate gas using the provider
+          const gasLimit = await provider.estimateGas(txn);
+
+          const nonce = await provider.getTransactionCount(txn.from);
+          const gasPrice = await provider.getGasPrice();
+          console.log("RunOnce Gas price:", gasPrice.toString());
+
+          return JSON.stringify({
+            gasLimit: gasLimit.toString(),
+            gasPrice: gasPrice.toString(),
+            nonce: nonce,
+          });
+        }
       );
 
-      // Execute the bridge transaction
-      console.log(`${logPrefix} Executing bridge transaction...`);
+      console.log(`${logPrefix} Gas params response:`, gasParamsResponse);
 
-      const txHash = await laUtils.transaction.handler.contractCall({
-        provider,
+      const parsedGasParamsResponse = JSON.parse(gasParamsResponse);
+      console.log(
+        `${logPrefix} Parsed gas params response:`,
+        parsedGasParamsResponse
+      );
+
+      const gasLimit = ethers.BigNumber.from(parsedGasParamsResponse.gasLimit);
+      const gasPrice = ethers.BigNumber.from(parsedGasParamsResponse.gasPrice);
+      const nonce = parseInt(parsedGasParamsResponse.nonce);
+
+      txn.gasLimit = gasLimit;
+      txn.gasPrice = gasPrice;
+      txn.nonce = nonce;
+
+      // Execute the bridge transaction
+      console.log(`${logPrefix} Signing bridge transaction...`);
+
+      const signedTx = await laUtils.transaction.primitive.signTx({
+        sigName: "debridgeCreateOrder",
         pkpPublicKey,
-        callerAddress: pkpAddress,
-        abi: DEBRIDGE_ABI,
-        contractAddress: orderTxData.tx.to,
-        functionName: "createOrder",
-        args: [...decodedData],
-        chainId: parseInt(sourceChain),
-        overrides: {
-          value: orderTxData.tx.value || "0",
-        },
-        gasBumpPercentage: 10,
+        tx: txn,
       });
+
+      console.log("Signed transaction:", signedTx);
+
+      // Step 4: Send the transaction
+      const txHash = await laUtils.transaction.primitive.sendTx(
+        provider,
+        signedTx
+      );
+      console.log("Transaction sent:", txHash);
 
       console.log(
         `${logPrefix} Bridge transaction successful. Hash: ${txHash}`

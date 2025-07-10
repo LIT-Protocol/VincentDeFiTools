@@ -375,16 +375,6 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Ethereum to Base
         )} ETH`
       );
       console.log(
-        `   Gas fee: ${ethers.utils.formatEther(
-          precheckData.estimatedFees.gasFee
-        )} ETH`
-      );
-      console.log(
-        `   Total fees: ${ethers.utils.formatEther(
-          precheckData.estimatedFees.totalFee
-        )} ETH`
-      );
-      console.log(
         `   Estimated execution time: ${precheckData.estimatedExecutionTime} seconds`
       );
 

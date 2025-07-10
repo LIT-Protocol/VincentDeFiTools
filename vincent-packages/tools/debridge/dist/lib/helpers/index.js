@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { LIT_EVM_CHAINS } from "@lit-protocol/constants";
 export const NATIVE_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const CHAIN_IDS = {
     ETHEREUM: "1",
@@ -209,4 +210,17 @@ export function parseAmount(amount, decimals) {
     catch {
         throw new Error(`Invalid amount format: ${amount}`);
     }
+}
+export async function getRpcUrl(chainId) {
+    // Try to find the chain entry in LIT_EVM_CHAINS with matching chainId
+    for (const [chainKey, chainData] of Object.entries(LIT_EVM_CHAINS)) {
+        // LIT_EVM_CHAINS chainId is a number, input is string
+        if (String(chainData.chainId) === String(chainId)) {
+            // Return the first rpcUrl if available
+            if (Array.isArray(chainData.rpcUrls) && chainData.rpcUrls.length > 0) {
+                return await Lit.Actions.getRpcUrl({ chain: chainKey });
+            }
+        }
+    }
+    throw new Error(`ChainId ${chainId} not found in LIT_EVM_CHAINS`);
 }
