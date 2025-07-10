@@ -31,7 +31,6 @@ export const toolParamsSchema = z.object({
         .describe("Slippage tolerance in basis points (100 = 1%)"),
 });
 export const precheckSuccessSchema = z.object({
-    success: z.literal(true),
     data: z.object({
         sourceChain: z.string(),
         destinationChain: z.string(),
@@ -53,11 +52,9 @@ export const precheckSuccessSchema = z.object({
     }),
 });
 export const precheckFailSchema = z.object({
-    success: z.literal(false),
     error: z.string(),
 });
 export const executeSuccessSchema = z.object({
-    success: z.literal(true),
     data: z.object({
         txHash: z.string(),
         sourceChain: z.string(),
@@ -69,6 +66,5 @@ export const executeSuccessSchema = z.object({
     }),
 });
 export const executeFailSchema = z.object({
-    success: z.literal(false),
     error: z.string(),
 });
