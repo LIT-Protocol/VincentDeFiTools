@@ -9,7 +9,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 // Apply log suppression FIRST, before any imports that might trigger logs
-suppressLitLogs(true);
+suppressLitLogs(false);
 
 import { getVincentToolClient } from "@lit-protocol/vincent-app-sdk";
 // Tools and Policies that we will be testing
@@ -307,7 +307,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Ethereum to Base
 
     // Verify PKP has sufficient ETH for the bridge + gas
     const requiredBalance = ethers.utils.parseEther(BRIDGE_AMOUNT);
-    const gasBuffer = ethers.utils.parseEther("0.003"); // Extra for gas + debridge fee of 0.001
+    const gasBuffer = ethers.utils.parseEther("0.002"); // Extra for gas + debridge fee of 0.001
     const totalRequired = requiredBalance.add(gasBuffer);
 
     if (initialSourceBalance.lt(totalRequired)) {

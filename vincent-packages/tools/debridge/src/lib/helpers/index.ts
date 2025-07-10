@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 
-export const NATIVE_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
+export const NATIVE_TOKEN_ADDRESS =
+  "0x0000000000000000000000000000000000000000";
 
 export const CHAIN_IDS = {
   ETHEREUM: "1",
@@ -22,7 +23,7 @@ export const CHAIN_NAMES: Record<string, string> = {
   "43114": "Avalanche",
 };
 
-export const DEBRIDGE_API_URL = "https://api.dln.trade/v1.0";
+export const DEBRIDGE_API_URL = "https://dln.debridge.finance/v1.0";
 
 export const DEBRIDGE_CONTRACTS: Record<string, string> = {
   "1": "0xeF4fB24aD0916217251F553c0596F8Edc630EB66", // Ethereum
@@ -36,70 +37,86 @@ export const DEBRIDGE_CONTRACTS: Record<string, string> = {
 
 export const DEBRIDGE_ABI = [
   {
-    "inputs": [
+    inputs: [
       {
-        "components": [
-          { "internalType": "address", "name": "giveTokenAddress", "type": "address" },
-          { "internalType": "uint256", "name": "giveAmount", "type": "uint256" },
-          { "internalType": "uint256", "name": "takeAmount", "type": "uint256" },
-          { "internalType": "uint256", "name": "takeChainId", "type": "uint256" },
-          { "internalType": "address", "name": "receiverDst", "type": "address" },
-          { "internalType": "address", "name": "givePatchAuthoritySrc", "type": "address" },
-          { "internalType": "address", "name": "orderAuthorityAddressDst", "type": "address" },
-          { "internalType": "bytes", "name": "allowedTakerDst", "type": "bytes" },
-          { "internalType": "bytes", "name": "externalCall", "type": "bytes" },
-          { "internalType": "bytes", "name": "allowedCancelBeneficiarySrc", "type": "bytes" }
+        components: [
+          {
+            internalType: "address",
+            name: "giveTokenAddress",
+            type: "address",
+          },
+          { internalType: "uint256", name: "giveAmount", type: "uint256" },
+          { internalType: "uint256", name: "takeAmount", type: "uint256" },
+          { internalType: "uint256", name: "takeChainId", type: "uint256" },
+          { internalType: "address", name: "receiverDst", type: "address" },
+          {
+            internalType: "address",
+            name: "givePatchAuthoritySrc",
+            type: "address",
+          },
+          {
+            internalType: "address",
+            name: "orderAuthorityAddressDst",
+            type: "address",
+          },
+          { internalType: "bytes", name: "allowedTakerDst", type: "bytes" },
+          { internalType: "bytes", name: "externalCall", type: "bytes" },
+          {
+            internalType: "bytes",
+            name: "allowedCancelBeneficiarySrc",
+            type: "bytes",
+          },
         ],
-        "internalType": "struct DLNOrder",
-        "name": "_order",
-        "type": "tuple"
+        internalType: "struct DLNOrder",
+        name: "_order",
+        type: "tuple",
       },
-      { "internalType": "bytes", "name": "_affiliateFee", "type": "bytes" },
-      { "internalType": "uint32", "name": "_referralCode", "type": "uint32" },
-      { "internalType": "bytes", "name": "_permit", "type": "bytes" }
+      { internalType: "bytes", name: "_affiliateFee", type: "bytes" },
+      { internalType: "uint32", name: "_referralCode", type: "uint32" },
+      { internalType: "bytes", name: "_permit", type: "bytes" },
     ],
-    "name": "createOrder",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
-    "stateMutability": "payable",
-    "type": "function"
-  }
+    name: "createOrder",
+    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+    stateMutability: "payable",
+    type: "function",
+  },
 ];
 
 export const ERC20_ABI = [
   {
-    "constant": true,
-    "inputs": [{ "name": "_owner", "type": "address" }],
-    "name": "balanceOf",
-    "outputs": [{ "name": "balance", "type": "uint256" }],
-    "type": "function"
+    constant: true,
+    inputs: [{ name: "_owner", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "balance", type: "uint256" }],
+    type: "function",
   },
   {
-    "constant": true,
-    "inputs": [
-      { "name": "_owner", "type": "address" },
-      { "name": "_spender", "type": "address" }
+    constant: true,
+    inputs: [
+      { name: "_owner", type: "address" },
+      { name: "_spender", type: "address" },
     ],
-    "name": "allowance",
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "type": "function"
+    name: "allowance",
+    outputs: [{ name: "", type: "uint256" }],
+    type: "function",
   },
   {
-    "constant": false,
-    "inputs": [
-      { "name": "_spender", "type": "address" },
-      { "name": "_value", "type": "uint256" }
+    constant: false,
+    inputs: [
+      { name: "_spender", type: "address" },
+      { name: "_value", type: "uint256" },
     ],
-    "name": "approve",
-    "outputs": [{ "name": "", "type": "bool" }],
-    "type": "function"
+    name: "approve",
+    outputs: [{ name: "", type: "bool" }],
+    type: "function",
   },
   {
-    "constant": true,
-    "inputs": [],
-    "name": "decimals",
-    "outputs": [{ "name": "", "type": "uint8" }],
-    "type": "function"
-  }
+    constant: true,
+    inputs: [],
+    name: "decimals",
+    outputs: [{ name: "", type: "uint8" }],
+    type: "function",
+  },
 ];
 
 export function isNativeToken(tokenAddress: string): boolean {
@@ -118,7 +135,11 @@ export async function getTokenBalance(
   if (isNativeToken(tokenAddress)) {
     return await provider.getBalance(userAddress);
   } else {
-    const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+    const tokenContract = new ethers.Contract(
+      tokenAddress,
+      ERC20_ABI,
+      provider
+    );
     return await tokenContract.balanceOf(userAddress);
   }
 }
@@ -130,7 +151,11 @@ export async function getTokenDecimals(
   if (isNativeToken(tokenAddress)) {
     return 18;
   } else {
-    const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+    const tokenContract = new ethers.Contract(
+      tokenAddress,
+      ERC20_ABI,
+      provider
+    );
     return await tokenContract.decimals();
   }
 }
@@ -143,12 +168,18 @@ export async function checkAndApproveToken(
   amount: ethers.BigNumber
 ): Promise<{ needsApproval: boolean; currentAllowance: ethers.BigNumber }> {
   if (isNativeToken(tokenAddress)) {
-    return { needsApproval: false, currentAllowance: ethers.constants.MaxUint256 };
+    return {
+      needsApproval: false,
+      currentAllowance: ethers.constants.MaxUint256,
+    };
   }
 
   const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
-  const currentAllowance = await tokenContract.allowance(ownerAddress, spenderAddress);
-  
+  const currentAllowance = await tokenContract.allowance(
+    ownerAddress,
+    spenderAddress
+  );
+
   return {
     needsApproval: currentAllowance.lt(amount),
     currentAllowance,
@@ -174,12 +205,12 @@ export async function callDeBridgeAPI(
   data?: any
 ): Promise<any> {
   const url = `${DEBRIDGE_API_URL}${endpoint}`;
-  
+
   const options: RequestInit = {
     method,
     headers: {
       "Content-Type": "application/json",
-      "Accept": "application/json",
+      Accept: "application/json",
     },
   };
 
@@ -188,7 +219,7 @@ export async function callDeBridgeAPI(
   }
 
   const response = await fetch(url, options);
-  
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`DeBridge API error: ${response.status} - ${errorText}`);

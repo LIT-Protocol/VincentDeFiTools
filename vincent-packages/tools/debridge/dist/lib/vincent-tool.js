@@ -1,4 +1,4 @@
-import { createVincentTool, supportedPoliciesForTool } from "@lit-protocol/vincent-tool-sdk";
+import { createVincentTool, supportedPoliciesForTool, } from "@lit-protocol/vincent-tool-sdk";
 import "@lit-protocol/vincent-tool-sdk/internal";
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
 import { ethers } from "ethers";
@@ -22,32 +22,44 @@ export const vincentTool = createVincentTool({
                 return fail({ error: `Invalid source chain ID: ${sourceChain}` });
             }
             if (!validateChainId(destinationChain)) {
-                return fail({ error: `Invalid destination chain ID: ${destinationChain}` });
+                return fail({
+                    error: `Invalid destination chain ID: ${destinationChain}`,
+                });
             }
             // Validate addresses
             if (!validateAddress(sourceToken)) {
                 return fail({ error: `Invalid source token address: ${sourceToken}` });
             }
             if (!validateAddress(destinationToken)) {
-                return fail({ error: `Invalid destination token address: ${destinationToken}` });
+                return fail({
+                    error: `Invalid destination token address: ${destinationToken}`,
+                });
             }
             if (!validateAddress(recipientAddress)) {
-                return fail({ error: `Invalid recipient address: ${recipientAddress}` });
+                return fail({
+                    error: `Invalid recipient address: ${recipientAddress}`,
+                });
             }
             // Check if chains are different for bridging
             if (sourceChain === destinationChain) {
-                return fail({ error: "Source and destination chains must be different for bridging" });
+                return fail({
+                    error: "Source and destination chains must be different for bridging",
+                });
             }
             // Connect to provider
             const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
             const network = await provider.getNetwork();
             if (network.chainId.toString() !== sourceChain) {
-                return fail({ error: `RPC URL chain ID (${network.chainId}) does not match source chain ID (${sourceChain})` });
+                return fail({
+                    error: `RPC URL chain ID (${network.chainId}) does not match source chain ID (${sourceChain})`,
+                });
             }
             // Get deBridge contract address for source chain
             const deBridgeContract = DEBRIDGE_CONTRACTS[sourceChain];
             if (!deBridgeContract) {
-                return fail({ error: `DeBridge contract not available on chain ${sourceChain}` });
+                return fail({
+                    error: `DeBridge contract not available on chain ${sourceChain}`,
+                });
             }
             // Use PKP address for balance checks
             const pkpAddress = delegatorPkpInfo.ethAddress;
@@ -65,13 +77,17 @@ export const vincentTool = createVincentTool({
             const balance = await getTokenBalance(provider, sourceToken, pkpAddress);
             console.log(`${logPrefix} PKP balance: ${balance.toString()}, Required: ${amountBN.toString()}`);
             if (balance.lt(amountBN)) {
-                return fail({ error: `Insufficient balance. Have: ${balance.toString()}, Need: ${amountBN.toString()}` });
+                return fail({
+                    error: `Insufficient balance. Have: ${balance.toString()}, Need: ${amountBN.toString()}`,
+                });
             }
             // Check approval if needed (for ERC20 tokens)
             if (!isNativeToken(sourceToken)) {
                 const { needsApproval, currentAllowance } = await checkAndApproveToken(provider, sourceToken, pkpAddress, deBridgeContract, amountBN);
                 if (needsApproval) {
-                    return fail({ error: `Insufficient token allowance. Current allowance: ${currentAllowance.toString()}, Required: ${amountBN.toString()}. Please approve the token first using the ERC20 approval tool.` });
+                    return fail({
+                        error: `Insufficient token allowance. Current allowance: ${currentAllowance.toString()}, Required: ${amountBN.toString()}. Please approve the token first using the ERC20 approval tool.`,
+                    });
                 }
                 console.log(`${logPrefix} Token approval verified: ${currentAllowance.toString()} >= ${amountBN.toString()}`);
             }
@@ -87,40 +103,22 @@ export const vincentTool = createVincentTool({
             };
             let quoteData;
             try {
-                quoteData = await callDeBridgeAPI("/dln/order/quote", "GET", quoteParams);
+                quoteData = await callDeBridgeAPI("/dln/order/create-tx", "GET", quoteParams);
                 console.log(`${logPrefix} Quote received:`, quoteData);
             }
             catch (error) {
-                return fail({ error: `Failed to get quote from deBridge: ${error.message}` });
+                return fail({
+                    error: `Failed to get quote from deBridge: ${error.message}`,
+                });
             }
             // Estimate gas for the transaction
             let estimatedGas = ethers.BigNumber.from(300000); // Default estimate
             try {
-                const deBridgeInterface = new ethers.utils.Interface(DEBRIDGE_ABI);
-                // For estimation, we'll use dummy order data
-                const orderData = {
-                    giveTokenAddress: sourceToken,
-                    giveAmount: amountBN,
-                    takeAmount: ethers.BigNumber.from(quoteData.estimation.dstChainTokenOut.amount),
-                    takeChainId: ethers.BigNumber.from(destinationChain),
-                    receiverDst: recipientAddress,
-                    givePatchAuthoritySrc: pkpAddress,
-                    orderAuthorityAddressDst: recipientAddress,
-                    allowedTakerDst: "0x",
-                    externalCall: "0x",
-                    allowedCancelBeneficiarySrc: "0x",
-                };
-                const txData = deBridgeInterface.encodeFunctionData("createOrder", [
-                    orderData,
-                    "0x", // affiliateFee
-                    0, // referralCode
-                    "0x", // permit
-                ]);
                 const gasEstimate = await provider.estimateGas({
-                    to: deBridgeContract,
+                    to: quoteData.tx.to,
                     from: pkpAddress,
-                    data: txData,
-                    value: isNativeToken(sourceToken) ? amountBN : 0,
+                    data: quoteData.tx.data,
+                    value: quoteData.tx.value || "0",
                 });
                 estimatedGas = gasEstimate.mul(120).div(100); // Add 20% buffer
             }
@@ -171,7 +169,9 @@ export const vincentTool = createVincentTool({
             // Get deBridge contract address
             const deBridgeContract = DEBRIDGE_CONTRACTS[sourceChain];
             if (!deBridgeContract) {
-                return fail({ error: `DeBridge contract not available on chain ${sourceChain}` });
+                return fail({
+                    error: `DeBridge contract not available on chain ${sourceChain}`,
+                });
             }
             // Parse amount
             const amountBN = ethers.BigNumber.from(amount);
@@ -179,7 +179,9 @@ export const vincentTool = createVincentTool({
             if (!isNativeToken(sourceToken)) {
                 const { needsApproval, currentAllowance } = await checkAndApproveToken(provider, sourceToken, pkpAddress, deBridgeContract, amountBN);
                 if (needsApproval) {
-                    return fail({ error: `Insufficient token allowance. Current allowance: ${currentAllowance.toString()}, Required: ${amountBN.toString()}. Please approve the token first using the ERC20 approval tool.` });
+                    return fail({
+                        error: `Insufficient token allowance. Current allowance: ${currentAllowance.toString()}, Required: ${amountBN.toString()}. Please approve the token first using the ERC20 approval tool.`,
+                    });
                 }
                 console.log(`${logPrefix} Token approval verified: ${currentAllowance.toString()} >= ${amountBN.toString()}`);
             }
@@ -203,7 +205,9 @@ export const vincentTool = createVincentTool({
                 console.log(`${logPrefix} Order transaction data received`);
             }
             catch (error) {
-                return fail({ error: `Failed to get order transaction data: ${error.message}` });
+                return fail({
+                    error: `Failed to get order transaction data: ${error.message}`,
+                });
             }
             // Decode the transaction data to get the order details
             const deBridgeInterface = new ethers.utils.Interface(DEBRIDGE_ABI);
