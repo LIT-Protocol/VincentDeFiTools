@@ -257,6 +257,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Ethereum to Base
   // ========================================
   // ETH Funding Setup for Source Chain (Ethereum)
   // ========================================
+  const fundAmount = (parseFloat(BRIDGE_AMOUNT) + 0.002).toString(); // Bridge amount + extra for gas and fees
   await setupEthFunding(
     sourceProvider,
     agentWalletPkp.ethAddress,
@@ -264,7 +265,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Ethereum to Base
     addTestResult,
     CONFIRMATIONS_TO_WAIT,
     SOURCE_NETWORK_NAME,
-    BRIDGE_AMOUNT // Fund with the amount we want to bridge plus some extra for gas
+    fundAmount
   );
 
   // ========================================
