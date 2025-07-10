@@ -24,37 +24,37 @@ import {
 } from "./test-utils.js";
 
 // ========================================
-// NETWORK CONFIGURATION - ETH to Base Bridge Test
+// NETWORK CONFIGURATION - Base to Arbitrum Bridge Test
 // ========================================
-const SOURCE_NETWORK_NAME = "ethereum";
-const DESTINATION_NETWORK_NAME = "base";
+const SOURCE_NETWORK_NAME = "base";
+const DESTINATION_NETWORK_NAME = "arbitrum";
 
 const NETWORK_CONFIG = {
   source: {
     network: SOURCE_NETWORK_NAME,
-    chainId: "1", // Ethereum mainnet
-    rpcUrlEnv: "ETHEREUM_RPC_URL",
+    chainId: "8453", // Base
+    rpcUrlEnv: "BASE_RPC_URL",
     nativeToken: "0x0000000000000000000000000000000000000000", // ETH
-    // Common ERC20 tokens on Ethereum for testing
-    usdcToken: "0xA0b86a33E6441e1e0A8B32F168f0CbBAeE30Cdde", // USDC on Ethereum
-    wethToken: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WETH on Ethereum
+    // Common ERC20 tokens on Base for testing
+    usdcToken: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
+    wethToken: "0x4200000000000000000000000000000000000006", // WETH on Base
   },
   destination: {
     network: DESTINATION_NETWORK_NAME,
-    chainId: "8453", // Base
-    rpcUrlEnv: "BASE_RPC_URL",
-    nativeToken: "0x0000000000000000000000000000000000000000", // ETH on Base
-    // Corresponding tokens on Base
-    usdcToken: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
-    wethToken: "0x4200000000000000000000000000000000000006", // WETH on Base
+    chainId: "42161", // Arbitrum
+    rpcUrlEnv: "ARBITRUM_RPC_URL",
+    nativeToken: "0x0000000000000000000000000000000000000000", // ETH on Arbitrum
+    // Corresponding tokens on Arbitrum
+    usdcToken: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // USDC on Arbitrum
+    wethToken: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", // WETH on Arbitrum
   },
 } as const;
 
 const CONFIRMATIONS_TO_WAIT = 2;
-const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Ethereum to Base
+const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
 
 (async () => {
-  console.log("🌉 Starting deBridge Tool E2E Test - ETH to Base Bridge");
+  console.log("🌉 Starting deBridge Tool E2E Test - Base to Arbitrum Bridge");
   console.log(
     `   Bridging ${BRIDGE_AMOUNT} ETH from ${SOURCE_NETWORK_NAME} to ${DESTINATION_NETWORK_NAME}`
   );
@@ -255,7 +255,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Ethereum to Base
   }
 
   // ========================================
-  // ETH Funding Setup for Source Chain (Ethereum)
+  // ETH Funding Setup for Source Chain (Base)
   // ========================================
   const fundAmount = (parseFloat(BRIDGE_AMOUNT) + 0.002).toString(); // Bridge amount + extra for gas and fees
   await setupEthFunding(
@@ -271,7 +271,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Ethereum to Base
   // ========================================
   // deBridge Tool Testing - Cross-Chain Bridge
   // ========================================
-  console.log("🌉 Testing deBridge Tool - ETH to Base Bridge");
+  console.log("🌉 Testing deBridge Tool - Base to Arbitrum Bridge");
   console.log(
     `📋 Workflow: Bridge ${BRIDGE_AMOUNT} ETH from ${SOURCE_NETWORK_NAME} to ${DESTINATION_NETWORK_NAME}`
   );
