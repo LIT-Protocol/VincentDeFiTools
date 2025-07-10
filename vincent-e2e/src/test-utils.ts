@@ -553,7 +553,7 @@ export async function setupEthFunding(
 ) {
   console.log(`⛽ Setting up ETH gas funding for ${chain} operations`);
 
-  const ETH_FUND_AMOUNT = "0.001"; // 0.01 ETH
+  const ETH_FUND_AMOUNT = "0.001"; // 0.001 ETH
   const REQUIRED_ETH_BALANCE = ethers.utils.parseEther("0.0008");
 
   try {
