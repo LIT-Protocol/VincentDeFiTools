@@ -9,14 +9,36 @@ export type Operation = (typeof Operations)[keyof typeof Operations];
 
 export const toolParamsSchema = z.object({
   rpcUrl: z.string().url().describe("RPC URL for the source chain"),
-  sourceChain: z.string().describe("Source chain ID (e.g., '1' for Ethereum, '8453' for Base)"),
+  sourceChain: z
+    .string()
+    .describe("Source chain ID (e.g., '1' for Ethereum, '8453' for Base)"),
   destinationChain: z.string().describe("Destination chain ID"),
-  sourceToken: z.string().describe("Source token address (use 0x0000000000000000000000000000000000000000 for native token)"),
-  destinationToken: z.string().describe("Destination token address (use 0x0000000000000000000000000000000000000000 for native token)"),
-  amount: z.string().describe("Amount to bridge in token units (e.g., '1000000000000000000' for 1 ETH)"),
-  recipientAddress: z.string().describe("Recipient address on destination chain"),
-  operation: z.enum([Operations.BRIDGE, Operations.BRIDGE_AND_SWAP]).describe("Operation type"),
-  slippageBps: z.number().optional().default(100).describe("Slippage tolerance in basis points (100 = 1%)"),
+  sourceToken: z
+    .string()
+    .describe(
+      "Source token address (use 0x0000000000000000000000000000000000000000 for native token)"
+    ),
+  destinationToken: z
+    .string()
+    .describe(
+      "Destination token address (use 0x0000000000000000000000000000000000000000 for native token)"
+    ),
+  amount: z
+    .string()
+    .describe(
+      "Amount to bridge in token units (e.g., '1000000000000000000' for 1 ETH)"
+    ),
+  recipientAddress: z
+    .string()
+    .describe("Recipient address on destination chain"),
+  operation: z
+    .enum([Operations.BRIDGE, Operations.BRIDGE_AND_SWAP])
+    .describe("Operation type"),
+  slippageBps: z
+    .number()
+    .optional()
+    .default(100)
+    .describe("Slippage tolerance in basis points (100 = 1%)"),
 });
 
 export type ToolParams = z.infer<typeof toolParamsSchema>;
@@ -32,15 +54,15 @@ export const precheckSuccessSchema = z.object({
     estimatedDestinationAmount: z.string(),
     estimatedFees: z.object({
       protocolFee: z.string(),
-      gasFee: z.string(),
-      totalFee: z.string(),
     }),
     estimatedExecutionTime: z.string().describe("Estimated time in seconds"),
-    orderData: z.object({
-      orderId: z.string().optional(),
-      txData: z.string().optional(),
-      contractAddress: z.string(),
-    }).optional(),
+    orderData: z
+      .object({
+        orderId: z.string().optional(),
+        txData: z.string().optional(),
+        contractAddress: z.string(),
+      })
+      .optional(),
   }),
 });
 

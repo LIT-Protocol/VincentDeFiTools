@@ -177,32 +177,8 @@ export const vincentTool = createVincentTool({
         });
       }
 
-      // Estimate gas for the transaction
-      let estimatedGas = ethers.BigNumber.from(300000); // Default estimate
-      try {
-        const gasEstimate = await provider.estimateGas({
-          to: quoteData.tx.to,
-          from: pkpAddress,
-          data: quoteData.tx.data,
-          value: quoteData.tx.value || "0",
-        });
-
-        estimatedGas = gasEstimate.mul(120).div(100); // Add 20% buffer
-      } catch (error) {
-        console.log(
-          `${logPrefix} Gas estimation failed, using default:`,
-          error
-        );
-      }
-
-      const gasPrice = await provider.getGasPrice();
-      const estimatedGasCost = estimatedGas.mul(gasPrice);
-
       // Calculate total cost
       const protocolFee = ethers.BigNumber.from(quoteData.fixFee || "0");
-      const totalCost = isNativeToken(sourceToken)
-        ? amountBN.add(estimatedGasCost).add(protocolFee)
-        : estimatedGasCost.add(protocolFee);
 
       return succeed({
         data: {
@@ -215,8 +191,6 @@ export const vincentTool = createVincentTool({
             quoteData.estimation.dstChainTokenOut.amount,
           estimatedFees: {
             protocolFee: protocolFee.toString(),
-            gasFee: estimatedGasCost.toString(),
-            totalFee: protocolFee.add(estimatedGasCost).toString(),
           },
           estimatedExecutionTime:
             quoteData.estimation.estimatedTxExecutionTime || "300",

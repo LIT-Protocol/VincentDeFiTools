@@ -161,7 +161,7 @@ export function validateAddress(address) {
     }
 }
 export async function callDeBridgeAPI(endpoint, method = "GET", data) {
-    const url = `${DEBRIDGE_API_URL}${endpoint}`;
+    let url = `${DEBRIDGE_API_URL}${endpoint}`;
     const options = {
         method,
         headers: {
@@ -169,9 +169,22 @@ export async function callDeBridgeAPI(endpoint, method = "GET", data) {
             Accept: "application/json",
         },
     };
-    if (data && method !== "GET") {
+    if (method === "GET" && data && typeof data === "object") {
+        const params = new URLSearchParams();
+        for (const key in data) {
+            if (data[key] !== undefined && data[key] !== null) {
+                params.append(key, String(data[key]));
+            }
+        }
+        const paramString = params.toString();
+        if (paramString) {
+            url += (url.includes("?") ? "&" : "?") + paramString;
+        }
+    }
+    else if (data && method !== "GET") {
         options.body = JSON.stringify(data);
     }
+    console.log(`Fetching debridge API URL:`, url);
     const response = await fetch(url, options);
     if (!response.ok) {
         const errorText = await response.text();
