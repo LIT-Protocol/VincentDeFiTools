@@ -276,41 +276,41 @@ export const vincentTool = createVincentTool({
         prependOperatingExpenses: "true",
       };
 
-      let orderTxData: any;
-      try {
-        orderTxData = await callDeBridgeAPI(
-          "/dln/order/create-tx",
-          "GET",
-          createOrderParams
-        );
-        console.log(`${logPrefix} Order transaction data received`);
-      } catch (error: any) {
-        return fail({
-          error: `Failed to get order transaction data: ${error.message}`,
-        });
-      }
-
-      console.log("Order transaction data:", orderTxData);
-
-      const txn = {
-        to: orderTxData.tx.to,
-        data: orderTxData.tx.data,
-        value: orderTxData.tx.value
-          ? ethers.BigNumber.from(orderTxData.tx.value)
-          : ethers.BigNumber.from("0"),
-        chainId: Number(sourceChain),
-      } as ethers.UnsignedTransaction;
-
-      const txnRequest = {
-        ...txn,
-        from: pkpAddress,
-      } as ethers.providers.TransactionRequest;
-
-      console.log("Transaction data:", txn);
-
-      const gasParamsResponse = await Lit.Actions.runOnce(
-        { waitForResponse: true, name: "gasParams" },
+      const orderDataResponse = await Lit.Actions.runOnce(
+        { waitForResponse: true, name: "serializedTxn" },
         async () => {
+          let orderTxData: any;
+          try {
+            orderTxData = await callDeBridgeAPI(
+              "/dln/order/create-tx",
+              "GET",
+              createOrderParams
+            );
+            console.log(`${logPrefix} Order transaction data received`);
+          } catch (error: any) {
+            return fail({
+              error: `Failed to get order transaction data: ${error.message}`,
+            });
+          }
+
+          console.log("Order transaction data:", orderTxData);
+
+          const txn = {
+            to: orderTxData.tx.to,
+            data: orderTxData.tx.data,
+            value: orderTxData.tx.value
+              ? ethers.BigNumber.from(orderTxData.tx.value)
+              : ethers.BigNumber.from("0"),
+            chainId: Number(sourceChain),
+          } as ethers.UnsignedTransaction;
+
+          const txnRequest = {
+            ...txn,
+            from: pkpAddress,
+          } as ethers.providers.TransactionRequest;
+
+          console.log("Transaction data:", txn);
+
           // Step 2: Estimate gas using the provider
           const gasLimit = await provider.estimateGas(txnRequest);
 
@@ -318,40 +318,36 @@ export const vincentTool = createVincentTool({
           const gasPrice = await provider.getGasPrice();
           console.log("RunOnce Gas price:", gasPrice.toString());
 
+          txn.gasLimit = gasLimit;
+          txn.gasPrice = gasPrice;
+          txn.nonce = nonce;
+
           return JSON.stringify({
-            gasLimit: gasLimit.toString(),
-            gasPrice: gasPrice.toString(),
-            nonce: nonce,
+            serializedTxn: ethers.utils.serializeTransaction(txn),
+            orderId: orderTxData.orderId,
           });
         }
       );
 
-      console.log(`${logPrefix} Gas params response:`, gasParamsResponse);
+      console.log(`${logPrefix} Order data response:`, orderDataResponse);
 
-      const parsedGasParamsResponse = JSON.parse(gasParamsResponse);
-      console.log(
-        `${logPrefix} Parsed gas params response:`,
-        parsedGasParamsResponse
+      const parsedOrderDataResponse = JSON.parse(orderDataResponse);
+      const toSign = ethers.utils.parseTransaction(
+        parsedOrderDataResponse.serializedTxn
       );
 
-      const gasLimit = ethers.BigNumber.from(parsedGasParamsResponse.gasLimit);
-      const gasPrice = ethers.BigNumber.from(parsedGasParamsResponse.gasPrice);
-      const nonce = Number(parsedGasParamsResponse.nonce);
-
-      txn.gasLimit = gasLimit;
-      txn.gasPrice = gasPrice;
-      txn.nonce = nonce;
+      // strip the empty signature
+      delete toSign.v;
+      delete toSign.r;
+      delete toSign.s;
 
       // Execute the bridge transaction
-      console.log(`${logPrefix} Signing bridge transaction...`);
-
-      const serializedTxnForDebug = ethers.utils.serializeTransaction(txn);
-      console.log("Serialized transaction for debug:", serializedTxnForDebug);
+      console.log(`${logPrefix} Signing bridge transaction...`, toSign);
 
       const signedTx = await laUtils.transaction.primitive.signTx({
         sigName: "debridgeCreateOrder",
         pkpPublicKey,
-        tx: txn,
+        tx: toSign,
       });
 
       console.log("Signed transaction:", signedTx);
@@ -375,7 +371,7 @@ export const vincentTool = createVincentTool({
           sourceToken,
           destinationToken,
           sourceAmount: amount,
-          orderId: orderTxData.orderId,
+          orderId: parsedOrderDataResponse.orderId,
         },
       });
     } catch (error: any) {
