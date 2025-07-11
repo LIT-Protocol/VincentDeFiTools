@@ -203,12 +203,12 @@ export const vincentTool = createVincentTool({
                     ...txn,
                     from: pkpAddress,
                 };
-                console.log("Transaction data:", txn);
+                // console.log("Transaction data:", txn);
                 // Step 2: Estimate gas using the provider
                 const gasLimit = await provider.estimateGas(txnRequest);
                 const nonce = await provider.getTransactionCount(txnRequest.from);
                 const gasPrice = await provider.getGasPrice();
-                console.log("RunOnce Gas price:", gasPrice.toString());
+                // console.log("RunOnce Gas price:", gasPrice.toString());
                 txn.gasLimit = gasLimit;
                 txn.gasPrice = gasPrice;
                 txn.nonce = nonce;
@@ -217,7 +217,7 @@ export const vincentTool = createVincentTool({
                     orderId: orderTxData.orderId,
                 });
             });
-            console.log(`${logPrefix} Order data response:`, orderDataResponse);
+            //console.log(`${logPrefix} Order data response:`, orderDataResponse);
             const parsedOrderDataResponse = JSON.parse(orderDataResponse);
             const toSign = ethers.utils.parseTransaction(parsedOrderDataResponse.serializedTxn);
             // strip the empty signature

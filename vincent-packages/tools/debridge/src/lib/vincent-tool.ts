@@ -293,7 +293,7 @@ export const vincentTool = createVincentTool({
             });
           }
 
-          // console.log("Order transaction data:", orderTxData);
+          console.log("Order transaction data:", orderTxData);
 
           const txn = {
             to: orderTxData.tx.to,
@@ -329,7 +329,7 @@ export const vincentTool = createVincentTool({
         }
       );
 
-      console.log(`${logPrefix} Order data response:`, orderDataResponse);
+      //console.log(`${logPrefix} Order data response:`, orderDataResponse);
 
       const parsedOrderDataResponse = JSON.parse(orderDataResponse);
       const toSign = ethers.utils.parseTransaction(

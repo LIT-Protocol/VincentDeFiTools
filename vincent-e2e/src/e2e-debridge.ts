@@ -52,6 +52,7 @@ const NETWORK_CONFIG = {
 
 const CONFIRMATIONS_TO_WAIT = 2;
 const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
+// Note: deBridge takes a small fee (~0.8%) so bridging 0.00001 ETH results in ~0.0000099 ETH received
 
 (async () => {
   console.log("🌉 Starting deBridge Tool E2E Test - Base to Arbitrum Bridge");
@@ -464,19 +465,68 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
           );
         }
 
-        // Note about destination verification
-        console.log(
-          "📝 Note: deBridge is a cross-chain protocol that requires time for settlement."
-        );
-        console.log(
-          "   The destination balance will update when the bridge order is fulfilled by solvers."
-        );
-        console.log(
-          "   This typically takes 1-5 minutes depending on network conditions."
-        );
-        console.log(
-          "   For production use, you would monitor the order status via deBridge API."
-        );
+        // Poll destination chain for balance arrival
+        console.log("⏳ Polling destination chain for balance arrival...");
+        console.log("   This typically takes 1-5 minutes depending on network conditions.");
+        
+        const MAX_POLL_TIME = 10 * 60 * 1000; // 10 minutes
+        const POLL_INTERVAL = 10 * 1000; // 10 seconds
+        const startTime = Date.now();
+        let destinationBalanceArrived = false;
+        let finalDestinationBalance: ethers.BigNumber = ethers.BigNumber.from(0);
+        
+        // Expected amount accounting for fees (approximately 0.8% based on your observation)
+        const bridgeAmountBN = ethers.utils.parseEther(BRIDGE_AMOUNT);
+        const minExpectedAmount = bridgeAmountBN.mul(99).div(100); // Allow up to 1% in fees
+        
+        while (Date.now() - startTime < MAX_POLL_TIME && !destinationBalanceArrived) {
+          try {
+            const currentDestBalance = await destinationProvider.getBalance(
+              agentWalletPkp.ethAddress
+            );
+            
+            const balanceIncrease = currentDestBalance.sub(initialDestinationBalance);
+            
+            if (balanceIncrease.gt(0)) {
+              finalDestinationBalance = currentDestBalance;
+              const increaseFormatted = ethers.utils.formatEther(balanceIncrease);
+              const finalFormatted = ethers.utils.formatEther(finalDestinationBalance);
+              
+              console.log(`✅ Balance arrived on ${DESTINATION_NETWORK_NAME}!`);
+              console.log(`   Balance increase: ${increaseFormatted} ETH`);
+              console.log(`   Final balance: ${finalFormatted} ETH`);
+              
+              // Verify amount is within expected range
+              if (balanceIncrease.gte(minExpectedAmount)) {
+                console.log(`   ✅ Received amount is within expected range (>= ${ethers.utils.formatEther(minExpectedAmount)} ETH)`);
+                const feePercentage = bridgeAmountBN.sub(balanceIncrease).mul(10000).div(bridgeAmountBN).toNumber() / 100;
+                console.log(`   Bridge fee: ~${feePercentage.toFixed(2)}%`);
+                destinationBalanceArrived = true;
+                addTestResult("deBridge Destination Balance", true);
+              } else {
+                const errorMsg = `Received amount ${increaseFormatted} ETH is less than minimum expected ${ethers.utils.formatEther(minExpectedAmount)} ETH`;
+                console.log(`   ❌ ${errorMsg}`);
+                addTestResult("deBridge Destination Balance", false, errorMsg);
+                destinationBalanceArrived = true; // Stop polling but mark as failed
+              }
+            } else {
+              const elapsed = Math.floor((Date.now() - startTime) / 1000);
+              console.log(`   Still waiting... (${elapsed}s elapsed)`);
+            }
+          } catch (pollError) {
+            console.log("   Error polling destination balance:", pollError.message);
+          }
+          
+          if (!destinationBalanceArrived) {
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+          }
+        }
+        
+        if (!destinationBalanceArrived) {
+          const errorMsg = `Bridge funds did not arrive on destination chain within ${MAX_POLL_TIME / 1000} seconds`;
+          console.log(`❌ ${errorMsg}`);
+          addTestResult("deBridge Destination Balance", false, errorMsg);
+        }
 
         addTestResult("deBridge Bridge Execution", true);
       } else {
