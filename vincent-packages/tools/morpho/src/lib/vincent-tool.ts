@@ -19,6 +19,8 @@ import {
   isValidAddress,
   parseAmount,
   validateOperationRequirements,
+  LitProtocolSigner,
+  createEthersSignerFromLitProtocol,
 } from "./helpers";
 
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
@@ -410,19 +412,30 @@ async function executeDeposit(
 
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
 
-  const txHash = await laUtils.transaction.handler.contractCall({
-    provider,
+  // Create LitProtocolSigner and wrap it for ethers.js
+  const litSigner = new LitProtocolSigner({
     pkpPublicKey,
-    callerAddress,
-    abi: ERC4626_VAULT_ABI,
-    contractAddress: vaultAddress,
-    functionName: "deposit",
-    args: [amount, receiver],
     chainId,
-    gasBumpPercentage: 10,
+    laUtils,
   });
+  const signer = createEthersSignerFromLitProtocol(litSigner, provider);
 
-  return txHash;
+  // Create contract instance with the signer
+  const vaultContract = new ethers.Contract(
+    vaultAddress,
+    ERC4626_VAULT_ABI,
+    signer
+  );
+
+  // Execute the deposit transaction
+  const tx = await vaultContract.deposit(amount, receiver);
+  
+  console.log(
+    "[@lit-protocol/vincent-tool-morpho/executeDeposit] Transaction sent:",
+    tx.hash
+  );
+
+  return tx.hash;
 }
 
 /**
@@ -442,19 +455,30 @@ async function executeWithdraw(
 
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
 
-  const txHash = await laUtils.transaction.handler.contractCall({
-    provider,
+  // Create LitProtocolSigner and wrap it for ethers.js
+  const litSigner = new LitProtocolSigner({
     pkpPublicKey,
-    callerAddress,
-    abi: ERC4626_VAULT_ABI,
-    contractAddress: vaultAddress,
-    functionName: "withdraw",
-    args: [amount, owner, owner],
     chainId,
-    gasBumpPercentage: 10,
+    laUtils,
   });
+  const signer = createEthersSignerFromLitProtocol(litSigner, provider);
 
-  return txHash;
+  // Create contract instance with the signer
+  const vaultContract = new ethers.Contract(
+    vaultAddress,
+    ERC4626_VAULT_ABI,
+    signer
+  );
+
+  // Execute the withdraw transaction
+  const tx = await vaultContract.withdraw(amount, owner, owner);
+  
+  console.log(
+    "[@lit-protocol/vincent-tool-morpho/executeWithdraw] Transaction sent:",
+    tx.hash
+  );
+
+  return tx.hash;
 }
 
 /**
@@ -474,17 +498,28 @@ async function executeRedeem(
 
   const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
 
-  const txHash = await laUtils.transaction.handler.contractCall({
-    provider,
+  // Create LitProtocolSigner and wrap it for ethers.js
+  const litSigner = new LitProtocolSigner({
     pkpPublicKey,
-    callerAddress,
-    abi: ERC4626_VAULT_ABI,
-    contractAddress: vaultAddress,
-    functionName: "redeem",
-    args: [shares, owner, owner],
     chainId,
-    gasBumpPercentage: 10,
+    laUtils,
   });
+  const signer = createEthersSignerFromLitProtocol(litSigner, provider);
 
-  return txHash;
+  // Create contract instance with the signer
+  const vaultContract = new ethers.Contract(
+    vaultAddress,
+    ERC4626_VAULT_ABI,
+    signer
+  );
+
+  // Execute the redeem transaction
+  const tx = await vaultContract.redeem(shares, owner, owner);
+  
+  console.log(
+    "[@lit-protocol/vincent-tool-morpho/executeRedeem] Transaction sent:",
+    tx.hash
+  );
+
+  return tx.hash;
 }

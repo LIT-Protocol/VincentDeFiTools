@@ -1,7 +1,7 @@
 import { createVincentTool, supportedPoliciesForTool, } from "@lit-protocol/vincent-tool-sdk";
 import "@lit-protocol/vincent-tool-sdk/internal";
 import { executeFailSchema, executeSuccessSchema, precheckFailSchema, precheckSuccessSchema, toolParamsSchema, MorphoOperation, } from "./schemas";
-import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, } from "./helpers";
+import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, LitProtocolSigner, createEthersSignerFromLitProtocol, } from "./helpers";
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
 import { ethers } from "ethers";
 export const vincentTool = createVincentTool({
@@ -224,18 +224,19 @@ export const vincentTool = createVincentTool({
 async function executeDeposit(provider, pkpPublicKey, vaultAddress, amount, receiver, chainId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeDeposit] Starting deposit operation");
     const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
-    const txHash = await laUtils.transaction.handler.contractCall({
-        provider,
+    // Create LitProtocolSigner and wrap it for ethers.js
+    const litSigner = new LitProtocolSigner({
         pkpPublicKey,
-        callerAddress,
-        abi: ERC4626_VAULT_ABI,
-        contractAddress: vaultAddress,
-        functionName: "deposit",
-        args: [amount, receiver],
         chainId,
-        gasBumpPercentage: 10,
+        laUtils,
     });
-    return txHash;
+    const signer = createEthersSignerFromLitProtocol(litSigner, provider);
+    // Create contract instance with the signer
+    const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, signer);
+    // Execute the deposit transaction
+    const tx = await vaultContract.deposit(amount, receiver);
+    console.log("[@lit-protocol/vincent-tool-morpho/executeDeposit] Transaction sent:", tx.hash);
+    return tx.hash;
 }
 /**
  * Execute Morpho Vault Withdraw operation
@@ -243,18 +244,19 @@ async function executeDeposit(provider, pkpPublicKey, vaultAddress, amount, rece
 async function executeWithdraw(provider, pkpPublicKey, vaultAddress, amount, owner, chainId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeWithdraw] Starting withdraw operation");
     const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
-    const txHash = await laUtils.transaction.handler.contractCall({
-        provider,
+    // Create LitProtocolSigner and wrap it for ethers.js
+    const litSigner = new LitProtocolSigner({
         pkpPublicKey,
-        callerAddress,
-        abi: ERC4626_VAULT_ABI,
-        contractAddress: vaultAddress,
-        functionName: "withdraw",
-        args: [amount, owner, owner],
         chainId,
-        gasBumpPercentage: 10,
+        laUtils,
     });
-    return txHash;
+    const signer = createEthersSignerFromLitProtocol(litSigner, provider);
+    // Create contract instance with the signer
+    const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, signer);
+    // Execute the withdraw transaction
+    const tx = await vaultContract.withdraw(amount, owner, owner);
+    console.log("[@lit-protocol/vincent-tool-morpho/executeWithdraw] Transaction sent:", tx.hash);
+    return tx.hash;
 }
 /**
  * Execute Morpho Vault Redeem operation
@@ -262,16 +264,17 @@ async function executeWithdraw(provider, pkpPublicKey, vaultAddress, amount, own
 async function executeRedeem(provider, pkpPublicKey, vaultAddress, shares, owner, chainId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeRedeem] Starting redeem operation");
     const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
-    const txHash = await laUtils.transaction.handler.contractCall({
-        provider,
+    // Create LitProtocolSigner and wrap it for ethers.js
+    const litSigner = new LitProtocolSigner({
         pkpPublicKey,
-        callerAddress,
-        abi: ERC4626_VAULT_ABI,
-        contractAddress: vaultAddress,
-        functionName: "redeem",
-        args: [shares, owner, owner],
         chainId,
-        gasBumpPercentage: 10,
+        laUtils,
     });
-    return txHash;
+    const signer = createEthersSignerFromLitProtocol(litSigner, provider);
+    // Create contract instance with the signer
+    const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, signer);
+    // Execute the redeem transaction
+    const tx = await vaultContract.redeem(shares, owner, owner);
+    console.log("[@lit-protocol/vincent-tool-morpho/executeRedeem] Transaction sent:", tx.hash);
+    return tx.hash;
 }

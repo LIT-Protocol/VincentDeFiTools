@@ -878,3 +878,109 @@ export async function getVaultDiscoverySummary(chainId) {
         throw error;
     }
 }
+export class LitProtocolSigner {
+    signerType = "lit-protocol";
+    inner;
+    pkpPublicKey;
+    signerAddress;
+    laUtils;
+    constructor(config) {
+        this.pkpPublicKey = config.pkpPublicKey;
+        this.signerAddress = ethers.utils.computeAddress(config.pkpPublicKey);
+        this.laUtils = config.laUtils;
+        this.inner = {
+            pkpPublicKey: config.pkpPublicKey,
+            laUtils: config.laUtils,
+            chainId: config.chainId
+        }; // Inner client reference
+    }
+    async getAddress() {
+        return this.signerAddress;
+    }
+    async signMessage(message) {
+        const messageToSign = typeof message.raw === 'string'
+            ? message.raw
+            : ethers.utils.hexlify(message.raw);
+        const messageHash = ethers.utils.hashMessage(messageToSign);
+        // Sign the message hash using Lit Protocol
+        const signedMessage = await this.laUtils.transaction.primitive.signTx({
+            pkpPublicKey: this.pkpPublicKey,
+            tx: messageHash, // For messages, we sign the hash directly
+            sigName: `message_${Date.now()}`,
+        });
+        return signedMessage;
+    }
+    async signTypedData(params) {
+        // Create the EIP-712 hash
+        const hash = ethers.utils._TypedDataEncoder.hash(params.domain, params.types, params.message);
+        // Sign using Lit Protocol
+        const signature = await this.laUtils.transaction.primitive.signTx({
+            pkpPublicKey: this.pkpPublicKey,
+            tx: hash, // For typed data, we sign the hash
+            sigName: `typed_data_${Date.now()}`,
+        });
+        return signature;
+    }
+    async signAuthorization(unsignedAuthorization) {
+        // Create the authorization message to sign for EIP-7702
+        const authMessage = ethers.utils.solidityPack(["uint8", "uint256", "address", "uint256"], [
+            0x05, // EIP-7702 magic prefix
+            unsignedAuthorization.chainId,
+            unsignedAuthorization.address || unsignedAuthorization.contractAddress,
+            unsignedAuthorization.nonce,
+        ]);
+        const authHash = ethers.utils.keccak256(authMessage);
+        // Sign the authorization
+        const signature = await this.laUtils.transaction.primitive.signTx({
+            pkpPublicKey: this.pkpPublicKey,
+            tx: authHash,
+            sigName: `auth_7702_${Date.now()}`,
+        });
+        // Parse the signature
+        const sig = ethers.utils.splitSignature(signature);
+        return {
+            address: unsignedAuthorization.address || unsignedAuthorization.contractAddress,
+            chainId: unsignedAuthorization.chainId,
+            nonce: unsignedAuthorization.nonce,
+            r: sig.r,
+            s: sig.s,
+            v: sig.v,
+        };
+    }
+}
+/**
+ * Helper function to create a LitProtocolSigner for use with ethers.js
+ * This wraps the SmartAccountSigner in an ethers-compatible interface
+ */
+export function createEthersSignerFromLitProtocol(signer, provider) {
+    const ethersSignerWrapper = {
+        _isSigner: true,
+        provider,
+        getAddress: async () => signer.getAddress(),
+        signMessage: async (message) => {
+            const messageBytes = typeof message === 'string'
+                ? ethers.utils.toUtf8Bytes(message)
+                : new Uint8Array(message);
+            return signer.signMessage({ raw: messageBytes });
+        },
+        signTransaction: async (transaction) => {
+            const tx = await ethers.utils.resolveProperties(transaction);
+            // For EIP-7702 transactions, we need to handle them specially
+            if (tx.type === 4 || tx.authorizationList) {
+                // This would be handled by the Smart Account Client
+                throw new Error("EIP-7702 transactions should be handled by Smart Account Client");
+            }
+            // For regular transactions, sign using Lit Protocol
+            const signedTx = await signer.inner.laUtils.transaction.primitive.signTx({
+                pkpPublicKey: signer.inner.pkpPublicKey,
+                tx,
+                sigName: `tx_${Date.now()}`,
+            });
+            return signedTx;
+        },
+        connect: (newProvider) => {
+            return createEthersSignerFromLitProtocol(signer, newProvider);
+        },
+    };
+    return ethersSignerWrapper;
+}
