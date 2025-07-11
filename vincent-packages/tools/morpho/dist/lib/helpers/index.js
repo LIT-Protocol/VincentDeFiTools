@@ -883,43 +883,59 @@ export class LitProtocolSigner {
     inner;
     pkpPublicKey;
     signerAddress;
-    laUtils;
     constructor(config) {
+        if (config.pkpPublicKey.startsWith("0x")) {
+            config.pkpPublicKey = config.pkpPublicKey.slice(2);
+        }
         this.pkpPublicKey = config.pkpPublicKey;
-        this.signerAddress = ethers.utils.computeAddress(config.pkpPublicKey);
-        this.laUtils = config.laUtils;
+        this.signerAddress = ethers.utils.computeAddress("0x" + config.pkpPublicKey);
         this.inner = {
             pkpPublicKey: config.pkpPublicKey,
             laUtils: config.laUtils,
-            chainId: config.chainId
+            chainId: config.chainId,
         }; // Inner client reference
     }
     async getAddress() {
         return this.signerAddress;
     }
     async signMessage(message) {
-        const messageToSign = typeof message.raw === 'string'
-            ? message.raw
-            : ethers.utils.hexlify(message.raw);
+        let messageToSign;
+        if (typeof message === "string") {
+            messageToSign = message;
+        }
+        else {
+            messageToSign =
+                typeof message.raw === "string"
+                    ? message.raw
+                    : ethers.utils.hexlify(message.raw);
+        }
         const messageHash = ethers.utils.hashMessage(messageToSign);
-        // Sign the message hash using Lit Protocol
-        const signedMessage = await this.laUtils.transaction.primitive.signTx({
-            pkpPublicKey: this.pkpPublicKey,
-            tx: messageHash, // For messages, we sign the hash directly
+        const sig = await Lit.Actions.signAndCombineEcdsa({
+            toSign: ethers.utils.arrayify(messageHash),
+            publicKey: this.pkpPublicKey,
             sigName: `message_${Date.now()}`,
         });
-        return signedMessage;
+        const parsedSig = JSON.parse(sig);
+        return ethers.utils.joinSignature({
+            r: "0x" + parsedSig.r.substring(2),
+            s: "0x" + parsedSig.s,
+            v: parsedSig.v,
+        });
     }
     async signTypedData(params) {
         // Create the EIP-712 hash
-        const hash = ethers.utils._TypedDataEncoder.hash(params.domain, params.types, params.message);
-        // Sign using Lit Protocol
-        const signature = await this.laUtils.transaction.primitive.signTx({
-            pkpPublicKey: this.pkpPublicKey,
-            tx: hash, // For typed data, we sign the hash
+        const hash = ethers.utils._TypedDataEncoder.hash(params.domain || {}, params.types || {}, params.message || {});
+        const sig = await Lit.Actions.signAndCombineEcdsa({
+            toSign: ethers.utils.arrayify(hash),
+            publicKey: this.pkpPublicKey,
             sigName: `typed_data_${Date.now()}`,
         });
-        return signature;
+        const parsedSig = JSON.parse(sig);
+        return ethers.utils.joinSignature({
+            r: "0x" + parsedSig.r.substring(2),
+            s: "0x" + parsedSig.s,
+            v: parsedSig.v,
+        });
     }
     async signAuthorization(unsignedAuthorization) {
         // Create the authorization message to sign for EIP-7702
@@ -930,21 +946,26 @@ export class LitProtocolSigner {
             unsignedAuthorization.nonce,
         ]);
         const authHash = ethers.utils.keccak256(authMessage);
-        // Sign the authorization
-        const signature = await this.laUtils.transaction.primitive.signTx({
-            pkpPublicKey: this.pkpPublicKey,
-            tx: authHash,
+        const sig = await Lit.Actions.signAndCombineEcdsa({
+            toSign: ethers.utils.arrayify(authHash),
+            publicKey: this.pkpPublicKey,
             sigName: `auth_7702_${Date.now()}`,
         });
-        // Parse the signature
-        const sig = ethers.utils.splitSignature(signature);
+        const parsedSig = JSON.parse(sig);
+        const sigObj = {
+            r: "0x" + parsedSig.r.substring(2),
+            s: "0x" + parsedSig.s,
+            v: parsedSig.v,
+        };
         return {
-            address: unsignedAuthorization.address || unsignedAuthorization.contractAddress,
+            address: (unsignedAuthorization.address ||
+                unsignedAuthorization.contractAddress),
             chainId: unsignedAuthorization.chainId,
             nonce: unsignedAuthorization.nonce,
-            r: sig.r,
-            s: sig.s,
-            v: sig.v,
+            r: sigObj.r,
+            s: sigObj.s,
+            v: BigInt(sigObj.v),
+            yParity: sigObj.v === 27 ? 0 : 1, // Convert v to yParity
         };
     }
 }
@@ -958,7 +979,7 @@ export function createEthersSignerFromLitProtocol(signer, provider) {
         provider,
         getAddress: async () => signer.getAddress(),
         signMessage: async (message) => {
-            const messageBytes = typeof message === 'string'
+            const messageBytes = typeof message === "string"
                 ? ethers.utils.toUtf8Bytes(message)
                 : new Uint8Array(message);
             return signer.signMessage({ raw: messageBytes });

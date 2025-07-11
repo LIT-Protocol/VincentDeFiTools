@@ -21,10 +21,13 @@ import {
   validateOperationRequirements,
   LitProtocolSigner,
   createEthersSignerFromLitProtocol,
+  getChainName,
 } from "./helpers";
 
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
 import { ethers } from "ethers";
+import { createModularAccountV2Client } from "@account-kit/smart-contracts";
+import { alchemy } from "@account-kit/infra";
 
 export const vincentTool = createVincentTool({
   packageName: "@lit-protocol/vincent-tool-morpho" as const,
@@ -613,7 +616,7 @@ async function executeDepositWithGasSponsorship(
   policyId: string
 ): Promise<string> {
   console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Starting sponsored deposit operation"
+    "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Starting EIP-7702 sponsored deposit operation"
   );
 
   // Create LitProtocolSigner for EIP-7702
@@ -623,30 +626,95 @@ async function executeDepositWithGasSponsorship(
     laUtils,
   });
 
-  // For gas sponsorship, we would use Alchemy's Smart Account Client
-  // This is a simplified version - in a real implementation, you would import and use:
-  // import { createModularAccountV2Client } from "@account-kit/smart-contracts";
-  // import { alchemy } from "@account-kit/infra";
-
   console.log(
     "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Using EIP-7702 gas sponsorship",
     { vaultAddress, amount, receiver, policyId }
   );
 
-  // For now, we'll simulate the sponsored transaction
-  // In the real implementation, this would create a Smart Account Client and send a user operation
-  const simulatedTxHash = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes(
-      `sponsored-deposit-${Date.now()}-${vaultAddress}-${amount}`
-    )
-  );
+  try {
+    // Get the Alchemy chain configuration
+    const alchemyChain = getAlchemyChainConfig(chainId);
 
-  console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Sponsored transaction sent:",
-    simulatedTxHash
-  );
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Creating Smart Account Client",
+      { chainId, chain: alchemyChain.name }
+    );
 
-  return simulatedTxHash;
+    // Create the Smart Account Client with EIP-7702 mode
+    const smartAccountClient = await createModularAccountV2Client({
+      mode: "7702" as const,
+      transport: alchemy({ apiKey: alchemyApiKey }),
+      chain: alchemyChain,
+      signer: litSigner,
+      policyId,
+    });
+
+    // Prepare the deposit user operation
+    const userOperation = {
+      target: vaultAddress as `0x${string}`,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: ERC4626_VAULT_ABI,
+        functionName: "deposit",
+        args: [amount, receiver],
+      }),
+    };
+
+    const uoStruct = await smartAccountClient.buildUserOperation({
+      uo: userOperation,
+      account: smartAccountClient.account,
+    });
+
+    const signedUserOperation = await smartAccountClient.signUserOperation({
+      account: smartAccountClient.account,
+      uoStruct,
+    });
+
+    const entryPoint = smartAccountClient.account.getEntryPoint();
+
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Prepared user operation for EIP-7702",
+      { userOperation }
+    );
+    const txHash = await Lit.Actions.runOnce(
+      {
+        waitForResponse: true,
+        name: "sendWithAlchemy",
+      },
+      async () => {
+        try {
+          // Send the user operation with EIP-7702 delegation
+          const userOpResult = await smartAccountClient.sendRawUserOperation(
+            signedUserOperation,
+            entryPoint.address
+          );
+
+          console.log(
+            "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] User operation sent",
+            { userOpHash: userOpResult }
+          );
+
+          return userOpResult;
+        } catch (e) {
+          console.log(e);
+          console.log(e.stack);
+          return "";
+        }
+      }
+    );
+
+    if (txHash === "") {
+      throw new Error("Failed to send user operation");
+    }
+
+    return txHash;
+  } catch (error) {
+    console.error(
+      "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] EIP-7702 operation failed:",
+      error
+    );
+    throw error;
+  }
 }
 
 /**
@@ -662,7 +730,7 @@ async function executeWithdrawWithGasSponsorship(
   policyId: string
 ): Promise<string> {
   console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Starting sponsored withdraw operation"
+    "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Starting EIP-7702 sponsored withdraw operation"
   );
 
   // Create LitProtocolSigner for EIP-7702
@@ -677,19 +745,80 @@ async function executeWithdrawWithGasSponsorship(
     { vaultAddress, amount, owner, policyId }
   );
 
-  // For now, we'll simulate the sponsored transaction
-  const simulatedTxHash = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes(
-      `sponsored-withdraw-${Date.now()}-${vaultAddress}-${amount}`
-    )
-  );
+  try {
+    // Get the Alchemy chain configuration
+    const alchemyChain = getAlchemyChainConfig(chainId);
 
-  console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Sponsored transaction sent:",
-    simulatedTxHash
-  );
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Creating Smart Account Client",
+      { chainId, chain: alchemyChain.name }
+    );
 
-  return simulatedTxHash;
+    // Create the Smart Account Client with EIP-7702 mode
+    const smartAccountClient = await createModularAccountV2Client({
+      mode: "7702" as const,
+      transport: alchemy({ apiKey: alchemyApiKey }),
+      chain: alchemyChain,
+      signer: litSigner,
+      policyId,
+    });
+
+    // Prepare the withdraw user operation
+    const userOperation = {
+      target: vaultAddress as `0x${string}`,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: ERC4626_VAULT_ABI,
+        functionName: "withdraw",
+        args: [amount, owner, owner],
+      }),
+    };
+
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Prepared user operation for EIP-7702",
+      { userOperation }
+    );
+
+    // Send the user operation with EIP-7702 delegation
+    // This will automatically:
+    // 1. Detect if the account is not yet delegated with EIP-7702
+    // 2. Request an authorization signature from our LitProtocolSigner
+    // 3. Include the authorization in the user operation
+    // 4. Submit via Alchemy's bundler with gas sponsorship
+    const userOpResult = await smartAccountClient.sendUserOperation({
+      uo: userOperation,
+      account: smartAccountClient.account,
+    });
+
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] User operation sent",
+      { userOpHash: userOpResult.hash }
+    );
+
+    // Wait for the user operation to be mined
+    const txHash = await smartAccountClient.waitForUserOperationTransaction({
+      hash: userOpResult.hash,
+    });
+
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] EIP-7702 sponsored transaction completed",
+      {
+        txHash,
+        delegatedAccount: owner,
+        operation: "withdraw",
+        gasSponsored: true,
+        userOpHash: userOpResult.hash,
+      }
+    );
+
+    return txHash;
+  } catch (error) {
+    console.error(
+      "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] EIP-7702 operation failed:",
+      error
+    );
+    throw error;
+  }
 }
 
 /**
@@ -705,7 +834,7 @@ async function executeRedeemWithGasSponsorship(
   policyId: string
 ): Promise<string> {
   console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Starting sponsored redeem operation"
+    "[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Starting EIP-7702 sponsored redeem operation"
   );
 
   // Create LitProtocolSigner for EIP-7702
@@ -720,17 +849,142 @@ async function executeRedeemWithGasSponsorship(
     { vaultAddress, shares, owner, policyId }
   );
 
-  // For now, we'll simulate the sponsored transaction
-  const simulatedTxHash = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes(
-      `sponsored-redeem-${Date.now()}-${vaultAddress}-${shares}`
-    )
-  );
+  try {
+    // Get the Alchemy chain configuration
+    const alchemyChain = getAlchemyChainConfig(chainId);
 
-  console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Sponsored transaction sent:",
-    simulatedTxHash
-  );
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Creating Smart Account Client",
+      { chainId, chain: alchemyChain.name }
+    );
 
-  return simulatedTxHash;
+    // Create the Smart Account Client with EIP-7702 mode
+    const smartAccountClient = await createModularAccountV2Client({
+      mode: "7702" as const,
+      transport: alchemy({ apiKey: alchemyApiKey }),
+      chain: alchemyChain,
+      signer: litSigner,
+      policyId,
+    });
+
+    // Prepare the redeem user operation
+    const userOperation = {
+      target: vaultAddress as `0x${string}`,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: ERC4626_VAULT_ABI,
+        functionName: "redeem",
+        args: [shares, owner, owner],
+      }),
+    };
+
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Prepared user operation for EIP-7702",
+      { userOperation }
+    );
+
+    // Send the user operation with EIP-7702 delegation
+    const userOpResult = await smartAccountClient.sendUserOperation({
+      uo: userOperation,
+      account: smartAccountClient.account,
+    });
+
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] User operation sent",
+      { userOpHash: userOpResult.hash }
+    );
+
+    // Wait for the user operation to be mined
+    const txHash = await smartAccountClient.waitForUserOperationTransaction({
+      hash: userOpResult.hash,
+    });
+
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] EIP-7702 sponsored transaction completed",
+      {
+        txHash,
+        operation: "redeem",
+        gasSponsored: true,
+        userOpHash: userOpResult.hash,
+      }
+    );
+
+    return txHash;
+  } catch (error) {
+    console.error(
+      "[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] EIP-7702 operation failed:",
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Helper function to get Alchemy chain configuration
+ */
+function getAlchemyChainConfig(chainId: number) {
+  // Import chain definitions from Alchemy SDK
+  const {
+    mainnet,
+    sepolia,
+    base,
+    arbitrum,
+    optimism,
+    polygon,
+  } = require("@account-kit/infra");
+
+  switch (chainId) {
+    case 1:
+      return mainnet;
+    case 11155111:
+      return sepolia;
+    case 8453:
+      return base;
+    case 42161:
+      return arbitrum;
+    case 10:
+      return optimism;
+    case 137:
+      return polygon;
+    default:
+      return mainnet;
+  }
+}
+
+/**
+ * Helper function to get chain name for Alchemy RPC URLs
+ */
+function getAlchemyChainName(chainId: number): string {
+  switch (chainId) {
+    case 1:
+      return "eth-mainnet";
+    case 11155111:
+      return "eth-sepolia";
+    case 8453:
+      return "base-mainnet";
+    case 42161:
+      return "arb-mainnet";
+    case 10:
+      return "opt-mainnet";
+    case 137:
+      return "polygon-mainnet";
+    default:
+      return "eth-mainnet";
+  }
+}
+
+/**
+ * Helper function to encode function data using ethers.js Interface
+ */
+function encodeFunctionData({
+  abi,
+  functionName,
+  args,
+}: {
+  abi: any[];
+  functionName: string;
+  args: any[];
+}): `0x${string}` {
+  const iface = new ethers.utils.Interface(abi);
+  return iface.encodeFunctionData(functionName, args) as `0x${string}`;
 }
