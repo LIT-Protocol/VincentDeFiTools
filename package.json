@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@lit-protocol/vincent-tool-erc20-approval": "*",
+    "@lit-protocol/vincent-tool-uniswap-swap": "*",
     "ethers": "^5.8.0"
   }
 }

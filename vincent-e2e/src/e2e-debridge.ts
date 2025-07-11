@@ -16,6 +16,7 @@ import { getVincentToolClient } from "@lit-protocol/vincent-app-sdk";
 import { vincentPolicyMetadata as sendLimitPolicyMetadata } from "../../vincent-packages/policies/send-counter-limit/dist/index.js";
 import { bundledVincentTool as deBridgeTool } from "../../vincent-packages/tools/debridge/dist/index.js";
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
+import { bundledVincentTool as uniswapTool } from "@lit-protocol/vincent-tool-uniswap-swap";
 import { ethers } from "ethers";
 import {
   setupEthFunding,
@@ -38,6 +39,7 @@ const NETWORK_CONFIG = {
     // Common ERC20 tokens on Base for testing
     usdcToken: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
     wethToken: "0x4200000000000000000000000000000000000006", // WETH on Base
+    usdtToken: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", // USDT on Base
   },
   destination: {
     network: DESTINATION_NETWORK_NAME,
@@ -47,6 +49,7 @@ const NETWORK_CONFIG = {
     // Corresponding tokens on Arbitrum
     usdcToken: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", // USDC on Arbitrum
     wethToken: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", // WETH on Arbitrum
+    usdtToken: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", // USDT on Arbitrum
   },
 } as const;
 
@@ -111,6 +114,11 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
     ethersSigner: accounts.delegatee.ethersWallet,
   });
 
+  const uniswapToolClient = getVincentToolClient({
+    bundledVincentTool: uniswapTool,
+    ethersSigner: accounts.delegatee.ethersWallet,
+  });
+
   /**
    * ====================================
    * Prepare the IPFS CIDs for the tools and policies
@@ -121,7 +129,11 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
    */
   const appConfig = createAppConfig(
     {
-      toolIpfsCids: [deBridgeTool.ipfsCid, erc20ApproveTool.ipfsCid],
+      toolIpfsCids: [
+        deBridgeTool.ipfsCid,
+        erc20ApproveTool.ipfsCid,
+        uniswapTool.ipfsCid,
+      ],
       toolPolicies: [
         [
           // No policies for deBridge tool for now
@@ -129,18 +141,24 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
         [
           // No policies for ERC20 Approval tool
         ],
+        [
+          // No policies for Uniswap tool
+        ],
       ],
       toolPolicyParameterNames: [
         [], // No policy parameter names for deBridgeTool
         [], // No policy parameter names for approveTool
+        [], // No policy parameter names for uniswapTool
       ],
       toolPolicyParameterTypes: [
         [], // No policy parameter types for deBridgeTool
         [], // No policy parameter types for approveTool
+        [], // No policy parameter types for uniswapTool
       ],
       toolPolicyParameterValues: [
         [], // No policy parameter values for deBridgeTool
         [], // No policy parameter values for approveTool
+        [], // No policy parameter values for uniswapTool
       ],
     },
 
@@ -149,6 +167,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
       cidToNameMap: {
         [deBridgeTool.ipfsCid]: "deBridge Tool",
         [erc20ApproveTool.ipfsCid]: "ERC20 Approval Tool",
+        [uniswapTool.ipfsCid]: "Uniswap Swap Tool",
         [sendLimitPolicyMetadata.ipfsCid]: "Send Limit Policy",
       },
       debug: true,
@@ -163,6 +182,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
   const toolAndPolicyIpfsCids = [
     deBridgeTool.ipfsCid,
     erc20ApproveTool.ipfsCid,
+    uniswapTool.ipfsCid,
     sendLimitPolicyMetadata.ipfsCid,
   ];
 
@@ -467,44 +487,66 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
 
         // Poll destination chain for balance arrival
         console.log("⏳ Polling destination chain for balance arrival...");
-        console.log("   This typically takes 1-5 minutes depending on network conditions.");
-        
+        console.log(
+          "   This typically takes 1-5 minutes depending on network conditions."
+        );
+
         const MAX_POLL_TIME = 10 * 60 * 1000; // 10 minutes
         const POLL_INTERVAL = 10 * 1000; // 10 seconds
         const startTime = Date.now();
         let destinationBalanceArrived = false;
-        let finalDestinationBalance: ethers.BigNumber = ethers.BigNumber.from(0);
-        
+        let finalDestinationBalance: ethers.BigNumber =
+          ethers.BigNumber.from(0);
+
         // Expected amount accounting for fees (approximately 0.8% based on your observation)
         const bridgeAmountBN = ethers.utils.parseEther(BRIDGE_AMOUNT);
         const minExpectedAmount = bridgeAmountBN.mul(99).div(100); // Allow up to 1% in fees
-        
-        while (Date.now() - startTime < MAX_POLL_TIME && !destinationBalanceArrived) {
+
+        while (
+          Date.now() - startTime < MAX_POLL_TIME &&
+          !destinationBalanceArrived
+        ) {
           try {
             const currentDestBalance = await destinationProvider.getBalance(
               agentWalletPkp.ethAddress
             );
-            
-            const balanceIncrease = currentDestBalance.sub(initialDestinationBalance);
-            
+
+            const balanceIncrease = currentDestBalance.sub(
+              initialDestinationBalance
+            );
+
             if (balanceIncrease.gt(0)) {
               finalDestinationBalance = currentDestBalance;
-              const increaseFormatted = ethers.utils.formatEther(balanceIncrease);
-              const finalFormatted = ethers.utils.formatEther(finalDestinationBalance);
-              
+              const increaseFormatted =
+                ethers.utils.formatEther(balanceIncrease);
+              const finalFormatted = ethers.utils.formatEther(
+                finalDestinationBalance
+              );
+
               console.log(`✅ Balance arrived on ${DESTINATION_NETWORK_NAME}!`);
               console.log(`   Balance increase: ${increaseFormatted} ETH`);
               console.log(`   Final balance: ${finalFormatted} ETH`);
-              
+
               // Verify amount is within expected range
               if (balanceIncrease.gte(minExpectedAmount)) {
-                console.log(`   ✅ Received amount is within expected range (>= ${ethers.utils.formatEther(minExpectedAmount)} ETH)`);
-                const feePercentage = bridgeAmountBN.sub(balanceIncrease).mul(10000).div(bridgeAmountBN).toNumber() / 100;
+                console.log(
+                  `   ✅ Received amount is within expected range (>= ${ethers.utils.formatEther(
+                    minExpectedAmount
+                  )} ETH)`
+                );
+                const feePercentage =
+                  bridgeAmountBN
+                    .sub(balanceIncrease)
+                    .mul(10000)
+                    .div(bridgeAmountBN)
+                    .toNumber() / 100;
                 console.log(`   Bridge fee: ~${feePercentage.toFixed(2)}%`);
                 destinationBalanceArrived = true;
                 addTestResult("deBridge Destination Balance", true);
               } else {
-                const errorMsg = `Received amount ${increaseFormatted} ETH is less than minimum expected ${ethers.utils.formatEther(minExpectedAmount)} ETH`;
+                const errorMsg = `Received amount ${increaseFormatted} ETH is less than minimum expected ${ethers.utils.formatEther(
+                  minExpectedAmount
+                )} ETH`;
                 console.log(`   ❌ ${errorMsg}`);
                 addTestResult("deBridge Destination Balance", false, errorMsg);
                 destinationBalanceArrived = true; // Stop polling but mark as failed
@@ -514,16 +556,21 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
               console.log(`   Still waiting... (${elapsed}s elapsed)`);
             }
           } catch (pollError) {
-            console.log("   Error polling destination balance:", pollError.message);
+            console.log(
+              "   Error polling destination balance:",
+              pollError.message
+            );
           }
-          
+
           if (!destinationBalanceArrived) {
-            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+            await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
           }
         }
-        
+
         if (!destinationBalanceArrived) {
-          const errorMsg = `Bridge funds did not arrive on destination chain within ${MAX_POLL_TIME / 1000} seconds`;
+          const errorMsg = `Bridge funds did not arrive on destination chain within ${
+            MAX_POLL_TIME / 1000
+          } seconds`;
           console.log(`❌ ${errorMsg}`);
           addTestResult("deBridge Destination Balance", false, errorMsg);
         }
@@ -560,6 +607,295 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
     console.log("❌ deBridge bridge unexpected error:", errorMsg);
     console.log("   Error stack:", error.stack);
     addTestResult("deBridge Bridge Execution", false, errorMsg);
+  }
+
+  // ========================================
+  // Test 2: ETH -> USDT Swap, then Bridge USDT to Arbitrum as USDC
+  // ========================================
+  console.log("\n" + "=".repeat(70));
+  console.log("🔄 Starting Test 2: ETH → USDT → Bridge to Arbitrum as USDC");
+  console.log("=".repeat(70));
+
+  const SWAP_AMOUNT = "0.0001"; // Amount of ETH to swap to USDT
+  const BRIDGE_SWAP_AMOUNT = "0.1"; // Amount of USDT to bridge (0.1 USDT)
+
+  // get usdt token decimals
+  const ERC20_ABI = [
+    "function balanceOf(address account) view returns (uint256)",
+    "function decimals() view returns (uint8)",
+    "function approve(address spender, uint256 amount) returns (bool)",
+  ];
+  const usdtContract = new ethers.Contract(
+    NETWORK_CONFIG.source.usdtToken,
+    ERC20_ABI,
+    sourceProvider
+  );
+  const usdtTokenDecimals = await usdtContract.decimals();
+
+  // First, swap ETH to USDT on Base using Uniswap
+  console.log(`\n💱 Step 1: Swapping ${SWAP_AMOUNT} ETH to USDT on Base`);
+
+  try {
+    const swapParams = {
+      chainIdForUniswap: Number(NETWORK_CONFIG.source.chainId),
+      tokenInAddress: NETWORK_CONFIG.source.nativeToken,
+      tokenInAmount: Number(SWAP_AMOUNT),
+      tokenOutAddress: NETWORK_CONFIG.source.usdtToken,
+      rpcUrlForUniswap: sourceRpcUrl,
+      ethRpcUrl: process.env.ETHEREUM_RPC_URL!,
+      tokenInDecimals: 18,
+      tokenOutDecimals: usdtTokenDecimals,
+    };
+
+    console.log("📋 Swap Parameters:", {
+      ...swapParams,
+      amountIn: `${SWAP_AMOUNT} ETH`,
+      tokenOut: "USDT",
+    });
+
+    // Precheck swap
+    console.log("🔍 Running Uniswap precheck...");
+    const swapPrecheckRes = await uniswapToolClient.precheck(swapParams, {
+      delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+    });
+
+    if (swapPrecheckRes.success && !("error" in swapPrecheckRes.result)) {
+      console.log("✅ Uniswap precheck passed");
+
+      // Execute swap
+      console.log("🚀 Executing swap...");
+      const swapExecuteRes = await uniswapToolClient.execute(swapParams, {
+        delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+      });
+
+      if (swapExecuteRes.success) {
+        console.log("✅ Swap executed successfully!");
+        console.log(`   Tx hash: ${swapExecuteRes.result.data.txHash}`);
+
+        // Wait for confirmation
+        await sourceProvider.waitForTransaction(
+          swapExecuteRes.result.data.txHash,
+          CONFIRMATIONS_TO_WAIT
+        );
+
+        // Check USDT balance
+
+        const usdtBalance = await usdtContract.balanceOf(
+          agentWalletPkp.ethAddress
+        );
+        const usdtFormatted = ethers.utils.formatUnits(usdtBalance, 6); // USDT has 6 decimals
+        console.log(`   USDT balance after swap: ${usdtFormatted} USDT`);
+
+        addTestResult("Uniswap ETH to USDT Swap", true);
+
+        // Now approve USDT for deBridge
+        console.log("\n🔓 Step 2: Approving USDT for deBridge");
+
+        // Get deBridge contract address for approval
+        const DEBRIDGE_CONTRACTS: Record<string, string> = {
+          "8453": "0xeF4fB24aD0916217251F553c0596F8Edc630EB66", // Base
+        };
+
+        const approveParams = {
+          rpcUrl: sourceRpcUrl,
+          chainId: parseInt(NETWORK_CONFIG.source.chainId),
+          spenderAddress: DEBRIDGE_CONTRACTS[NETWORK_CONFIG.source.chainId],
+          tokenAddress: NETWORK_CONFIG.source.usdtToken,
+          tokenDecimals: 6,
+          tokenAmount: parseFloat(BRIDGE_SWAP_AMOUNT),
+        };
+
+        const approvePrecheckRes = await approveToolClient.precheck(
+          approveParams,
+          {
+            delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+          }
+        );
+
+        if (
+          approvePrecheckRes.success &&
+          !("error" in approvePrecheckRes.result)
+        ) {
+          console.log("✅ Approval precheck passed");
+
+          const approveExecuteRes = await approveToolClient.execute(
+            approveParams,
+            {
+              delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+            }
+          );
+
+          if (approveExecuteRes.success) {
+            console.log("✅ USDT approved for deBridge");
+            console.log(`   Tx hash: ${approveExecuteRes.result.data.txHash}`);
+
+            await sourceProvider.waitForTransaction(
+              approveExecuteRes.result.data.txHash,
+              CONFIRMATIONS_TO_WAIT
+            );
+
+            addTestResult("USDT Approval for deBridge", true);
+
+            // Bridge USDT from Base to Arbitrum as USDC
+            console.log(
+              "\n🌉 Step 3: Bridging USDT from Base to USDC on Arbitrum"
+            );
+
+            const bridgeSwapParams = {
+              rpcUrl: sourceRpcUrl,
+              sourceChain: NETWORK_CONFIG.source.chainId,
+              destinationChain: NETWORK_CONFIG.destination.chainId,
+              sourceToken: NETWORK_CONFIG.source.usdtToken,
+              destinationToken: NETWORK_CONFIG.destination.usdcToken,
+              amount: ethers.utils.parseUnits(BRIDGE_SWAP_AMOUNT, 6).toString(), // USDT has 6 decimals
+              recipientAddress: agentWalletPkp.ethAddress,
+              operation: "BRIDGE_AND_SWAP" as const,
+              slippageBps: 300, // 3% slippage tolerance
+            };
+
+            console.log("📋 Bridge Parameters:", {
+              ...bridgeSwapParams,
+              amount: `${BRIDGE_SWAP_AMOUNT} USDT`,
+              destinationToken: "USDC on Arbitrum",
+            });
+
+            // Get initial USDC balance on destination
+            const destinationUsdcContract = new ethers.Contract(
+              NETWORK_CONFIG.destination.usdcToken,
+              ERC20_ABI,
+              destinationProvider
+            );
+            const initialDestUsdcBalance =
+              await destinationUsdcContract.balanceOf(
+                agentWalletPkp.ethAddress
+              );
+
+            // Precheck bridge
+            const bridgeSwapPrecheckRes = await deBridgeToolClient.precheck(
+              bridgeSwapParams,
+              {
+                delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+              }
+            );
+
+            if (
+              bridgeSwapPrecheckRes.success &&
+              !("error" in bridgeSwapPrecheckRes.result)
+            ) {
+              console.log("✅ Bridge and swap precheck passed");
+
+              const precheckData = bridgeSwapPrecheckRes.result.data;
+              console.log(
+                `   Estimated USDC to receive: ${ethers.utils.formatUnits(
+                  precheckData.estimatedDestinationAmount,
+                  6
+                )} USDC`
+              );
+
+              // Execute bridge
+              const bridgeSwapExecuteRes = await deBridgeToolClient.execute(
+                bridgeSwapParams,
+                {
+                  delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+                }
+              );
+
+              if (bridgeSwapExecuteRes.success) {
+                console.log("✅ Bridge and swap transaction submitted!");
+                console.log(
+                  `   Tx hash: ${bridgeSwapExecuteRes.result.data.txHash}`
+                );
+
+                // Wait for source transaction
+                await sourceProvider.waitForTransaction(
+                  bridgeSwapExecuteRes.result.data.txHash,
+                  CONFIRMATIONS_TO_WAIT
+                );
+
+                // Poll for USDC arrival on destination
+                console.log("\n⏳ Polling for USDC arrival on Arbitrum...");
+
+                const MAX_POLL_TIME = 10 * 60 * 1000; // 10 minutes
+                const POLL_INTERVAL = 10 * 1000; // 10 seconds
+                const startTime = Date.now();
+                let usdcArrived = false;
+
+                while (Date.now() - startTime < MAX_POLL_TIME && !usdcArrived) {
+                  const currentUsdcBalance =
+                    await destinationUsdcContract.balanceOf(
+                      agentWalletPkp.ethAddress
+                    );
+                  const balanceIncrease = currentUsdcBalance.sub(
+                    initialDestUsdcBalance
+                  );
+
+                  if (balanceIncrease.gt(0)) {
+                    const increaseFormatted = ethers.utils.formatUnits(
+                      balanceIncrease,
+                      6
+                    );
+                    console.log(
+                      `✅ USDC arrived on Arbitrum: ${increaseFormatted} USDC`
+                    );
+                    usdcArrived = true;
+                    addTestResult("USDT to USDC Bridge", true);
+                  } else {
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    console.log(`   Still waiting... (${elapsed}s elapsed)`);
+                    await new Promise((resolve) =>
+                      setTimeout(resolve, POLL_INTERVAL)
+                    );
+                  }
+                }
+
+                if (!usdcArrived) {
+                  addTestResult(
+                    "USDT to USDC Bridge",
+                    false,
+                    "USDC did not arrive within timeout"
+                  );
+                }
+              } else {
+                addTestResult(
+                  "USDT to USDC Bridge",
+                  false,
+                  bridgeSwapExecuteRes.error || "Bridge execution failed"
+                );
+              }
+            } else {
+              addTestResult(
+                "USDT to USDC Bridge",
+                false,
+                "Bridge precheck failed"
+              );
+            }
+          } else {
+            addTestResult(
+              "USDT Approval for deBridge",
+              false,
+              approveExecuteRes.error || "Approval failed"
+            );
+          }
+        } else {
+          addTestResult(
+            "USDT Approval for deBridge",
+            false,
+            "Approval precheck failed"
+          );
+        }
+      } else {
+        addTestResult(
+          "Uniswap ETH to USDT Swap",
+          false,
+          swapExecuteRes.error || "Swap execution failed"
+        );
+      }
+    } else {
+      addTestResult("Uniswap ETH to USDT Swap", false, "Swap precheck failed");
+    }
+  } catch (error) {
+    console.error("❌ Test 2 failed:", error.message);
+    addTestResult("Test 2: Bridge and Swap", false, error.message);
   }
 
   // ========================================
