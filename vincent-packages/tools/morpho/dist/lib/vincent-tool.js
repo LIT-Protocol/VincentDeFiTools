@@ -1,10 +1,8 @@
 import { createVincentTool, supportedPoliciesForTool, } from "@lit-protocol/vincent-tool-sdk";
 import "@lit-protocol/vincent-tool-sdk/internal";
 import { executeFailSchema, executeSuccessSchema, precheckFailSchema, precheckSuccessSchema, toolParamsSchema, MorphoOperation, } from "./schemas";
-import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, LitProtocolSigner, createEthersSignerFromLitProtocol, createAlchemySmartAccountClient, getAlchemyChainConfig, } from "./helpers";
+import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, LitProtocolSigner, createEthersSignerFromLitProtocol, createAlchemySmartAccountClient, } from "./helpers";
 import { ethers } from "ethers";
-import { createModularAccountV2Client } from "@account-kit/smart-contracts";
-import { alchemy } from "@account-kit/infra";
 export const vincentTool = createVincentTool({
     packageName: "@lit-protocol/vincent-tool-morpho",
     toolParamsSchema,
@@ -370,7 +368,7 @@ async function executeDepositWithGasSponsorship(pkpPublicKey, vaultAddress, amou
         console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] User operation signed", signedUserOperation);
         const entryPoint = smartAccountClient.account.getEntryPoint();
         console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
-        const txHash = await Lit.Actions.runOnce({
+        const uoHash = await Lit.Actions.runOnce({
             waitForResponse: true,
             name: "sendWithAlchemy",
         }, async () => {
@@ -387,10 +385,10 @@ async function executeDepositWithGasSponsorship(pkpPublicKey, vaultAddress, amou
                 return "";
             }
         });
-        if (txHash === "") {
+        if (uoHash === "") {
             throw new Error("Failed to send user operation");
         }
-        return txHash;
+        return uoHash;
     }
     catch (error) {
         console.error("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] EIP-7702 operation failed:", error);
@@ -421,29 +419,67 @@ async function executeWithdrawWithGasSponsorship(pkpPublicKey, vaultAddress, amo
             }),
         };
         console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
-        // Send the user operation with EIP-7702 delegation
-        // This will automatically:
-        // 1. Detect if the account is not yet delegated with EIP-7702
-        // 2. Request an authorization signature from our LitProtocolSigner
-        // 3. Include the authorization in the user operation
-        // 4. Submit via Alchemy's bundler with gas sponsorship
-        const userOpResult = await smartAccountClient.sendUserOperation({
-            uo: userOperation,
+        const uoStructResponse = await Lit.Actions.runOnce({
+            waitForResponse: true,
+            name: "buildUserOperation",
+        }, async () => {
+            try {
+                const uoStruct = await smartAccountClient.buildUserOperation({
+                    uo: userOperation,
+                    account: smartAccountClient.account,
+                });
+                // Properly serialize BigInt with a "type" tag
+                return JSON.stringify(uoStruct, (_, v) => typeof v === "bigint" ? { type: "BigInt", value: v.toString() } : v);
+            }
+            catch (e) {
+                console.log("Failed to build user operation, error below");
+                console.log(e);
+                console.log(e.stack);
+                return "";
+            }
+        });
+        if (uoStructResponse === "") {
+            throw new Error("Failed to build user operation");
+        }
+        // Custom reviver to convert {type: "BigInt", value: "..."} back to BigInt
+        const uoStruct = JSON.parse(uoStructResponse, (_, v) => {
+            if (v &&
+                typeof v === "object" &&
+                v.type === "BigInt" &&
+                typeof v.value === "string") {
+                return BigInt(v.value);
+            }
+            return v;
+        });
+        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] User operation struct prepared for signing", uoStruct);
+        const signedUserOperation = await smartAccountClient.signUserOperation({
             account: smartAccountClient.account,
+            uoStruct,
         });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] User operation sent", { userOpHash: userOpResult.hash });
-        // Wait for the user operation to be mined
-        const txHash = await smartAccountClient.waitForUserOperationTransaction({
-            hash: userOpResult.hash,
+        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] User operation signed", signedUserOperation);
+        const entryPoint = smartAccountClient.account.getEntryPoint();
+        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
+        const uoHash = await Lit.Actions.runOnce({
+            waitForResponse: true,
+            name: "sendWithAlchemy",
+        }, async () => {
+            try {
+                // Send the user operation with EIP-7702 delegation
+                const userOpResult = await smartAccountClient.sendRawUserOperation(signedUserOperation, entryPoint.address);
+                console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] User operation sent", { userOpHash: userOpResult });
+                return userOpResult;
+            }
+            catch (e) {
+                console.log("Failed to send user operation, error below");
+                console.log(e);
+                console.log(e.stack);
+                return "";
+            }
         });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] EIP-7702 sponsored transaction completed", {
-            txHash,
-            delegatedAccount: owner,
-            operation: "withdraw",
-            gasSponsored: true,
-            userOpHash: userOpResult.hash,
-        });
-        return txHash;
+        if (uoHash === "") {
+            throw new Error("Failed to send user operation");
+        }
+        return uoHash;
     }
     catch (error) {
         console.error("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] EIP-7702 operation failed:", error);
@@ -455,22 +491,14 @@ async function executeWithdrawWithGasSponsorship(pkpPublicKey, vaultAddress, amo
  */
 async function executeRedeemWithGasSponsorship(pkpPublicKey, vaultAddress, shares, owner, chainId, alchemyApiKey, policyId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Starting EIP-7702 sponsored redeem operation");
-    // Create LitProtocolSigner for EIP-7702
-    const litSigner = new LitProtocolSigner({
-        pkpPublicKey,
-        chainId,
-    });
     console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Using EIP-7702 gas sponsorship", { vaultAddress, shares, owner, policyId });
     try {
-        // Get the Alchemy chain configuration
-        const alchemyChain = getAlchemyChainConfig(chainId);
-        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Creating Smart Account Client", { chainId, chain: alchemyChain.name });
+        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Creating Smart Account Client", { chainId });
         // Create the Smart Account Client with EIP-7702 mode
-        const smartAccountClient = await createModularAccountV2Client({
-            mode: "7702",
-            transport: alchemy({ apiKey: alchemyApiKey }),
-            chain: alchemyChain,
-            signer: litSigner,
+        const smartAccountClient = await createAlchemySmartAccountClient({
+            alchemyApiKey,
+            chainId,
+            pkpPublicKey,
             policyId,
         });
         // Prepare the redeem user operation
@@ -484,23 +512,67 @@ async function executeRedeemWithGasSponsorship(pkpPublicKey, vaultAddress, share
             }),
         };
         console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
-        // Send the user operation with EIP-7702 delegation
-        const userOpResult = await smartAccountClient.sendUserOperation({
-            uo: userOperation,
+        const uoStructResponse = await Lit.Actions.runOnce({
+            waitForResponse: true,
+            name: "buildUserOperation",
+        }, async () => {
+            try {
+                const uoStruct = await smartAccountClient.buildUserOperation({
+                    uo: userOperation,
+                    account: smartAccountClient.account,
+                });
+                // Properly serialize BigInt with a "type" tag
+                return JSON.stringify(uoStruct, (_, v) => typeof v === "bigint" ? { type: "BigInt", value: v.toString() } : v);
+            }
+            catch (e) {
+                console.log("Failed to build user operation, error below");
+                console.log(e);
+                console.log(e.stack);
+                return "";
+            }
+        });
+        if (uoStructResponse === "") {
+            throw new Error("Failed to build user operation");
+        }
+        // Custom reviver to convert {type: "BigInt", value: "..."} back to BigInt
+        const uoStruct = JSON.parse(uoStructResponse, (_, v) => {
+            if (v &&
+                typeof v === "object" &&
+                v.type === "BigInt" &&
+                typeof v.value === "string") {
+                return BigInt(v.value);
+            }
+            return v;
+        });
+        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] User operation struct prepared for signing", uoStruct);
+        const signedUserOperation = await smartAccountClient.signUserOperation({
             account: smartAccountClient.account,
+            uoStruct,
         });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] User operation sent", { userOpHash: userOpResult.hash });
-        // Wait for the user operation to be mined
-        const txHash = await smartAccountClient.waitForUserOperationTransaction({
-            hash: userOpResult.hash,
+        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] User operation signed", signedUserOperation);
+        const entryPoint = smartAccountClient.account.getEntryPoint();
+        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
+        const uoHash = await Lit.Actions.runOnce({
+            waitForResponse: true,
+            name: "sendWithAlchemy",
+        }, async () => {
+            try {
+                // Send the user operation with EIP-7702 delegation
+                const userOpResult = await smartAccountClient.sendRawUserOperation(signedUserOperation, entryPoint.address);
+                console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] User operation sent", { userOpHash: userOpResult });
+                return userOpResult;
+            }
+            catch (e) {
+                console.log("Failed to send user operation, error below");
+                console.log(e);
+                console.log(e.stack);
+                return "";
+            }
         });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] EIP-7702 sponsored transaction completed", {
-            txHash,
-            operation: "redeem",
-            gasSponsored: true,
-            userOpHash: userOpResult.hash,
-        });
-        return txHash;
+        if (uoHash === "") {
+            throw new Error("Failed to send user operation");
+        }
+        return uoHash;
     }
     catch (error) {
         console.error("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] EIP-7702 operation failed:", error);

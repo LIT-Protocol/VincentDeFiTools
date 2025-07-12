@@ -901,36 +901,22 @@ export class LitProtocolSigner {
     }
     async signMessage(message) {
         let messageToSign;
-        console.log("message", message);
         if (typeof message === "string") {
             messageToSign = message;
         }
         else {
-            console.log("typeof message.raw", typeof message.raw);
             messageToSign =
                 typeof message.raw === "string"
                     ? ethers.utils.arrayify(message.raw)
                     : message.raw;
         }
-        console.log("messageToSign", messageToSign);
         const messageHash = ethers.utils.hashMessage(messageToSign);
-        console.log("Calling signAndCombineEcdsa with params", {
-            toSign: messageHash,
-            publicKey: this.pkpPublicKey,
-            sigName: `alchemyMessage`,
-        });
         const sig = await Lit.Actions.signAndCombineEcdsa({
             toSign: ethers.utils.arrayify(messageHash),
             publicKey: this.pkpPublicKey,
             sigName: `alchemyMessage`,
         });
         const parsedSig = JSON.parse(sig);
-        console.log("Parsed signature", parsedSig);
-        console.log("joined signature:", ethers.utils.joinSignature({
-            r: "0x" + parsedSig.r.substring(2),
-            s: "0x" + parsedSig.s,
-            v: parsedSig.v,
-        }));
         return ethers.utils.joinSignature({
             r: "0x" + parsedSig.r.substring(2),
             s: "0x" + parsedSig.s,
@@ -938,7 +924,7 @@ export class LitProtocolSigner {
         });
     }
     async signTypedData(params) {
-        console.log("signTypedData called with params", params);
+        // console.log("signTypedData called with params", params);
         // Create the EIP-712 hash
         const hash = ethers.utils._TypedDataEncoder.hash(params.domain || {}, params.types || {}, params.message || {});
         const sig = await Lit.Actions.signAndCombineEcdsa({
@@ -953,48 +939,9 @@ export class LitProtocolSigner {
             v: parsedSig.v,
         });
     }
-    // just using regular signing, not eip-712
-    //   async signAuthorization(
-    //     unsignedAuthorization: AuthorizationRequest
-    //   ): Promise<SignedAuthorization> {
-    //     // Create the authorization message to sign for EIP-7702
-    //     const authMessage = ethers.utils.solidityPack(
-    //       ["uint8", "uint256", "address", "uint256"],
-    //       [
-    //         0x05, // EIP-7702 magic prefix
-    //         unsignedAuthorization.chainId,
-    //         unsignedAuthorization.address || unsignedAuthorization.contractAddress,
-    //         unsignedAuthorization.nonce,
-    //       ]
-    //     );
-    //     const authHash = ethers.utils.keccak256(authMessage);
-    //     const sig = await Lit.Actions.signAndCombineEcdsa({
-    //       toSign: ethers.utils.arrayify(authHash),
-    //       publicKey: this.pkpPublicKey,
-    //       sigName: `alchemyAuth7702`,
-    //     });
-    //     const parsedSig = JSON.parse(sig);
-    //     const sigObj = {
-    //       r: "0x" + parsedSig.r.substring(2),
-    //       s: "0x" + parsedSig.s,
-    //       v: parsedSig.v,
-    //     };
-    //     console.log("sigObj in signAuthorization", sigObj);
-    //     return {
-    //       address: (unsignedAuthorization.address ||
-    //         unsignedAuthorization.contractAddress!) as Address,
-    //       chainId: unsignedAuthorization.chainId,
-    //       nonce: unsignedAuthorization.nonce,
-    //       r: sigObj.r as Hex,
-    //       s: sigObj.s as Hex,
-    //       v: BigInt(sigObj.v),
-    //       yParity: sigObj.v,
-    //     };
-    //   }
-    // }
-    // using eip-712
+    // reference implementation is from Viem SmartAccountSigner
     async signAuthorization(unsignedAuthorization) {
-        console.log("signAuthorization called with params", unsignedAuthorization);
+        // console.log("signAuthorization called with params", unsignedAuthorization);
         const { contractAddress, chainId, nonce } = unsignedAuthorization;
         if (!contractAddress || !chainId) {
             throw new Error("Invalid authorization: contractAddress and chainId are required");
@@ -1013,7 +960,7 @@ export class LitProtocolSigner {
             sigName: `alchemyAuth7702`,
         });
         const sigObj = JSON.parse(sig);
-        console.log("sigObj in signAuthorization", sigObj);
+        // console.log("sigObj in signAuthorization", sigObj);
         return {
             address: (unsignedAuthorization.address || contractAddress),
             chainId: chainId,

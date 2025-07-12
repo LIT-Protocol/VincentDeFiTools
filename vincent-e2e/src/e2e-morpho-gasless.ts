@@ -926,9 +926,7 @@ const CONFIRMATIONS_TO_WAIT = 2;
         console.log(
           "✅ (GASLESS-MORPHO-STEP-2) GASLESS Share redeem completed successfully!"
         );
-        console.log(
-          `   Transaction Hash: ${morphoRedeemExecuteRes.result.txHash}`
-        );
+        console.log(`   UserOp Hash: ${morphoRedeemExecuteRes.result.txHash}`);
 
         // Wait for transaction confirmation
         try {
@@ -936,8 +934,16 @@ const CONFIRMATIONS_TO_WAIT = 2;
             "⏳ Waiting for GASLESS redeem transaction confirmation..."
           );
 
+          const uoHash = morphoRedeemExecuteRes.result.txHash as `0x${string}`;
+          const txHash =
+            await smartAccountClient.waitForUserOperationTransaction({
+              hash: uoHash,
+            });
+
+          console.log(`   Tx hash: ${txHash}`);
+
           const receipt = await networkProvider.waitForTransaction(
-            morphoRedeemExecuteRes.result.txHash,
+            txHash,
             CONFIRMATIONS_TO_WAIT,
             180000
           );
