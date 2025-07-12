@@ -1238,7 +1238,7 @@ export async function getVaultDiscoverySummary(chainId: number) {
 }
 
 /**
- * LitProtocolSigner for EIP-7702 delegated transactions
+ * LitActionsSmartSigner for EIP-7702 delegated transactions
  *
  * This signer implements the Alchemy SmartAccountSigner interface to support
  * EIP-7702 delegation with the Lit Protocol PKP. It enables gasless transactions
@@ -1246,7 +1246,7 @@ export async function getVaultDiscoverySummary(chainId: number) {
  *
  * @example
  * ```typescript
- * const signer = new LitProtocolSigner({
+ * const signer = new LitActionsSmartSigner({
  *   pkpPublicKey,
  *   chainId,
  *   laUtils,
@@ -1263,7 +1263,7 @@ export async function getVaultDiscoverySummary(chainId: number) {
  * });
  * ```
  */
-export interface LitProtocolSignerConfig {
+export interface LitActionsSmartSignerConfig {
   pkpPublicKey: string;
   chainId: number;
 }
@@ -1317,13 +1317,13 @@ interface SmartAccountSigner<Inner = any> {
   ) => Promise<SignedAuthorization>;
 }
 
-export class LitProtocolSigner implements SmartAccountSigner {
-  readonly signerType = "lit-protocol";
+export class LitActionsSmartSigner implements SmartAccountSigner {
+  readonly signerType = "lit-actions";
   readonly inner: any;
   private pkpPublicKey: string;
   private signerAddress: string;
 
-  constructor(config: LitProtocolSignerConfig) {
+  constructor(config: LitActionsSmartSignerConfig) {
     if (config.pkpPublicKey.startsWith("0x")) {
       config.pkpPublicKey = config.pkpPublicKey.slice(2);
     }
@@ -1441,11 +1441,11 @@ export class LitProtocolSigner implements SmartAccountSigner {
 }
 
 /**
- * Helper function to create a LitProtocolSigner for use with ethers.js
+ * Helper function to create a LitActionsSmartSigner for use with ethers.js
  * This wraps the SmartAccountSigner in an ethers-compatible interface
  */
-export function createEthersSignerFromLitProtocol(
-  signer: LitProtocolSigner,
+export function createEthersSignerFromLitActions(
+  signer: LitActionsSmartSigner,
   provider: ethers.providers.Provider
 ): ethers.Signer {
   const ethersSignerWrapper = {
@@ -1486,7 +1486,7 @@ export function createEthersSignerFromLitProtocol(
     },
 
     connect: (newProvider: ethers.providers.Provider) => {
-      return createEthersSignerFromLitProtocol(signer, newProvider);
+      return createEthersSignerFromLitActions(signer, newProvider);
     },
   };
 
@@ -1536,8 +1536,8 @@ export async function createAlchemySmartAccountClient({
   pkpPublicKey: string;
   policyId: string;
 }) {
-  // Create LitProtocolSigner for EIP-7702
-  const litSigner = new LitProtocolSigner({
+  // Create LitActionsSmartSigner for EIP-7702
+  const litSigner = new LitActionsSmartSigner({
     pkpPublicKey,
     chainId,
   });
@@ -1737,3 +1737,8 @@ function encodeFunctionData({
   const iface = new ethers.utils.Interface(abi);
   return iface.encodeFunctionData(functionName, args) as `0x${string}`;
 }
+
+// Legacy exports for backwards compatibility
+export { LitActionsSmartSigner as LitProtocolSigner };
+export { createEthersSignerFromLitActions as createEthersSignerFromLitProtocol };
+export type { LitActionsSmartSignerConfig as LitProtocolSignerConfig };

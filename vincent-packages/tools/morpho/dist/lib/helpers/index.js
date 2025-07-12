@@ -880,8 +880,8 @@ export async function getVaultDiscoverySummary(chainId) {
         throw error;
     }
 }
-export class LitProtocolSigner {
-    signerType = "lit-protocol";
+export class LitActionsSmartSigner {
+    signerType = "lit-actions";
     inner;
     pkpPublicKey;
     signerAddress;
@@ -973,10 +973,10 @@ export class LitProtocolSigner {
     }
 }
 /**
- * Helper function to create a LitProtocolSigner for use with ethers.js
+ * Helper function to create a LitActionsSmartSigner for use with ethers.js
  * This wraps the SmartAccountSigner in an ethers-compatible interface
  */
-export function createEthersSignerFromLitProtocol(signer, provider) {
+export function createEthersSignerFromLitActions(signer, provider) {
     const ethersSignerWrapper = {
         _isSigner: true,
         provider,
@@ -1003,7 +1003,7 @@ export function createEthersSignerFromLitProtocol(signer, provider) {
             return signedTx;
         },
         connect: (newProvider) => {
-            return createEthersSignerFromLitProtocol(signer, newProvider);
+            return createEthersSignerFromLitActions(signer, newProvider);
         },
     };
     return ethersSignerWrapper;
@@ -1032,8 +1032,8 @@ export function getAlchemyChainConfig(chainId) {
     }
 }
 export async function createAlchemySmartAccountClient({ alchemyApiKey, chainId, pkpPublicKey, policyId, }) {
-    // Create LitProtocolSigner for EIP-7702
-    const litSigner = new LitProtocolSigner({
+    // Create LitActionsSmartSigner for EIP-7702
+    const litSigner = new LitActionsSmartSigner({
         pkpPublicKey,
         chainId,
     });
@@ -1148,3 +1148,6 @@ function encodeFunctionData({ abi, functionName, args, }) {
     const iface = new ethers.utils.Interface(abi);
     return iface.encodeFunctionData(functionName, args);
 }
+// Legacy exports for backwards compatibility
+export { LitActionsSmartSigner as LitProtocolSigner };
+export { createEthersSignerFromLitActions as createEthersSignerFromLitProtocol };

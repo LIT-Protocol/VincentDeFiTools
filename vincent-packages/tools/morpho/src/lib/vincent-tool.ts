@@ -19,8 +19,8 @@ import {
   isValidAddress,
   parseAmount,
   validateOperationRequirements,
-  LitProtocolSigner,
-  createEthersSignerFromLitProtocol,
+  LitActionsSmartSigner,
+  createEthersSignerFromLitActions,
   executeOperationWithGasSponsorship,
 } from "./helpers";
 
@@ -482,12 +482,12 @@ async function executeDeposit(
     "[@lit-protocol/vincent-tool-morpho/executeDeposit] Starting deposit operation"
   );
 
-  // Create LitProtocolSigner and wrap it for ethers.js
-  const litSigner = new LitProtocolSigner({
+  // Create LitActionsSmartSigner and wrap it for ethers.js
+  const litSigner = new LitActionsSmartSigner({
     pkpPublicKey,
     chainId,
   });
-  const signer = createEthersSignerFromLitProtocol(litSigner, provider);
+  const signer = createEthersSignerFromLitActions(litSigner, provider);
 
   // Create contract instance with the signer
   const vaultContract = new ethers.Contract(
@@ -522,12 +522,12 @@ async function executeWithdraw(
     "[@lit-protocol/vincent-tool-morpho/executeWithdraw] Starting withdraw operation"
   );
 
-  // Create LitProtocolSigner and wrap it for ethers.js
-  const litSigner = new LitProtocolSigner({
+  // Create LitActionsSmartSigner and wrap it for ethers.js
+  const litSigner = new LitActionsSmartSigner({
     pkpPublicKey,
     chainId,
   });
-  const signer = createEthersSignerFromLitProtocol(litSigner, provider);
+  const signer = createEthersSignerFromLitActions(litSigner, provider);
 
   // Create contract instance with the signer
   const vaultContract = new ethers.Contract(
@@ -562,12 +562,12 @@ async function executeRedeem(
     "[@lit-protocol/vincent-tool-morpho/executeRedeem] Starting redeem operation"
   );
 
-  // Create LitProtocolSigner and wrap it for ethers.js
-  const litSigner = new LitProtocolSigner({
+  // Create LitActionsSmartSigner and wrap it for ethers.js
+  const litSigner = new LitActionsSmartSigner({
     pkpPublicKey,
     chainId,
   });
-  const signer = createEthersSignerFromLitProtocol(litSigner, provider);
+  const signer = createEthersSignerFromLitActions(litSigner, provider);
 
   // Create contract instance with the signer
   const vaultContract = new ethers.Contract(

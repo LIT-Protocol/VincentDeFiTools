@@ -1,7 +1,7 @@
 import { createVincentTool, supportedPoliciesForTool, } from "@lit-protocol/vincent-tool-sdk";
 import "@lit-protocol/vincent-tool-sdk/internal";
 import { executeFailSchema, executeSuccessSchema, precheckFailSchema, precheckSuccessSchema, toolParamsSchema, MorphoOperation, } from "./schemas";
-import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, LitProtocolSigner, createEthersSignerFromLitProtocol, executeOperationWithGasSponsorship, } from "./helpers";
+import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, LitActionsSmartSigner, createEthersSignerFromLitActions, executeOperationWithGasSponsorship, } from "./helpers";
 import { ethers } from "ethers";
 export const vincentTool = createVincentTool({
     packageName: "@lit-protocol/vincent-tool-morpho",
@@ -273,12 +273,12 @@ export const vincentTool = createVincentTool({
  */
 async function executeDeposit(provider, pkpPublicKey, vaultAddress, amount, receiver, chainId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeDeposit] Starting deposit operation");
-    // Create LitProtocolSigner and wrap it for ethers.js
-    const litSigner = new LitProtocolSigner({
+    // Create LitActionsSmartSigner and wrap it for ethers.js
+    const litSigner = new LitActionsSmartSigner({
         pkpPublicKey,
         chainId,
     });
-    const signer = createEthersSignerFromLitProtocol(litSigner, provider);
+    const signer = createEthersSignerFromLitActions(litSigner, provider);
     // Create contract instance with the signer
     const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, signer);
     // Execute the deposit transaction
@@ -291,12 +291,12 @@ async function executeDeposit(provider, pkpPublicKey, vaultAddress, amount, rece
  */
 async function executeWithdraw(provider, pkpPublicKey, vaultAddress, amount, owner, chainId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeWithdraw] Starting withdraw operation");
-    // Create LitProtocolSigner and wrap it for ethers.js
-    const litSigner = new LitProtocolSigner({
+    // Create LitActionsSmartSigner and wrap it for ethers.js
+    const litSigner = new LitActionsSmartSigner({
         pkpPublicKey,
         chainId,
     });
-    const signer = createEthersSignerFromLitProtocol(litSigner, provider);
+    const signer = createEthersSignerFromLitActions(litSigner, provider);
     // Create contract instance with the signer
     const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, signer);
     // Execute the withdraw transaction
@@ -309,12 +309,12 @@ async function executeWithdraw(provider, pkpPublicKey, vaultAddress, amount, own
  */
 async function executeRedeem(provider, pkpPublicKey, vaultAddress, shares, owner, chainId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeRedeem] Starting redeem operation");
-    // Create LitProtocolSigner and wrap it for ethers.js
-    const litSigner = new LitProtocolSigner({
+    // Create LitActionsSmartSigner and wrap it for ethers.js
+    const litSigner = new LitActionsSmartSigner({
         pkpPublicKey,
         chainId,
     });
-    const signer = createEthersSignerFromLitProtocol(litSigner, provider);
+    const signer = createEthersSignerFromLitActions(litSigner, provider);
     // Create contract instance with the signer
     const vaultContract = new ethers.Contract(vaultAddress, ERC4626_VAULT_ABI, signer);
     // Execute the redeem transaction
