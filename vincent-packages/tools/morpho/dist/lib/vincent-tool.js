@@ -1,7 +1,7 @@
 import { createVincentTool, supportedPoliciesForTool, } from "@lit-protocol/vincent-tool-sdk";
 import "@lit-protocol/vincent-tool-sdk/internal";
 import { executeFailSchema, executeSuccessSchema, precheckFailSchema, precheckSuccessSchema, toolParamsSchema, MorphoOperation, } from "./schemas";
-import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, LitProtocolSigner, createEthersSignerFromLitProtocol, createAlchemySmartAccountClient, } from "./helpers";
+import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, LitProtocolSigner, createEthersSignerFromLitProtocol, executeOperationWithGasSponsorship, } from "./helpers";
 import { ethers } from "ethers";
 export const vincentTool = createVincentTool({
     packageName: "@lit-protocol/vincent-tool-morpho",
@@ -17,7 +17,7 @@ export const vincentTool = createVincentTool({
             console.log("[@lit-protocol/vincent-tool-morpho/precheck] params:", {
                 toolParams,
             });
-            const { operation, vaultAddress, amount, onBehalfOf, rpcUrl, chain, alchemyGasSponsor, alchemyGasSponsorApiKey, alchemyGasSponsorPolicyId, } = toolParams;
+            const { operation, vaultAddress, amount, onBehalfOf, rpcUrl, } = toolParams;
             // Validate operation
             if (!Object.values(MorphoOperation).includes(operation)) {
                 return fail({
@@ -193,7 +193,15 @@ export const vincentTool = createVincentTool({
                     if (alchemyGasSponsor &&
                         alchemyGasSponsorApiKey &&
                         alchemyGasSponsorPolicyId) {
-                        txHash = await executeDepositWithGasSponsorship(pkpPublicKey, vaultAddress, convertedAmount, onBehalfOf || pkpAddress, chainId, alchemyGasSponsorApiKey, alchemyGasSponsorPolicyId);
+                        txHash = await executeOperationWithGasSponsorship({
+                            pkpPublicKey,
+                            vaultAddress,
+                            functionName: "deposit",
+                            args: [convertedAmount, onBehalfOf || pkpAddress],
+                            chainId,
+                            alchemyApiKey: alchemyGasSponsorApiKey,
+                            policyId: alchemyGasSponsorPolicyId,
+                        });
                     }
                     else {
                         txHash = await executeDeposit(provider, pkpPublicKey, vaultAddress, convertedAmount, onBehalfOf || pkpAddress, chainId);
@@ -203,7 +211,15 @@ export const vincentTool = createVincentTool({
                     if (alchemyGasSponsor &&
                         alchemyGasSponsorApiKey &&
                         alchemyGasSponsorPolicyId) {
-                        txHash = await executeWithdrawWithGasSponsorship(pkpPublicKey, vaultAddress, convertedAmount, pkpAddress, chainId, alchemyGasSponsorApiKey, alchemyGasSponsorPolicyId);
+                        txHash = await executeOperationWithGasSponsorship({
+                            pkpPublicKey,
+                            vaultAddress,
+                            functionName: "withdraw",
+                            args: [convertedAmount, pkpAddress, pkpAddress],
+                            chainId,
+                            alchemyApiKey: alchemyGasSponsorApiKey,
+                            policyId: alchemyGasSponsorPolicyId,
+                        });
                     }
                     else {
                         txHash = await executeWithdraw(provider, pkpPublicKey, vaultAddress, convertedAmount, pkpAddress, chainId);
@@ -213,7 +229,15 @@ export const vincentTool = createVincentTool({
                     if (alchemyGasSponsor &&
                         alchemyGasSponsorApiKey &&
                         alchemyGasSponsorPolicyId) {
-                        txHash = await executeRedeemWithGasSponsorship(pkpPublicKey, vaultAddress, convertedAmount, pkpAddress, chainId, alchemyGasSponsorApiKey, alchemyGasSponsorPolicyId);
+                        txHash = await executeOperationWithGasSponsorship({
+                            pkpPublicKey,
+                            vaultAddress,
+                            functionName: "redeem",
+                            args: [convertedAmount, pkpAddress, pkpAddress],
+                            chainId,
+                            alchemyApiKey: alchemyGasSponsorApiKey,
+                            policyId: alchemyGasSponsorPolicyId,
+                        });
                     }
                     else {
                         txHash = await executeRedeem(provider, pkpPublicKey, vaultAddress, convertedAmount, pkpAddress, chainId);
@@ -249,7 +273,6 @@ export const vincentTool = createVincentTool({
  */
 async function executeDeposit(provider, pkpPublicKey, vaultAddress, amount, receiver, chainId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeDeposit] Starting deposit operation");
-    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
     // Create LitProtocolSigner and wrap it for ethers.js
     const litSigner = new LitProtocolSigner({
         pkpPublicKey,
@@ -268,7 +291,6 @@ async function executeDeposit(provider, pkpPublicKey, vaultAddress, amount, rece
  */
 async function executeWithdraw(provider, pkpPublicKey, vaultAddress, amount, owner, chainId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeWithdraw] Starting withdraw operation");
-    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
     // Create LitProtocolSigner and wrap it for ethers.js
     const litSigner = new LitProtocolSigner({
         pkpPublicKey,
@@ -287,7 +309,6 @@ async function executeWithdraw(provider, pkpPublicKey, vaultAddress, amount, own
  */
 async function executeRedeem(provider, pkpPublicKey, vaultAddress, shares, owner, chainId) {
     console.log("[@lit-protocol/vincent-tool-morpho/executeRedeem] Starting redeem operation");
-    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
     // Create LitProtocolSigner and wrap it for ethers.js
     const litSigner = new LitProtocolSigner({
         pkpPublicKey,
@@ -300,289 +321,4 @@ async function executeRedeem(provider, pkpPublicKey, vaultAddress, shares, owner
     const tx = await vaultContract.redeem(shares, owner, owner);
     console.log("[@lit-protocol/vincent-tool-morpho/executeRedeem] Transaction sent:", tx.hash);
     return tx.hash;
-}
-/**
- * Execute Morpho Vault Deposit operation with gas sponsorship
- */
-async function executeDepositWithGasSponsorship(pkpPublicKey, vaultAddress, amount, receiver, chainId, alchemyApiKey, policyId) {
-    console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Starting EIP-7702 sponsored deposit operation");
-    console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Using EIP-7702 gas sponsorship", { vaultAddress, amount, receiver, policyId });
-    try {
-        console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Creating Smart Account Client", { chainId });
-        // Create the Smart Account Client with EIP-7702 mode
-        const smartAccountClient = await createAlchemySmartAccountClient({
-            alchemyApiKey,
-            chainId,
-            pkpPublicKey,
-            policyId,
-        });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Smart Account Client created");
-        // Prepare the deposit user operation
-        const userOperation = {
-            target: vaultAddress,
-            value: 0n,
-            data: encodeFunctionData({
-                abi: ERC4626_VAULT_ABI,
-                functionName: "deposit",
-                args: [amount, receiver],
-            }),
-        };
-        console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] User operation prepared", userOperation);
-        const uoStructResponse = await Lit.Actions.runOnce({
-            waitForResponse: true,
-            name: "buildUserOperation",
-        }, async () => {
-            try {
-                const uoStruct = await smartAccountClient.buildUserOperation({
-                    uo: userOperation,
-                    account: smartAccountClient.account,
-                });
-                // Properly serialize BigInt with a "type" tag
-                return JSON.stringify(uoStruct, (_, v) => typeof v === "bigint" ? { type: "BigInt", value: v.toString() } : v);
-            }
-            catch (e) {
-                console.log("Failed to build user operation, error below");
-                console.log(e);
-                console.log(e.stack);
-                return "";
-            }
-        });
-        if (uoStructResponse === "") {
-            throw new Error("Failed to build user operation");
-        }
-        // Custom reviver to convert {type: "BigInt", value: "..."} back to BigInt
-        const uoStruct = JSON.parse(uoStructResponse, (_, v) => {
-            if (v &&
-                typeof v === "object" &&
-                v.type === "BigInt" &&
-                typeof v.value === "string") {
-                return BigInt(v.value);
-            }
-            return v;
-        });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] User operation struct prepared for signing", uoStruct);
-        const signedUserOperation = await smartAccountClient.signUserOperation({
-            account: smartAccountClient.account,
-            uoStruct,
-        });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] User operation signed", signedUserOperation);
-        const entryPoint = smartAccountClient.account.getEntryPoint();
-        console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
-        const uoHash = await Lit.Actions.runOnce({
-            waitForResponse: true,
-            name: "sendWithAlchemy",
-        }, async () => {
-            try {
-                // Send the user operation with EIP-7702 delegation
-                const userOpResult = await smartAccountClient.sendRawUserOperation(signedUserOperation, entryPoint.address);
-                console.log("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] User operation sent", { userOpHash: userOpResult });
-                return userOpResult;
-            }
-            catch (e) {
-                console.log("Failed to send user operation, error below");
-                console.log(e);
-                console.log(e.stack);
-                return "";
-            }
-        });
-        if (uoHash === "") {
-            throw new Error("Failed to send user operation");
-        }
-        return uoHash;
-    }
-    catch (error) {
-        console.error("[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] EIP-7702 operation failed:", error);
-        throw error;
-    }
-}
-/**
- * Execute Morpho Vault Withdraw operation with gas sponsorship
- */
-async function executeWithdrawWithGasSponsorship(pkpPublicKey, vaultAddress, amount, owner, chainId, alchemyApiKey, policyId) {
-    console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Using EIP-7702 gas sponsorship", { vaultAddress, amount, owner, policyId });
-    try {
-        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Creating Smart Account Client", { chainId });
-        const smartAccountClient = await createAlchemySmartAccountClient({
-            pkpPublicKey,
-            chainId,
-            alchemyApiKey,
-            policyId,
-        });
-        // Prepare the withdraw user operation
-        const userOperation = {
-            target: vaultAddress,
-            value: 0n,
-            data: encodeFunctionData({
-                abi: ERC4626_VAULT_ABI,
-                functionName: "withdraw",
-                args: [amount, owner, owner],
-            }),
-        };
-        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
-        const uoStructResponse = await Lit.Actions.runOnce({
-            waitForResponse: true,
-            name: "buildUserOperation",
-        }, async () => {
-            try {
-                const uoStruct = await smartAccountClient.buildUserOperation({
-                    uo: userOperation,
-                    account: smartAccountClient.account,
-                });
-                // Properly serialize BigInt with a "type" tag
-                return JSON.stringify(uoStruct, (_, v) => typeof v === "bigint" ? { type: "BigInt", value: v.toString() } : v);
-            }
-            catch (e) {
-                console.log("Failed to build user operation, error below");
-                console.log(e);
-                console.log(e.stack);
-                return "";
-            }
-        });
-        if (uoStructResponse === "") {
-            throw new Error("Failed to build user operation");
-        }
-        // Custom reviver to convert {type: "BigInt", value: "..."} back to BigInt
-        const uoStruct = JSON.parse(uoStructResponse, (_, v) => {
-            if (v &&
-                typeof v === "object" &&
-                v.type === "BigInt" &&
-                typeof v.value === "string") {
-                return BigInt(v.value);
-            }
-            return v;
-        });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] User operation struct prepared for signing", uoStruct);
-        const signedUserOperation = await smartAccountClient.signUserOperation({
-            account: smartAccountClient.account,
-            uoStruct,
-        });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] User operation signed", signedUserOperation);
-        const entryPoint = smartAccountClient.account.getEntryPoint();
-        console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
-        const uoHash = await Lit.Actions.runOnce({
-            waitForResponse: true,
-            name: "sendWithAlchemy",
-        }, async () => {
-            try {
-                // Send the user operation with EIP-7702 delegation
-                const userOpResult = await smartAccountClient.sendRawUserOperation(signedUserOperation, entryPoint.address);
-                console.log("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] User operation sent", { userOpHash: userOpResult });
-                return userOpResult;
-            }
-            catch (e) {
-                console.log("Failed to send user operation, error below");
-                console.log(e);
-                console.log(e.stack);
-                return "";
-            }
-        });
-        if (uoHash === "") {
-            throw new Error("Failed to send user operation");
-        }
-        return uoHash;
-    }
-    catch (error) {
-        console.error("[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] EIP-7702 operation failed:", error);
-        throw error;
-    }
-}
-/**
- * Execute Morpho Vault Redeem operation with gas sponsorship
- */
-async function executeRedeemWithGasSponsorship(pkpPublicKey, vaultAddress, shares, owner, chainId, alchemyApiKey, policyId) {
-    console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Starting EIP-7702 sponsored redeem operation");
-    console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Using EIP-7702 gas sponsorship", { vaultAddress, shares, owner, policyId });
-    try {
-        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Creating Smart Account Client", { chainId });
-        // Create the Smart Account Client with EIP-7702 mode
-        const smartAccountClient = await createAlchemySmartAccountClient({
-            alchemyApiKey,
-            chainId,
-            pkpPublicKey,
-            policyId,
-        });
-        // Prepare the redeem user operation
-        const userOperation = {
-            target: vaultAddress,
-            value: 0n,
-            data: encodeFunctionData({
-                abi: ERC4626_VAULT_ABI,
-                functionName: "redeem",
-                args: [shares, owner, owner],
-            }),
-        };
-        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
-        const uoStructResponse = await Lit.Actions.runOnce({
-            waitForResponse: true,
-            name: "buildUserOperation",
-        }, async () => {
-            try {
-                const uoStruct = await smartAccountClient.buildUserOperation({
-                    uo: userOperation,
-                    account: smartAccountClient.account,
-                });
-                // Properly serialize BigInt with a "type" tag
-                return JSON.stringify(uoStruct, (_, v) => typeof v === "bigint" ? { type: "BigInt", value: v.toString() } : v);
-            }
-            catch (e) {
-                console.log("Failed to build user operation, error below");
-                console.log(e);
-                console.log(e.stack);
-                return "";
-            }
-        });
-        if (uoStructResponse === "") {
-            throw new Error("Failed to build user operation");
-        }
-        // Custom reviver to convert {type: "BigInt", value: "..."} back to BigInt
-        const uoStruct = JSON.parse(uoStructResponse, (_, v) => {
-            if (v &&
-                typeof v === "object" &&
-                v.type === "BigInt" &&
-                typeof v.value === "string") {
-                return BigInt(v.value);
-            }
-            return v;
-        });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] User operation struct prepared for signing", uoStruct);
-        const signedUserOperation = await smartAccountClient.signUserOperation({
-            account: smartAccountClient.account,
-            uoStruct,
-        });
-        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] User operation signed", signedUserOperation);
-        const entryPoint = smartAccountClient.account.getEntryPoint();
-        console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] Prepared user operation for EIP-7702", { userOperation });
-        const uoHash = await Lit.Actions.runOnce({
-            waitForResponse: true,
-            name: "sendWithAlchemy",
-        }, async () => {
-            try {
-                // Send the user operation with EIP-7702 delegation
-                const userOpResult = await smartAccountClient.sendRawUserOperation(signedUserOperation, entryPoint.address);
-                console.log("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] User operation sent", { userOpHash: userOpResult });
-                return userOpResult;
-            }
-            catch (e) {
-                console.log("Failed to send user operation, error below");
-                console.log(e);
-                console.log(e.stack);
-                return "";
-            }
-        });
-        if (uoHash === "") {
-            throw new Error("Failed to send user operation");
-        }
-        return uoHash;
-    }
-    catch (error) {
-        console.error("[@lit-protocol/vincent-tool-morpho/executeRedeemWithGasSponsorship] EIP-7702 operation failed:", error);
-        throw error;
-    }
-}
-/**
- * Helper function to encode function data using ethers.js Interface
- */
-function encodeFunctionData({ abi, functionName, args, }) {
-    const iface = new ethers.utils.Interface(abi);
-    return iface.encodeFunctionData(functionName, args);
 }
