@@ -1,5 +1,7 @@
 import { ethers } from "ethers";
 import type { Deferrable } from "@ethersproject/properties";
+import { createModularAccountV2Client } from "@account-kit/smart-contracts";
+import { alchemy } from "@account-kit/infra";
 
 /**
  * Well-known token addresses across different chains
@@ -1264,7 +1266,6 @@ export async function getVaultDiscoverySummary(chainId: number) {
 export interface LitProtocolSignerConfig {
   pkpPublicKey: string;
   chainId: number;
-  laUtils: any;
 }
 
 // Type definitions compatible with Alchemy SDK and viem
@@ -1332,7 +1333,6 @@ export class LitProtocolSigner implements SmartAccountSigner {
     );
     this.inner = {
       pkpPublicKey: config.pkpPublicKey,
-      laUtils: config.laUtils,
       chainId: config.chainId,
     }; // Inner client reference
   }
@@ -1342,15 +1342,18 @@ export class LitProtocolSigner implements SmartAccountSigner {
   }
 
   async signMessage(message: SignableMessage): Promise<Hex> {
-    let messageToSign: string;
+    let messageToSign: string | Uint8Array;
+
+    console.log("message", message);
 
     if (typeof message === "string") {
       messageToSign = message;
     } else {
+      console.log("typeof message.raw", typeof message.raw);
       messageToSign =
         typeof message.raw === "string"
-          ? message.raw
-          : ethers.utils.hexlify(message.raw);
+          ? ethers.utils.arrayify(message.raw)
+          : message.raw;
     }
 
     console.log("messageToSign", messageToSign);
@@ -1390,6 +1393,7 @@ export class LitProtocolSigner implements SmartAccountSigner {
   }
 
   async signTypedData(params: TypedDataDefinition): Promise<Hex> {
+    console.log("signTypedData called with params", params);
     // Create the EIP-712 hash
     const hash = ethers.utils._TypedDataEncoder.hash(
       params.domain || {},
@@ -1555,4 +1559,65 @@ export function createEthersSignerFromLitProtocol(
   };
 
   return ethersSignerWrapper as any as ethers.Signer;
+}
+
+/**
+ * Helper function to get Alchemy chain configuration
+ */
+export function getAlchemyChainConfig(chainId: number) {
+  // Import chain definitions from Alchemy SDK
+  const {
+    mainnet,
+    sepolia,
+    base,
+    arbitrum,
+    optimism,
+    polygon,
+  } = require("@account-kit/infra");
+
+  switch (chainId) {
+    case 1:
+      return mainnet;
+    case 11155111:
+      return sepolia;
+    case 8453:
+      return base;
+    case 42161:
+      return arbitrum;
+    case 10:
+      return optimism;
+    case 137:
+      return polygon;
+    default:
+      return mainnet;
+  }
+}
+
+export async function createAlchemySmartAccountClient({
+  alchemyApiKey,
+  chainId,
+  pkpPublicKey,
+  policyId,
+}: {
+  alchemyApiKey: string;
+  chainId: number;
+  pkpPublicKey: string;
+  policyId: string;
+}) {
+  // Create LitProtocolSigner for EIP-7702
+  const litSigner = new LitProtocolSigner({
+    pkpPublicKey,
+    chainId,
+  });
+
+  // Get the Alchemy chain configuration
+  const alchemyChain = getAlchemyChainConfig(chainId);
+
+  return await createModularAccountV2Client({
+    mode: "7702" as const,
+    transport: alchemy({ apiKey: alchemyApiKey }),
+    chain: alchemyChain,
+    signer: litSigner,
+    policyId,
+  });
 }

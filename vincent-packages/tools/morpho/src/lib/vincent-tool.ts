@@ -21,7 +21,8 @@ import {
   validateOperationRequirements,
   LitProtocolSigner,
   createEthersSignerFromLitProtocol,
-  getChainName,
+  createAlchemySmartAccountClient,
+  getAlchemyChainConfig,
 } from "./helpers";
 
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
@@ -495,7 +496,6 @@ async function executeDeposit(
   const litSigner = new LitProtocolSigner({
     pkpPublicKey,
     chainId,
-    laUtils,
   });
   const signer = createEthersSignerFromLitProtocol(litSigner, provider);
 
@@ -538,7 +538,6 @@ async function executeWithdraw(
   const litSigner = new LitProtocolSigner({
     pkpPublicKey,
     chainId,
-    laUtils,
   });
   const signer = createEthersSignerFromLitProtocol(litSigner, provider);
 
@@ -581,7 +580,6 @@ async function executeRedeem(
   const litSigner = new LitProtocolSigner({
     pkpPublicKey,
     chainId,
-    laUtils,
   });
   const signer = createEthersSignerFromLitProtocol(litSigner, provider);
 
@@ -619,33 +617,22 @@ async function executeDepositWithGasSponsorship(
     "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Starting EIP-7702 sponsored deposit operation"
   );
 
-  // Create LitProtocolSigner for EIP-7702
-  const litSigner = new LitProtocolSigner({
-    pkpPublicKey,
-    chainId,
-    laUtils,
-  });
-
   console.log(
     "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Using EIP-7702 gas sponsorship",
     { vaultAddress, amount, receiver, policyId }
   );
 
   try {
-    // Get the Alchemy chain configuration
-    const alchemyChain = getAlchemyChainConfig(chainId);
-
     console.log(
       "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Creating Smart Account Client",
-      { chainId, chain: alchemyChain.name }
+      { chainId }
     );
 
     // Create the Smart Account Client with EIP-7702 mode
-    const smartAccountClient = await createModularAccountV2Client({
-      mode: "7702" as const,
-      transport: alchemy({ apiKey: alchemyApiKey }),
-      chain: alchemyChain,
-      signer: litSigner,
+    const smartAccountClient = await createAlchemySmartAccountClient({
+      alchemyApiKey,
+      chainId,
+      pkpPublicKey,
       policyId,
     });
 
@@ -786,36 +773,20 @@ async function executeWithdrawWithGasSponsorship(
   policyId: string
 ): Promise<string> {
   console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Starting EIP-7702 sponsored withdraw operation"
-  );
-
-  // Create LitProtocolSigner for EIP-7702
-  const litSigner = new LitProtocolSigner({
-    pkpPublicKey,
-    chainId,
-    laUtils,
-  });
-
-  console.log(
     "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Using EIP-7702 gas sponsorship",
     { vaultAddress, amount, owner, policyId }
   );
 
   try {
-    // Get the Alchemy chain configuration
-    const alchemyChain = getAlchemyChainConfig(chainId);
-
     console.log(
       "[@lit-protocol/vincent-tool-morpho/executeWithdrawWithGasSponsorship] Creating Smart Account Client",
-      { chainId, chain: alchemyChain.name }
+      { chainId }
     );
 
-    // Create the Smart Account Client with EIP-7702 mode
-    const smartAccountClient = await createModularAccountV2Client({
-      mode: "7702" as const,
-      transport: alchemy({ apiKey: alchemyApiKey }),
-      chain: alchemyChain,
-      signer: litSigner,
+    const smartAccountClient = await createAlchemySmartAccountClient({
+      pkpPublicKey,
+      chainId,
+      alchemyApiKey,
       policyId,
     });
 
@@ -897,7 +868,6 @@ async function executeRedeemWithGasSponsorship(
   const litSigner = new LitProtocolSigner({
     pkpPublicKey,
     chainId,
-    laUtils,
   });
 
   console.log(
@@ -972,60 +942,6 @@ async function executeRedeemWithGasSponsorship(
       error
     );
     throw error;
-  }
-}
-
-/**
- * Helper function to get Alchemy chain configuration
- */
-function getAlchemyChainConfig(chainId: number) {
-  // Import chain definitions from Alchemy SDK
-  const {
-    mainnet,
-    sepolia,
-    base,
-    arbitrum,
-    optimism,
-    polygon,
-  } = require("@account-kit/infra");
-
-  switch (chainId) {
-    case 1:
-      return mainnet;
-    case 11155111:
-      return sepolia;
-    case 8453:
-      return base;
-    case 42161:
-      return arbitrum;
-    case 10:
-      return optimism;
-    case 137:
-      return polygon;
-    default:
-      return mainnet;
-  }
-}
-
-/**
- * Helper function to get chain name for Alchemy RPC URLs
- */
-function getAlchemyChainName(chainId: number): string {
-  switch (chainId) {
-    case 1:
-      return "eth-mainnet";
-    case 11155111:
-      return "eth-sepolia";
-    case 8453:
-      return "base-mainnet";
-    case 42161:
-      return "arb-mainnet";
-    case 10:
-      return "opt-mainnet";
-    case 137:
-      return "polygon-mainnet";
-    default:
-      return "eth-mainnet";
   }
 }
 

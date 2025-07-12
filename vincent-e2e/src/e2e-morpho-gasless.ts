@@ -24,7 +24,11 @@ import {
   getSupportedChainsWithVaults,
   getVaultDiscoverySummary,
   getVaults,
+  getAlchemyChainConfig,
 } from "../../vincent-packages/tools/morpho/dist/lib/helpers/index.js";
+import { alchemy } from "@account-kit/infra";
+import { createModularAccountV2Client } from "@account-kit/smart-contracts";
+import { LocalAccountSigner } from "@aa-sdk/core";
 import {
   setupWethFunding,
   setupEthFunding,
@@ -432,6 +436,22 @@ const CONFIRMATIONS_TO_WAIT = 2;
     addTestResult("Gasless Setup Verification", false, error.message);
   }
 
+  // gasless tx hash is actually a smart account userOp hash
+  // so we need to get the tx hash from the smart account client
+
+  const alchemyChain = getAlchemyChainConfig(NETWORK_CONFIG.chainId);
+
+  const smartAccountClient = await createModularAccountV2Client({
+    mode: "7702" as const,
+    transport: alchemy({ apiKey: alchemyGasSponsorApiKey }),
+    chain: alchemyChain,
+    // random signing wallet because this is just for converting the userOp hash to a tx hash
+    signer: LocalAccountSigner.privateKeyToAccountSigner(
+      ethers.Wallet.createRandom().privateKey as `0x${string}`
+    ),
+    policyId: alchemyGasSponsorPolicyId,
+  });
+
   // ========================================
   // Morpho Tool Testing - Complete Gasless Workflow
   // ========================================
@@ -657,15 +677,23 @@ const CONFIRMATIONS_TO_WAIT = 2;
         console.log(
           "✅ (GASLESS-MORPHO-STEP-1) GASLESS WETH deposit completed successfully!"
         );
-        console.log(`   Tx hash: ${morphoDepositExecuteRes.result.txHash}`);
+        console.log(`   UserOp hash: ${morphoDepositExecuteRes.result.txHash}`);
 
         // Wait for transaction confirmation
         try {
           console.log(
             "⏳ Waiting for GASLESS deposit transaction confirmation..."
           );
+          const uoHash = morphoDepositExecuteRes.result.txHash as `0x${string}`;
+          const txHash =
+            await smartAccountClient.waitForUserOperationTransaction({
+              hash: uoHash,
+            });
+
+          console.log(`   Tx hash: ${txHash}`);
+
           const receipt = await networkProvider.waitForTransaction(
-            morphoDepositExecuteRes.result.txHash,
+            txHash,
             CONFIRMATIONS_TO_WAIT,
             180000
           );

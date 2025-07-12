@@ -22,9 +22,12 @@
     "chalk": "4.1.2",
     "dotenv-cli": "8.0.0",
     "tsx": "4.0.0",
-    "viem": "2.31.4"
+    "viem": "2.29.2"
   },
   "dependencies": {
+    "@aa-sdk/core": "^4.49.0",
+    "@account-kit/infra": "^4.49.0",
+    "@account-kit/smart-contracts": "^4.49.0",
     "@lit-protocol/vincent-tool-erc20-approval": "*",
     "ethers": "^5.8.0"
   }
