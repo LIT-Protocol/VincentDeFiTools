@@ -9,7 +9,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 // Apply log suppression FIRST, before any imports that might trigger logs
-suppressLitLogs(false);
+suppressLitLogs(true);
 
 import { getVincentToolClient } from "@lit-protocol/vincent-app-sdk";
 // Tools and Policies that we will be testing
