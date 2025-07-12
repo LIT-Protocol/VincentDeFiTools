@@ -909,13 +909,25 @@ export class LitProtocolSigner {
                     ? message.raw
                     : ethers.utils.hexlify(message.raw);
         }
+        console.log("messageToSign", messageToSign);
         const messageHash = ethers.utils.hashMessage(messageToSign);
+        console.log("Calling signAndCombineEcdsa with params", {
+            toSign: messageHash,
+            publicKey: this.pkpPublicKey,
+            sigName: `alchemyMessage`,
+        });
         const sig = await Lit.Actions.signAndCombineEcdsa({
             toSign: ethers.utils.arrayify(messageHash),
             publicKey: this.pkpPublicKey,
-            sigName: `message_${Date.now()}`,
+            sigName: `alchemyMessage`,
         });
         const parsedSig = JSON.parse(sig);
+        console.log("Parsed signature", parsedSig);
+        console.log("joined signature:", ethers.utils.joinSignature({
+            r: "0x" + parsedSig.r.substring(2),
+            s: "0x" + parsedSig.s,
+            v: parsedSig.v,
+        }));
         return ethers.utils.joinSignature({
             r: "0x" + parsedSig.r.substring(2),
             s: "0x" + parsedSig.s,
@@ -928,7 +940,7 @@ export class LitProtocolSigner {
         const sig = await Lit.Actions.signAndCombineEcdsa({
             toSign: ethers.utils.arrayify(hash),
             publicKey: this.pkpPublicKey,
-            sigName: `typed_data_${Date.now()}`,
+            sigName: `alchemyTypedData`,
         });
         const parsedSig = JSON.parse(sig);
         return ethers.utils.joinSignature({
@@ -937,35 +949,75 @@ export class LitProtocolSigner {
             v: parsedSig.v,
         });
     }
+    // just using regular signing, not eip-712
+    //   async signAuthorization(
+    //     unsignedAuthorization: AuthorizationRequest
+    //   ): Promise<SignedAuthorization> {
+    //     // Create the authorization message to sign for EIP-7702
+    //     const authMessage = ethers.utils.solidityPack(
+    //       ["uint8", "uint256", "address", "uint256"],
+    //       [
+    //         0x05, // EIP-7702 magic prefix
+    //         unsignedAuthorization.chainId,
+    //         unsignedAuthorization.address || unsignedAuthorization.contractAddress,
+    //         unsignedAuthorization.nonce,
+    //       ]
+    //     );
+    //     const authHash = ethers.utils.keccak256(authMessage);
+    //     const sig = await Lit.Actions.signAndCombineEcdsa({
+    //       toSign: ethers.utils.arrayify(authHash),
+    //       publicKey: this.pkpPublicKey,
+    //       sigName: `alchemyAuth7702`,
+    //     });
+    //     const parsedSig = JSON.parse(sig);
+    //     const sigObj = {
+    //       r: "0x" + parsedSig.r.substring(2),
+    //       s: "0x" + parsedSig.s,
+    //       v: parsedSig.v,
+    //     };
+    //     console.log("sigObj in signAuthorization", sigObj);
+    //     return {
+    //       address: (unsignedAuthorization.address ||
+    //         unsignedAuthorization.contractAddress!) as Address,
+    //       chainId: unsignedAuthorization.chainId,
+    //       nonce: unsignedAuthorization.nonce,
+    //       r: sigObj.r as Hex,
+    //       s: sigObj.s as Hex,
+    //       v: BigInt(sigObj.v),
+    //       yParity: sigObj.v,
+    //     };
+    //   }
+    // }
+    // using eip-712
     async signAuthorization(unsignedAuthorization) {
-        // Create the authorization message to sign for EIP-7702
-        const authMessage = ethers.utils.solidityPack(["uint8", "uint256", "address", "uint256"], [
-            0x05, // EIP-7702 magic prefix
-            unsignedAuthorization.chainId,
-            unsignedAuthorization.address || unsignedAuthorization.contractAddress,
-            unsignedAuthorization.nonce,
-        ]);
-        const authHash = ethers.utils.keccak256(authMessage);
+        console.log("signAuthorization called with params", unsignedAuthorization);
+        const { contractAddress, chainId, nonce } = unsignedAuthorization;
+        if (!contractAddress || !chainId) {
+            throw new Error("Invalid authorization: contractAddress and chainId are required");
+        }
+        const hash = ethers.utils.keccak256(ethers.utils.hexConcat([
+            "0x05",
+            ethers.utils.RLP.encode([
+                ethers.utils.hexlify(chainId),
+                contractAddress,
+                ethers.utils.hexlify(nonce),
+            ]),
+        ]));
         const sig = await Lit.Actions.signAndCombineEcdsa({
-            toSign: ethers.utils.arrayify(authHash),
+            toSign: ethers.utils.arrayify(hash),
             publicKey: this.pkpPublicKey,
-            sigName: `auth_7702_${Date.now()}`,
+            sigName: `alchemyAuth7702`,
         });
-        const parsedSig = JSON.parse(sig);
-        const sigObj = {
-            r: "0x" + parsedSig.r.substring(2),
-            s: "0x" + parsedSig.s,
-            v: parsedSig.v,
-        };
+        const sigObj = JSON.parse(sig);
+        console.log("sigObj in signAuthorization", sigObj);
         return {
-            address: (unsignedAuthorization.address ||
-                unsignedAuthorization.contractAddress),
-            chainId: unsignedAuthorization.chainId,
-            nonce: unsignedAuthorization.nonce,
-            r: sigObj.r,
-            s: sigObj.s,
+            address: (unsignedAuthorization.address || contractAddress),
+            chainId: chainId,
+            nonce: nonce,
+            r: ("0x" + sigObj.r.substring(2)),
+            s: ("0x" + sigObj.s),
             v: BigInt(sigObj.v),
-            yParity: sigObj.v === 27 ? 0 : 1, // Convert v to yParity
+            yParity: sigObj.v,
         };
     }
 }
@@ -995,7 +1047,7 @@ export function createEthersSignerFromLitProtocol(signer, provider) {
             const signedTx = await signer.inner.laUtils.transaction.primitive.signTx({
                 pkpPublicKey: signer.inner.pkpPublicKey,
                 tx,
-                sigName: `tx_${Date.now()}`,
+                sigName: `someTx`,
             });
             return signedTx;
         },

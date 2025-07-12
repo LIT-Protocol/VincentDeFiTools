@@ -649,6 +649,10 @@ async function executeDepositWithGasSponsorship(
       policyId,
     });
 
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] Smart Account Client created"
+    );
+
     // Prepare the deposit user operation
     const userOperation = {
       target: vaultAddress as `0x${string}`,
@@ -660,15 +664,66 @@ async function executeDepositWithGasSponsorship(
       }),
     };
 
-    const uoStruct = await smartAccountClient.buildUserOperation({
-      uo: userOperation,
-      account: smartAccountClient.account,
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] User operation prepared",
+      userOperation
+    );
+
+    const uoStructResponse = await Lit.Actions.runOnce(
+      {
+        waitForResponse: true,
+        name: "buildUserOperation",
+      },
+      async () => {
+        try {
+          const uoStruct = await smartAccountClient.buildUserOperation({
+            uo: userOperation,
+            account: smartAccountClient.account,
+          });
+          // Properly serialize BigInt with a "type" tag
+          return JSON.stringify(uoStruct, (_, v) =>
+            typeof v === "bigint" ? { type: "BigInt", value: v.toString() } : v
+          );
+        } catch (e) {
+          console.log("Failed to build user operation, error below");
+          console.log(e);
+          console.log(e.stack);
+          return "";
+        }
+      }
+    );
+
+    if (uoStructResponse === "") {
+      throw new Error("Failed to build user operation");
+    }
+
+    // Custom reviver to convert {type: "BigInt", value: "..."} back to BigInt
+    const uoStruct = JSON.parse(uoStructResponse, (_, v) => {
+      if (
+        v &&
+        typeof v === "object" &&
+        v.type === "BigInt" &&
+        typeof v.value === "string"
+      ) {
+        return BigInt(v.value);
+      }
+      return v;
     });
+
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] User operation struct prepared for signing",
+      uoStruct
+    );
 
     const signedUserOperation = await smartAccountClient.signUserOperation({
       account: smartAccountClient.account,
       uoStruct,
     });
+
+    console.log(
+      "[@lit-protocol/vincent-tool-morpho/executeDepositWithGasSponsorship] User operation signed",
+      signedUserOperation
+    );
 
     const entryPoint = smartAccountClient.account.getEntryPoint();
 
@@ -696,6 +751,7 @@ async function executeDepositWithGasSponsorship(
 
           return userOpResult;
         } catch (e) {
+          console.log("Failed to send user operation, error below");
           console.log(e);
           console.log(e.stack);
           return "";
