@@ -18,7 +18,7 @@
   "devDependencies": {
     "@ansonhkg/abi-extractor": "1.1.0",
     "@lit-protocol/vincent-app-sdk": "*",
-    "@lit-protocol/vincent-scaffold-sdk": "^1.1.6-alpha.6",
+    "@lit-protocol/vincent-scaffold-sdk": "^1.1.6",
     "chalk": "4.1.2",
     "dotenv-cli": "8.0.0",
     "tsx": "4.0.0",
