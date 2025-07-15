@@ -19,10 +19,8 @@ import {
   isValidAddress,
   parseAmount,
   validateOperationRequirements,
-  executeOperationWithGasSponsorship,
+  executeMorphoOperation,
 } from "./helpers";
-import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
-
 import { ethers } from "ethers";
 
 export const vincentTool = createVincentTool({
@@ -343,92 +341,41 @@ export const vincentTool = createVincentTool({
 
       // Prepare transaction based on operation
       let txHash: string;
+      let functionName: string;
+      let args: any[];
 
       switch (operation) {
         case MorphoOperation.DEPOSIT:
-          if (
-            alchemyGasSponsor &&
-            alchemyGasSponsorApiKey &&
-            alchemyGasSponsorPolicyId
-          ) {
-            txHash = await executeOperationWithGasSponsorship({
-              pkpPublicKey,
-              vaultAddress,
-              functionName: "deposit",
-              args: [convertedAmount, onBehalfOf || pkpAddress],
-              chainId,
-              alchemyApiKey: alchemyGasSponsorApiKey,
-              policyId: alchemyGasSponsorPolicyId,
-            });
-          } else {
-            txHash = await executeDeposit(
-              provider,
-              pkpPublicKey,
-              vaultAddress,
-              convertedAmount,
-              onBehalfOf || pkpAddress,
-              chainId
-            );
-          }
+          functionName = "deposit";
+          args = [convertedAmount, onBehalfOf || pkpAddress];
           break;
 
         case MorphoOperation.WITHDRAW:
-          if (
-            alchemyGasSponsor &&
-            alchemyGasSponsorApiKey &&
-            alchemyGasSponsorPolicyId
-          ) {
-            txHash = await executeOperationWithGasSponsorship({
-              pkpPublicKey,
-              vaultAddress,
-              functionName: "withdraw",
-              args: [convertedAmount, pkpAddress, pkpAddress],
-              chainId,
-              alchemyApiKey: alchemyGasSponsorApiKey,
-              policyId: alchemyGasSponsorPolicyId,
-            });
-          } else {
-            txHash = await executeWithdraw(
-              provider,
-              pkpPublicKey,
-              vaultAddress,
-              convertedAmount,
-              pkpAddress,
-              chainId
-            );
-          }
+          functionName = "withdraw";
+          args = [convertedAmount, pkpAddress, pkpAddress];
           break;
 
         case MorphoOperation.REDEEM:
-          if (
-            alchemyGasSponsor &&
-            alchemyGasSponsorApiKey &&
-            alchemyGasSponsorPolicyId
-          ) {
-            txHash = await executeOperationWithGasSponsorship({
-              pkpPublicKey,
-              vaultAddress,
-              functionName: "redeem",
-              args: [convertedAmount, pkpAddress, pkpAddress],
-              chainId,
-              alchemyApiKey: alchemyGasSponsorApiKey,
-              policyId: alchemyGasSponsorPolicyId,
-            });
-          } else {
-            txHash = await executeRedeem(
-              provider,
-              pkpPublicKey,
-              vaultAddress,
-              convertedAmount,
-              pkpAddress,
-              chainId
-            );
-          }
+          functionName = "redeem";
+          args = [convertedAmount, pkpAddress, pkpAddress];
           break;
 
         default:
           throw new Error(`Unsupported operation: ${operation}`);
       }
+
+      // Execute the operation using the unified function
+      txHash = await executeMorphoOperation({
+        provider,
+        pkpPublicKey,
+        vaultAddress,
+        functionName,
+        args,
+        chainId,
+        alchemyGasSponsor,
+        alchemyGasSponsorApiKey,
+        alchemyGasSponsorPolicyId,
+      });
 
       console.log(
         "[@lit-protocol/vincent-tool-morpho/execute] Morpho operation successful",
@@ -460,105 +407,3 @@ export const vincentTool = createVincentTool({
     }
   },
 });
-
-/**
- * Execute Morpho Vault Deposit operation
- */
-async function executeDeposit(
-  provider: any,
-  pkpPublicKey: string,
-  vaultAddress: string,
-  amount: string,
-  receiver: string,
-  chainId: number
-): Promise<string> {
-  console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeDeposit] Starting deposit operation"
-  );
-
-  const txHash = await laUtils.transaction.handler.contractCall({
-    provider,
-    pkpPublicKey,
-    callerAddress: ethers.utils.computeAddress(pkpPublicKey),
-    abi: ERC4626_VAULT_ABI,
-    contractAddress: vaultAddress,
-    functionName: "deposit",
-    args: [amount, receiver],
-    chainId,
-  });
-
-  console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeDeposit] Transaction sent:",
-    txHash
-  );
-
-  return txHash;
-}
-
-/**
- * Execute Morpho Vault Withdraw operation
- */
-async function executeWithdraw(
-  provider: any,
-  pkpPublicKey: string,
-  vaultAddress: string,
-  amount: string,
-  owner: string,
-  chainId: number
-): Promise<string> {
-  console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeWithdraw] Starting withdraw operation"
-  );
-
-  const txHash = await laUtils.transaction.handler.contractCall({
-    provider,
-    pkpPublicKey,
-    callerAddress: ethers.utils.computeAddress(pkpPublicKey),
-    abi: ERC4626_VAULT_ABI,
-    contractAddress: vaultAddress,
-    functionName: "withdraw",
-    args: [amount, owner, owner],
-    chainId,
-  });
-
-  console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeWithdraw] Transaction sent:",
-    txHash
-  );
-
-  return txHash;
-}
-
-/**
- * Execute Morpho Vault Redeem operation
- */
-async function executeRedeem(
-  provider: any,
-  pkpPublicKey: string,
-  vaultAddress: string,
-  shares: string,
-  owner: string,
-  chainId: number
-): Promise<string> {
-  console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeRedeem] Starting redeem operation"
-  );
-
-  const txHash = await laUtils.transaction.handler.contractCall({
-    provider,
-    pkpPublicKey,
-    callerAddress: ethers.utils.computeAddress(pkpPublicKey),
-    abi: ERC4626_VAULT_ABI,
-    contractAddress: vaultAddress,
-    functionName: "redeem",
-    args: [shares, owner, owner],
-    chainId,
-  });
-
-  console.log(
-    "[@lit-protocol/vincent-tool-morpho/executeRedeem] Transaction sent:",
-    txHash
-  );
-
-  return txHash;
-}
