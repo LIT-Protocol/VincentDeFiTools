@@ -930,19 +930,3 @@ export async function executeMorphoOperation({ provider, pkpPublicKey, vaultAddr
         }
     }
 }
-/**
- * @deprecated Use executeMorphoOperation instead
- * Generic function to execute any Morpho operation with gas sponsorship
- */
-export async function executeOperationWithGasSponsorship({ pkpPublicKey, vaultAddress, functionName, args, chainId, alchemyApiKey, policyId, }) {
-    return executeMorphoOperation({
-        pkpPublicKey,
-        vaultAddress,
-        functionName,
-        args,
-        chainId,
-        alchemyGasSponsor: true,
-        alchemyGasSponsorApiKey: alchemyApiKey,
-        alchemyGasSponsorPolicyId: policyId,
-    });
-}
