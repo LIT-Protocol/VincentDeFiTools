@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
 /**
  * Well-known token addresses across different chains
  * Using official Circle USDC and canonical WETH addresses
@@ -876,5 +877,56 @@ export async function getVaultDiscoverySummary(chainId) {
     catch (error) {
         console.error(`Error getting vault summary for chain ${chainId}:`, error);
         throw error;
+    }
+}
+/**
+ * Generic function to execute any Morpho operation, with optional gas sponsorship
+ */
+export async function executeMorphoOperation({ provider, pkpPublicKey, vaultAddress, functionName, args, chainId, alchemyGasSponsor, alchemyGasSponsorApiKey, alchemyGasSponsorPolicyId, }) {
+    console.log(`[@lit-protocol/vincent-tool-morpho/executeMorphoOperation] Starting ${functionName} operation`, { sponsored: !!alchemyGasSponsor });
+    // Use gas sponsorship if enabled and all required parameters are provided
+    if (alchemyGasSponsor &&
+        alchemyGasSponsorApiKey &&
+        alchemyGasSponsorPolicyId) {
+        console.log(`[@lit-protocol/vincent-tool-morpho/executeMorphoOperation] Using EIP-7702 gas sponsorship`, { vaultAddress, functionName, args, policyId: alchemyGasSponsorPolicyId });
+        try {
+            return await laUtils.transaction.handler.sponsoredGasContractCall({
+                pkpPublicKey,
+                abi: ERC4626_VAULT_ABI,
+                contractAddress: vaultAddress,
+                functionName,
+                args,
+                chainId,
+                eip7702AlchemyApiKey: alchemyGasSponsorApiKey,
+                eip7702AlchemyPolicyId: alchemyGasSponsorPolicyId,
+            });
+        }
+        catch (error) {
+            console.error(`[@lit-protocol/vincent-tool-morpho/executeMorphoOperation] EIP-7702 operation failed:`, error);
+            throw error;
+        }
+    }
+    else {
+        // Use regular transaction without gas sponsorship
+        console.log(`[@lit-protocol/vincent-tool-morpho/executeMorphoOperation] Using regular transaction`);
+        if (!provider) {
+            throw new Error("Provider is required for non-sponsored transactions");
+        }
+        try {
+            return await laUtils.transaction.handler.contractCall({
+                provider,
+                pkpPublicKey,
+                callerAddress: ethers.utils.computeAddress(pkpPublicKey),
+                abi: ERC4626_VAULT_ABI,
+                contractAddress: vaultAddress,
+                functionName,
+                args,
+                chainId,
+            });
+        }
+        catch (error) {
+            console.error(`[@lit-protocol/vincent-tool-morpho/executeMorphoOperation] Regular transaction failed:`, error);
+            throw error;
+        }
     }
 }
