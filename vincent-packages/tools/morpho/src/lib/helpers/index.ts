@@ -1,7 +1,4 @@
 import { ethers } from "ethers";
-import type { Deferrable } from "@ethersproject/properties";
-import { createModularAccountV2Client } from "@account-kit/smart-contracts";
-import { alchemy } from "@account-kit/infra";
 import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
 
 /**
