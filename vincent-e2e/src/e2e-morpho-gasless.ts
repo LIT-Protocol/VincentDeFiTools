@@ -4,6 +4,7 @@ import {
   suppressLitLogs,
 } from "@lit-protocol/vincent-scaffold-sdk/e2e";
 import * as dotenv from "dotenv";
+import { laUtils } from "@lit-protocol/vincent-scaffold-sdk/la-utils";
 
 // Load environment variables
 dotenv.config();
@@ -24,7 +25,6 @@ import {
   getSupportedChainsWithVaults,
   getVaultDiscoverySummary,
   getVaults,
-  getAlchemyChainConfig,
 } from "../../vincent-packages/tools/morpho/dist/lib/helpers/index.js";
 import { alchemy } from "@account-kit/infra";
 import { createModularAccountV2Client } from "@account-kit/smart-contracts";
@@ -439,7 +439,9 @@ const CONFIRMATIONS_TO_WAIT = 2;
   // gasless tx hash is actually a smart account userOp hash
   // so we need to get the tx hash from the smart account client
 
-  const alchemyChain = getAlchemyChainConfig(NETWORK_CONFIG.chainId);
+  const alchemyChain = laUtils.helpers.getAlchemyChainConfig(
+    NETWORK_CONFIG.chainId
+  );
 
   const smartAccountClient = await createModularAccountV2Client({
     mode: "7702" as const,
