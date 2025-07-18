@@ -1,6 +1,6 @@
 {
   "name": "@lit-protocol/vincent-tool-aave",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A Vincent tool for AAVE protocol operations (Supply, Withdraw, Borrow, Repay)",
   "main": "dist/index.js",
   "module": "dist/index.js",
