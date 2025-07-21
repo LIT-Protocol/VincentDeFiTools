@@ -18,11 +18,11 @@
   "devDependencies": {
     "@ansonhkg/abi-extractor": "1.1.0",
     "@lit-protocol/vincent-app-sdk": "^1.0.2",
-    "@lit-protocol/vincent-scaffold-sdk": "^1.1.5",
+    "@lit-protocol/vincent-scaffold-sdk": "^1.1.6",
     "chalk": "4.1.2",
     "dotenv-cli": "8.0.0",
     "tsx": "4.0.0",
-    "viem": "2.31.4"
+    "viem": "2.29.2"
   },
   "dependencies": {
     "@lit-protocol/vincent-tool-erc20-approval": "*",
