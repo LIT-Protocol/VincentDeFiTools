@@ -792,9 +792,13 @@ const WETH_FUNDING_AMOUNT_FOR_BRIDGING = "0.0001";
         console.log("\n🔓 Step 2: Approving USDT for deBridge");
 
         // Get deBridge contract address for approval
+        // this is the debridge crosschain forwarder proxy
         const DEBRIDGE_CONTRACTS: Record<string, string> = {
-          "8453": "0xeF4fB24aD0916217251F553c0596F8Edc630EB66", // Base
+          "8453": "0x663dc15d3c1ac63ff12e45ab68fea3f0a883c251", // Base
         };
+
+        // the solver takes a fee from the USDT itself, so we need to approve some additional tokens to pay this solver fee for the swap
+        const USDT_ESTIMATED_SOLVER_FEE = "0.5";
 
         const approveParams = {
           rpcUrl: sourceRpcUrl,
@@ -802,7 +806,9 @@ const WETH_FUNDING_AMOUNT_FOR_BRIDGING = "0.0001";
           spenderAddress: DEBRIDGE_CONTRACTS[NETWORK_CONFIG.source.chainId],
           tokenAddress: NETWORK_CONFIG.source.usdtToken,
           tokenDecimals: 6,
-          tokenAmount: parseFloat(BRIDGE_SWAP_AMOUNT),
+          tokenAmount:
+            parseFloat(BRIDGE_SWAP_AMOUNT) +
+            parseFloat(USDT_ESTIMATED_SOLVER_FEE),
         };
 
         const approvePrecheckRes = await approveToolClient.precheck(
