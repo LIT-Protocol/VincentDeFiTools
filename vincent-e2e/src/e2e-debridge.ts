@@ -18,10 +18,12 @@ import { bundledVincentTool as deBridgeTool } from "../../vincent-packages/tools
 import { bundledVincentTool as erc20ApproveTool } from "@lit-protocol/vincent-tool-erc20-approval";
 import { bundledVincentTool as uniswapTool } from "@lit-protocol/vincent-tool-uniswap-swap";
 import { ethers } from "ethers";
+import { CHAIN_TO_ADDRESSES_MAP } from "@uniswap/sdk-core";
 import {
   setupEthFunding,
   addTestResult,
   printTestSummary,
+  setupWethFunding,
 } from "./test-utils.js";
 
 // ========================================
@@ -56,6 +58,7 @@ const NETWORK_CONFIG = {
 const CONFIRMATIONS_TO_WAIT = 2;
 const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
 // Note: deBridge takes a small fee (~0.8%) so bridging 0.00001 ETH results in ~0.0000099 ETH received
+const WETH_FUNDING_AMOUNT_FOR_BRIDGING = "0.0001";
 
 (async () => {
   console.log("🌉 Starting deBridge Tool E2E Test - Base to Arbitrum Bridge");
@@ -278,7 +281,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
   // ========================================
   // ETH Funding Setup for Source Chain (Base)
   // ========================================
-  const fundAmount = (parseFloat(BRIDGE_AMOUNT) + 0.002).toString(); // Bridge amount + extra for gas and fees
+  const fundAmount = (parseFloat(BRIDGE_AMOUNT) + 0.004).toString(); // Bridge amount + extra for gas and fees
   await setupEthFunding(
     sourceProvider,
     agentWalletPkp.ethAddress,
@@ -287,6 +290,16 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
     CONFIRMATIONS_TO_WAIT,
     SOURCE_NETWORK_NAME,
     fundAmount
+  );
+
+  await setupWethFunding(
+    sourceProvider,
+    agentWalletPkp.ethAddress,
+    process.env.TEST_FUNDER_PRIVATE_KEY,
+    addTestResult,
+    CONFIRMATIONS_TO_WAIT,
+    SOURCE_NETWORK_NAME,
+    WETH_FUNDING_AMOUNT_FOR_BRIDGING
   );
 
   // ========================================
@@ -610,14 +623,11 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
   }
 
   // ========================================
-  // Test 2: ETH -> USDT Swap, then Bridge USDT to Arbitrum as USDC
+  // Test 2: WETH -> USDT Swap, then Bridge USDT to Arbitrum as USDC
   // ========================================
   console.log("\n" + "=".repeat(70));
-  console.log("🔄 Starting Test 2: ETH → USDT → Bridge to Arbitrum as USDC");
+  console.log("🔄 Starting Test 2: WETH → USDT → Bridge to Arbitrum as USDC");
   console.log("=".repeat(70));
-
-  const SWAP_AMOUNT = "0.0001"; // Amount of ETH to swap to USDT
-  const BRIDGE_SWAP_AMOUNT = "0.1"; // Amount of USDT to bridge (0.1 USDT)
 
   // get usdt token decimals
   const ERC20_ABI = [
@@ -632,14 +642,104 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
   );
   const usdtTokenDecimals = await usdtContract.decimals();
 
-  // First, swap ETH to USDT on Base using Uniswap
-  console.log(`\n💱 Step 1: Swapping ${SWAP_AMOUNT} ETH to USDT on Base`);
+  const BRIDGE_SWAP_AMOUNT = "0.01"; // Amount of USDT to bridge (0.01 USDT)
+
+  // first, approve WETH for uniswap
+  try {
+    const uniswapRouterAddress = CHAIN_TO_ADDRESSES_MAP[
+      Number(
+        NETWORK_CONFIG.source.chainId
+      ) as keyof typeof CHAIN_TO_ADDRESSES_MAP
+    ].swapRouter02Address as `0x${string}`;
+
+    const approveWethParams = {
+      chainId: Number(NETWORK_CONFIG.source.chainId),
+      tokenAddress: NETWORK_CONFIG.source.wethToken,
+      spenderAddress: uniswapRouterAddress,
+      tokenAmount: parseFloat(WETH_FUNDING_AMOUNT_FOR_BRIDGING),
+      tokenDecimals: 18,
+      rpcUrl: sourceRpcUrl,
+    };
+
+    const approveWethPrecheck = await approveToolClient.precheck(
+      approveWethParams,
+      {
+        delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+      }
+    );
+
+    console.log(
+      "(APPROVE-PRECHECK-WETH): ",
+      JSON.stringify(approveWethPrecheck, null, 2)
+    );
+
+    if (approveWethPrecheck.success) {
+      const approveWethExecute = await approveToolClient.execute(
+        approveWethParams,
+        {
+          delegatorPkpEthAddress: agentWalletPkp.ethAddress,
+        }
+      );
+
+      console.log(
+        "(APPROVE-EXECUTE-WETH): ",
+        JSON.stringify(approveWethExecute, null, 2)
+      );
+
+      if (approveWethExecute.success) {
+        console.log("✅ WETH approval executed successfully");
+        if (approveWethExecute.result.approvalTxHash) {
+          console.log(
+            "🔍 Waiting for WETH approval transaction confirmation..."
+          );
+          // wait for transaction confirmation
+          const receipt = await sourceProvider.waitForTransaction(
+            approveWethExecute.result.approvalTxHash,
+            CONFIRMATIONS_TO_WAIT,
+            180000
+          );
+          if (receipt.status === 0) {
+            throw new Error(
+              `WETH approval transaction reverted: ${approveWethExecute.result.approvalTxHash}`
+            );
+          }
+          console.log(
+            `   WETH approval confirmed in block ${receipt.blockNumber}`
+          );
+        }
+        addTestResult("ERC20 Approve WETH", true);
+      } else {
+        console.log("❌ WETH approval execution failed:", approveWethExecute);
+        addTestResult(
+          "ERC20 Approve WETH",
+          false,
+          JSON.stringify(approveWethExecute, null, 2)
+        );
+      }
+    } else {
+      const errMsg = approveWethPrecheck.error || "Unknown precheck error";
+      console.log("❌ WETH approval precheck failed:", errMsg);
+      addTestResult("ERC20 Approve WETH", false, errMsg);
+    }
+  } catch (error) {
+    console.log("❌ WETH approval unexpected error:", error.message || error);
+    addTestResult(
+      "ERC20 Approve WETH",
+      false,
+      error.message || error.toString()
+    );
+  }
+
+  // Next, swap WETH to USDT on Base using Uniswap
+  console.log(
+    `\n💱 Step 1: Swapping ${WETH_FUNDING_AMOUNT_FOR_BRIDGING} WETH to USDT on Base`
+  );
 
   try {
     const swapParams = {
       chainIdForUniswap: Number(NETWORK_CONFIG.source.chainId),
-      tokenInAddress: NETWORK_CONFIG.source.nativeToken,
-      tokenInAmount: Number(SWAP_AMOUNT),
+      tokenInAddress: NETWORK_CONFIG.source.wethToken,
+      tokenInAmount: Number(WETH_FUNDING_AMOUNT_FOR_BRIDGING),
       tokenOutAddress: NETWORK_CONFIG.source.usdtToken,
       rpcUrlForUniswap: sourceRpcUrl,
       ethRpcUrl: process.env.ETHEREUM_RPC_URL!,
@@ -649,7 +749,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
 
     console.log("📋 Swap Parameters:", {
       ...swapParams,
-      amountIn: `${SWAP_AMOUNT} ETH`,
+      amountIn: `${WETH_FUNDING_AMOUNT_FOR_BRIDGING} ETH`,
       tokenOut: "USDT",
     });
 
@@ -659,7 +759,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
       delegatorPkpEthAddress: agentWalletPkp.ethAddress,
     });
 
-    if (swapPrecheckRes.success && !("error" in swapPrecheckRes.result)) {
+    if (swapPrecheckRes.success) {
       console.log("✅ Uniswap precheck passed");
 
       // Execute swap
@@ -670,11 +770,11 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
 
       if (swapExecuteRes.success) {
         console.log("✅ Swap executed successfully!");
-        console.log(`   Tx hash: ${swapExecuteRes.result.data.txHash}`);
+        console.log(`   Tx hash: ${swapExecuteRes.result.swapTxHash}`);
 
         // Wait for confirmation
         await sourceProvider.waitForTransaction(
-          swapExecuteRes.result.data.txHash,
+          swapExecuteRes.result.swapTxHash,
           CONFIRMATIONS_TO_WAIT
         );
 
@@ -686,7 +786,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
         const usdtFormatted = ethers.utils.formatUnits(usdtBalance, 6); // USDT has 6 decimals
         console.log(`   USDT balance after swap: ${usdtFormatted} USDT`);
 
-        addTestResult("Uniswap ETH to USDT Swap", true);
+        addTestResult("Uniswap WETH to USDT Swap", true);
 
         // Now approve USDT for deBridge
         console.log("\n🔓 Step 2: Approving USDT for deBridge");
@@ -712,10 +812,7 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
           }
         );
 
-        if (
-          approvePrecheckRes.success &&
-          !("error" in approvePrecheckRes.result)
-        ) {
+        if (approvePrecheckRes.success) {
           console.log("✅ Approval precheck passed");
 
           const approveExecuteRes = await approveToolClient.execute(
@@ -727,12 +824,18 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
 
           if (approveExecuteRes.success) {
             console.log("✅ USDT approved for deBridge");
-            console.log(`   Tx hash: ${approveExecuteRes.result.data.txHash}`);
 
-            await sourceProvider.waitForTransaction(
-              approveExecuteRes.result.data.txHash,
-              CONFIRMATIONS_TO_WAIT
-            );
+            // there might not be a TX hash, if we're already approved.
+            if (approveExecuteRes.result.approvalTxHash) {
+              console.log(
+                `   Tx hash: ${approveExecuteRes.result.approvalTxHash}`
+              );
+
+              await sourceProvider.waitForTransaction(
+                approveExecuteRes.result.approvalTxHash,
+                CONFIRMATIONS_TO_WAIT
+              );
+            }
 
             addTestResult("USDT Approval for deBridge", true);
 
@@ -747,7 +850,9 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
               destinationChain: NETWORK_CONFIG.destination.chainId,
               sourceToken: NETWORK_CONFIG.source.usdtToken,
               destinationToken: NETWORK_CONFIG.destination.usdcToken,
-              amount: ethers.utils.parseUnits(BRIDGE_SWAP_AMOUNT, 6).toString(), // USDT has 6 decimals
+              amount: ethers.utils
+                .parseUnits(BRIDGE_SWAP_AMOUNT, usdtTokenDecimals)
+                .toString(),
               recipientAddress: agentWalletPkp.ethAddress,
               operation: "BRIDGE_AND_SWAP" as const,
               slippageBps: 300, // 3% slippage tolerance
@@ -756,6 +861,9 @@ const BRIDGE_AMOUNT = "0.00001"; // 0.00001 ETH to bridge from Base to Arbitrum
             console.log("📋 Bridge Parameters:", {
               ...bridgeSwapParams,
               amount: `${BRIDGE_SWAP_AMOUNT} USDT`,
+              rawAmountInBaseUSDTUnits: ethers.utils
+                .parseUnits(BRIDGE_SWAP_AMOUNT, usdtTokenDecimals)
+                .toString(),
               destinationToken: "USDC on Arbitrum",
             });
 
