@@ -1,8 +1,7 @@
 import { createVincentTool, supportedPoliciesForTool, } from "@lit-protocol/vincent-tool-sdk";
 import "@lit-protocol/vincent-tool-sdk/internal";
 import { executeFailSchema, executeSuccessSchema, precheckFailSchema, precheckSuccessSchema, toolParamsSchema, MorphoOperation, } from "./schemas";
-import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, } from "./helpers";
-import { laUtils } from "@lit-protocol/vincent-scaffold-sdk";
+import { ERC4626_VAULT_ABI, ERC20_ABI, isValidAddress, parseAmount, validateOperationRequirements, executeMorphoOperation, } from "./helpers";
 import { ethers } from "ethers";
 export const vincentTool = createVincentTool({
     packageName: "@lit-protocol/vincent-tool-morpho",
@@ -18,7 +17,7 @@ export const vincentTool = createVincentTool({
             console.log("[@lit-protocol/vincent-tool-morpho/precheck] params:", {
                 toolParams,
             });
-            const { operation, vaultAddress, amount, onBehalfOf, rpcUrl, chain } = toolParams;
+            const { operation, vaultAddress, amount, onBehalfOf, rpcUrl } = toolParams;
             // Validate operation
             if (!Object.values(MorphoOperation).includes(operation)) {
                 return fail({
@@ -136,7 +135,7 @@ export const vincentTool = createVincentTool({
     },
     execute: async ({ toolParams }, { succeed, fail, delegation }) => {
         try {
-            const { operation, vaultAddress, amount, onBehalfOf, chain, rpcUrl } = toolParams;
+            const { operation, vaultAddress, amount, onBehalfOf, chain, rpcUrl, alchemyGasSponsor, alchemyGasSponsorApiKey, alchemyGasSponsorPolicyId, } = toolParams;
             console.log("[@lit-protocol/vincent-tool-morpho/execute] Executing Morpho Tool", {
                 operation,
                 vaultAddress,
@@ -146,6 +145,12 @@ export const vincentTool = createVincentTool({
             if (rpcUrl) {
                 return fail({
                     error: "[@lit-protocol/vincent-tool-morpho/execute] RPC URL is not permitted for execute. Use the `chain` parameter, and the Lit Nodes will provide the RPC URL for you with the Lit.Actions.getRpcUrl() function",
+                });
+            }
+            if (alchemyGasSponsor &&
+                (!alchemyGasSponsorApiKey || !alchemyGasSponsorPolicyId)) {
+                return fail({
+                    error: "[@lit-protocol/vincent-tool-morpho/execute] Alchemy gas sponsor is enabled, but missing Alchemy API key or policy ID",
                 });
             }
             // Get provider
@@ -183,19 +188,36 @@ export const vincentTool = createVincentTool({
             console.log("[@lit-protocol/vincent-tool-morpho/execute] PKP Address:", pkpAddress);
             // Prepare transaction based on operation
             let txHash;
+            let functionName;
+            let args;
             switch (operation) {
                 case MorphoOperation.DEPOSIT:
-                    txHash = await executeDeposit(provider, pkpPublicKey, vaultAddress, convertedAmount, onBehalfOf || pkpAddress, chainId);
+                    functionName = "deposit";
+                    args = [convertedAmount, onBehalfOf || pkpAddress];
                     break;
                 case MorphoOperation.WITHDRAW:
-                    txHash = await executeWithdraw(provider, pkpPublicKey, vaultAddress, convertedAmount, pkpAddress, chainId);
+                    functionName = "withdraw";
+                    args = [convertedAmount, pkpAddress, pkpAddress];
                     break;
                 case MorphoOperation.REDEEM:
-                    txHash = await executeRedeem(provider, pkpPublicKey, vaultAddress, convertedAmount, pkpAddress, chainId);
+                    functionName = "redeem";
+                    args = [convertedAmount, pkpAddress, pkpAddress];
                     break;
                 default:
                     throw new Error(`Unsupported operation: ${operation}`);
             }
+            // Execute the operation using the unified function
+            txHash = await executeMorphoOperation({
+                provider,
+                pkpPublicKey,
+                vaultAddress,
+                functionName,
+                args,
+                chainId,
+                alchemyGasSponsor,
+                alchemyGasSponsorApiKey,
+                alchemyGasSponsorPolicyId,
+            });
             console.log("[@lit-protocol/vincent-tool-morpho/execute] Morpho operation successful", {
                 txHash,
                 operation,
@@ -218,60 +240,3 @@ export const vincentTool = createVincentTool({
         }
     },
 });
-/**
- * Execute Morpho Vault Deposit operation
- */
-async function executeDeposit(provider, pkpPublicKey, vaultAddress, amount, receiver, chainId) {
-    console.log("[@lit-protocol/vincent-tool-morpho/executeDeposit] Starting deposit operation");
-    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
-    const txHash = await laUtils.transaction.handler.contractCall({
-        provider,
-        pkpPublicKey,
-        callerAddress,
-        abi: ERC4626_VAULT_ABI,
-        contractAddress: vaultAddress,
-        functionName: "deposit",
-        args: [amount, receiver],
-        chainId,
-        gasBumpPercentage: 10,
-    });
-    return txHash;
-}
-/**
- * Execute Morpho Vault Withdraw operation
- */
-async function executeWithdraw(provider, pkpPublicKey, vaultAddress, amount, owner, chainId) {
-    console.log("[@lit-protocol/vincent-tool-morpho/executeWithdraw] Starting withdraw operation");
-    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
-    const txHash = await laUtils.transaction.handler.contractCall({
-        provider,
-        pkpPublicKey,
-        callerAddress,
-        abi: ERC4626_VAULT_ABI,
-        contractAddress: vaultAddress,
-        functionName: "withdraw",
-        args: [amount, owner, owner],
-        chainId,
-        gasBumpPercentage: 10,
-    });
-    return txHash;
-}
-/**
- * Execute Morpho Vault Redeem operation
- */
-async function executeRedeem(provider, pkpPublicKey, vaultAddress, shares, owner, chainId) {
-    console.log("[@lit-protocol/vincent-tool-morpho/executeRedeem] Starting redeem operation");
-    const callerAddress = ethers.utils.computeAddress(pkpPublicKey);
-    const txHash = await laUtils.transaction.handler.contractCall({
-        provider,
-        pkpPublicKey,
-        callerAddress,
-        abi: ERC4626_VAULT_ABI,
-        contractAddress: vaultAddress,
-        functionName: "redeem",
-        args: [shares, owner, owner],
-        chainId,
-        gasBumpPercentage: 10,
-    });
-    return txHash;
-}

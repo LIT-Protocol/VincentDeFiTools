@@ -1,12 +1,15 @@
 {
   "compilerOptions": {
+    "declarationMap": true,
+    "declaration": true,
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "outDir": "./dist",
     "rootDir": "./src",
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
   "include": [
     "global.d.ts",
